@@ -272,6 +272,26 @@
     patch -Np1 < ../patches/wine-hotfixes/staging/Staging/0001-ntdll-Print-a-warning-message-specifying-the-wine-st.patch
     patch -Np1 < ../patches/wine-hotfixes/staging/Staging/0002-winelib-Append-Staging-at-the-end-of-the-version-s.patch
 
+    echo "WINE: -STAGING- nvcuda-CUDA_Support manually applied"
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0001-include-Add-cuda.h.h.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0002-nvcuda-Add-stub-dll.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0003-nvcuda-First-implementation.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0004-nvcuda-Implement-new-functions-added-in-CUDA-6.5.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0005-nvcuda-Properly-wrap-undocumented-ContextStorage-int.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0006-nvcuda-Emulate-two-d3d9-initialization-functions.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0007-nvcuda-Properly-wrap-stream-callbacks-by-forwarding-.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0008-nvcuda-Add-support-for-CUDA-7.0.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0009-nvcuda-Implement-cuModuleLoad-wrapper-function.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0010-nvcuda-Search-for-dylib-library-on-Mac-OS-X.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0011-nvcuda-Add-semi-stub-for-cuD3D10GetDevice.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0012-nvcuda-Add-semi-stub-for-cuD3D11GetDevice-and-cuGrap.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0013-nvcuda-Update-spec-file.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0014-nvcuda-Implement-cuDeviceGetUuid-and-cuDeviceGetLuid.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0015-nvcuda-Expand-the-Unknown1-table.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0016-nvcuda-Make-nvcuda-attempt-to-load-libcuda.so.1.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0017-nvcuda-Add-empty-stub-for-function-cuFuncSetAttr.patch
+    patch -Np1 < ../patches/wine-hotfixes/staging/nvcuda-CUDA_Support/0018-nvcuda-fix-build.patch 
+
 ### END WINE STAGING APPLY SECTION ###
 
 ### (2-3) GAME PATCH SECTION ###

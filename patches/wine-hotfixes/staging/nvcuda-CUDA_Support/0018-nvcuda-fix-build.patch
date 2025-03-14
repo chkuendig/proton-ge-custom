@@ -1,0 +1,111 @@
+From 6b43d4650e0147c8a5e4df58ffc82c45209d675e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Fri, 14 Mar 2025 23:18:37 +0100
+Subject: [PATCH] update nvcuda patches to fix build
+
+---
+ dlls/nvcuda/Makefile.in |  8 +++-----
+ dlls/nvcuda/internal.c  |  9 ++++++++-
+ dlls/nvcuda/nvcuda.c    | 11 ++++++++---
+ dlls/nvcuda/nvcuda.h    |  4 ++--
+ 4 files changed, 21 insertions(+), 11 deletions(-)
+
+diff --git a/dlls/nvcuda/Makefile.in b/dlls/nvcuda/Makefile.in
+index 3e95081f732..127626d023c 100644
+--- a/dlls/nvcuda/Makefile.in
++++ b/dlls/nvcuda/Makefile.in
+@@ -1,10 +1,8 @@
+ MODULE    = nvcuda.dll
+ EXTRADLLFLAGS = -mcygwin
+-EXTRALIBS = $(PTHREAD_LIBS)
++UNIX_LIBS  = $(PTHREAD_LIBS)
+ 
+-C_SRCS = \
++SOURCES = \
+ 	internal.c \
+-	nvcuda.c
+-
+-RC_SRCS = \
++	nvcuda.c \
+ 	nvcuda.rc
+diff --git a/dlls/nvcuda/internal.c b/dlls/nvcuda/internal.c
+index 973d1173833..8fcb770ba22 100644
+--- a/dlls/nvcuda/internal.c
++++ b/dlls/nvcuda/internal.c
+@@ -30,6 +30,12 @@
+ #include "cuda.h"
+ #include "nvcuda.h"
+ 
++#if defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
++#define DEV_PTR "%llu"
++#else
++#define DEV_PTR "%u"
++#endif
++
+ WINE_DEFAULT_DEBUG_CHANNEL(nvcuda);
+ 
+ struct tls_callback_entry
+@@ -55,7 +61,8 @@ void cuda_process_tls_callbacks(DWORD reason)
+ {
+     struct list *ptr;
+ 
+-    TRACE("(%u)\n", reason);
++
++    TRACE("(" DEV_PTR ")\n", reason);
+ 
+     if (reason != DLL_THREAD_DETACH)
+         return;
+diff --git a/dlls/nvcuda/nvcuda.c b/dlls/nvcuda/nvcuda.c
+index 17861083093..880e9fa3dde 100644
+--- a/dlls/nvcuda/nvcuda.c
++++ b/dlls/nvcuda/nvcuda.c
+@@ -23,9 +23,7 @@
+ #include <stdarg.h>
+ #include <assert.h>
+ 
+-#ifdef HAVE_PTHREAD_H
+ #include <pthread.h>
+-#endif
+ 
+ #include "windef.h"
+ #include "winbase.h"
+@@ -45,6 +43,12 @@
+ #define DEV_PTR "%u"
+ #endif
+ 
++#if defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
++#define DEV_DWORD "%u"
++#else
++#define DEV_DWORD "%lu"
++#endif
++
+ WINE_DEFAULT_DEBUG_CHANNEL(nvcuda);
+ 
+ struct stream_callback_entry
+@@ -3004,7 +3008,8 @@ CUresult WINAPI wine_cuGraphicsD3D11RegisterResource(CUgraphicsResource *pCudaRe
+ 
+ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
+ {
+-    TRACE("(%p, %lx, %p)\n", instance, reason, reserved);
++
++    TRACE("(%p, " DEV_DWORD ", %p)\n", instance, reason, reserved);
+ 
+     switch (reason)
+     {
+diff --git a/dlls/nvcuda/nvcuda.h b/dlls/nvcuda/nvcuda.h
+index aaffe13af5f..56ccaa4e571 100644
+--- a/dlls/nvcuda/nvcuda.h
++++ b/dlls/nvcuda/nvcuda.h
+@@ -23,7 +23,7 @@
+ #include "winbase.h"
+ #include "cuda.h"
+ 
+-void cuda_process_tls_callbacks(DWORD reason) DECLSPEC_HIDDEN;
+-CUresult cuda_get_table(const void **table, const CUuuid *id, const void *orig_table, CUresult orig_result) DECLSPEC_HIDDEN;
++void cuda_process_tls_callbacks(DWORD reason);
++CUresult cuda_get_table(const void **table, const CUuuid *id, const void *orig_table, CUresult orig_result);
+ 
+ #endif
+-- 
+2.34.1
+
