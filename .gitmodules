@@ -18,7 +18,8 @@
 	url = https://github.com/FNA-XNA/FAudio
 [submodule "protonfixes"]
 	path = protonfixes
-	url = https://github.com/open-wine-components/umu-protonfixes
+	url = https://github.com/chkuendig/umu-protonfixes
+	branch = zluda-physx
 [submodule "gstreamer"]
 	path = gstreamer
 	url = https://github.com/GStreamer/gstreamer.git
@@ -45,7 +46,8 @@
 	url = https://github.com/KhronosGroup/OpenXR-SDK
 [submodule "dxvk-nvapi"]
 	path = dxvk-nvapi
-	url = https://github.com/jp7677/dxvk-nvapi
+	url = https://github.com/chkuendig/dxvk-nvapi
+	branch = zluda-physx
 [submodule "vkd3d"]
 	path = vkd3d
 	url = https://gitlab.winehq.org/wine/vkd3d
@@ -87,3 +89,7 @@
 	path = piper
 	url = https://github.com/shaunren/piper.git
 	branch = library
+[submodule "zluda"]
+	path = zluda
+	url = https://github.com/chkuendig/ZLUDA.git
+	branch = zluda-physx
