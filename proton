@@ -2143,6 +2143,25 @@ if __name__ == "__main__":
 
     g_session.init_wine()
 
+    # ZLUDA: Enable CUDA-on-HIP translation for PhysX GPU support
+    if "PROTON_ENABLE_ZLUDA" in os.environ or "forcenvapi" in g_session.compat_config:
+        zluda_lib_dir = g_proton.path("files/lib64/")
+        # Add ZLUDA and ROCm libs to library path
+        prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
+        # Add Wine unix lib dir for nvcuda.dll.so relay
+        prepend_to_env_str(g_session.env, ld_path_var, g_proton.lib64_dir + "/wine/x86_64-unix", ":")
+        # wine_stack_fix.so: LD_PRELOAD shim for ROCm/clr#61 stack assertion under Wine
+        wine_stack_fix = os.path.join(zluda_lib_dir, "wine_stack_fix.so")
+        if file_exists(wine_stack_fix):
+            prepend_to_env_str(g_session.env, "LD_PRELOAD", wine_stack_fix, ":")
+        # Force NVAPI so PhysX detects a CUDA GPU
+        g_session.env["PROTON_FORCE_NVAPI"] = "1"
+        g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
+        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
+        # AMD Van Gogh (Steam Deck) presents as gfx1033; override to gfx1030 for broader ROCm compat
+        g_session.env.setdefault("HSA_OVERRIDE_GFX_VERSION", "10.3.0")
+        log("ZLUDA enabled: CUDA-on-HIP translation active")
+
     if g_proton.missing_default_prefix():
         g_proton.make_default_prefix()
 
