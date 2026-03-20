@@ -94,3 +94,6 @@
         path = libxkbcommon
         url = https://github.com/xkbcommon/libxkbcommon.git
         branch = libxkbcommon-1.7.0
+[submodule "nvidia-libs"]
+	path = nvidia-libs
+	url = https://github.com/SveSop/nvidia-libs
