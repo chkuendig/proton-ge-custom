@@ -97,3 +97,7 @@
 [submodule "nvidia-libs"]
 	path = nvidia-libs
 	url = https://github.com/SveSop/nvidia-libs
+[submodule "zluda"]
+	path = zluda
+	url = https://github.com/chkuendig/ZLUDA
+	branch = proton-zluda
