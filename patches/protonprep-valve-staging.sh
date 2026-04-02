@@ -124,7 +124,8 @@ apply_all_in_dir() {
     -W cryptext-CryptExtOpenCER \
     -W wineboot-ProxySettings \
     -W version-VerQueryValue \
-    -W setupapi-DiskSpaceList
+    -W setupapi-DiskSpaceList \
+    -W nvcuda-CUDA_Support
 
     # NOTE: Some patches are applied manually because they -do- apply, just not cleanly, ie with patch fuzz.
     # A detailed list of why the above patches are disabled is listed below:
@@ -174,6 +175,8 @@ apply_all_in_dir() {
     # ** loader-KeyboardLayouts - note -- always use and/or rebase this --  needed to prevent Overwatch huge FPS drop
     # cryptext-CryptExtOpenCER
     # wineboot-ProxySettings
+
+    # nvcuda-CUDA_Support - replaced by SveSop/nvidia-libs relay (CUDA SDK 13.2, 676 exports vs staging's ~492). Staging version is missing cuGetProcAddress, cuLaunchKernelEx, and many v2 variants needed by PhysX.
 
     # dinput-joy-mappings - disabled in favor of proton's gamepad patches -- currently also disabled in upstream staging
     # mfplat-streaming-support -- interferes with proton's mfplat -- currently also disabled in upstream staging
