@@ -250,6 +250,9 @@ def merge_user_dir(src, dst):
 def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, optional=False,
              follow_symlinks=True, track_file=None, link_debug=False):
     try:
+        if not file_exists(src, follow_symlinks=follow_symlinks):
+            return
+
         if prefix is not None:
             dst = os.path.join(prefix, dst)
 
@@ -2143,35 +2146,44 @@ if __name__ == "__main__":
 
     g_session.init_wine()
 
-    # ZLUDA: Enable CUDA-on-HIP translation for PhysX GPU support
-    if "PROTON_ENABLE_ZLUDA" in os.environ or "forcenvapi" in g_session.compat_config:
-        zluda_lib_dir = g_proton.path("files/lib64/")
-        # Add ZLUDA and ROCm libs to library path
-        prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
-        # Add Wine unix lib dir for nvcuda.dll.so relay
-        prepend_to_env_str(g_session.env, ld_path_var, g_proton.lib64_dir + "/wine/x86_64-unix", ":")
-        # wine_stack_fix.so: LD_PRELOAD shim for ROCm/clr#61 stack assertion under Wine
-        wine_stack_fix = os.path.join(zluda_lib_dir, "wine_stack_fix.so")
-        if file_exists(wine_stack_fix):
-            prepend_to_env_str(g_session.env, "LD_PRELOAD", wine_stack_fix, ":")
-        # Force NVAPI so PhysX detects a CUDA GPU
-        g_session.env["PROTON_FORCE_NVAPI"] = "1"
-        g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
-        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
-        # AMD Van Gogh (Steam Deck) presents as gfx1033; override to gfx1030 for broader ROCm compat
-        g_session.env.setdefault("HSA_OVERRIDE_GFX_VERSION", "10.3.0")
-        log("ZLUDA enabled: CUDA-on-HIP translation active")
-
     if g_proton.missing_default_prefix():
         g_proton.make_default_prefix()
 
     g_session.init_session(sys.argv[1] != "runinprefix")
 
-    import protonfixes
-    protonfixes.setup(g_session.env, "PATH", ld_path_var, prepend_to_env_str)
-    protonfixes.setup_mount_drives(setup_dir_drive)
-    protonfixes.winetricks(g_session.env, g_proton.wine_bin, g_proton.wineserver_bin)
-    protonfixes.execute()
+    try:
+        import protonfixes
+        if hasattr(protonfixes, 'setup'):
+            protonfixes.setup(g_session.env, "PATH", ld_path_var, prepend_to_env_str)
+            protonfixes.setup_mount_drives(setup_dir_drive)
+            protonfixes.winetricks(g_session.env, g_proton.wine_bin, g_proton.wineserver_bin)
+            protonfixes.execute()
+        # else: old-style protonfixes auto-ran on import
+    except Exception as e:
+        log("protonfixes error (non-fatal): " + str(e))
+
+    # ZLUDA block runs after protonfixes so that game-specific fixes
+    # (e.g. PROTON_ENABLE_ZLUDA=1) are already in os.environ
+    if "PROTON_ENABLE_ZLUDA" in os.environ or "forcenvapi" in g_session.compat_config:
+        zluda_lib_dir = g_proton.path("files/lib64/")
+        prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
+        prepend_to_env_str(g_session.env, ld_path_var, g_proton.lib64_dir + "/wine/x86_64-unix", ":")
+        wine_stack_fix = os.path.join(zluda_lib_dir, "wine_stack_fix.so")
+        if file_exists(wine_stack_fix):
+            prepend_to_env_str(g_session.env, "LD_PRELOAD", wine_stack_fix, ":")
+        g_session.env["PROTON_FORCE_NVAPI"] = "1"
+        g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
+        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
+        g_session.env.setdefault("HSA_OVERRIDE_GFX_VERSION", "10.3.0")
+        g_session.env.setdefault("HSA_ENABLE_SDMA", "0")
+        g_session.env.setdefault("GPU_MAX_HW_QUEUES", "2")
+        # Debug logging (opt-in via ZLUDA_DEBUG=1 in env/launch options)
+        if "ZLUDA_DEBUG" in os.environ:
+            g_session.env.setdefault("ZLUDA_LOG_ALL", "1")
+            winedebug = g_session.env.get("WINEDEBUG", "-all")
+            if "+nvcuda" not in winedebug:
+                g_session.env["WINEDEBUG"] = winedebug + ",+nvcuda"
+        log("ZLUDA enabled: CUDA-on-HIP translation active")
 
     #determine mode
     rc = 0

@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-ROCM_VERSION="${ROCM_VERSION:-6.2.4}"
+ROCM_VERSION="${ROCM_VERSION:-6.4.3}"
 OUTPUT_DIR="${1:-$(dirname "$0")/../files/lib64}"
 
 mkdir -p "$OUTPUT_DIR"
@@ -28,7 +28,13 @@ fi
 
 # --- Arch/SteamOS: download .pkg.tar.zst from pacman mirror ---
 
-ARCH_MIRROR="https://steamdeck-packages.steamos.cloud/archlinux-mirror/extra-3.7/os/x86_64"
+# SteamOS 3.7 repo has ROCm 6.2, SteamOS 3.8 has 6.4
+# Select mirror based on requested version
+if [[ "$ROCM_VERSION" == 6.2* ]]; then
+    ARCH_MIRROR="https://steamdeck-packages.steamos.cloud/archlinux-mirror/extra-3.7/os/x86_64"
+else
+    ARCH_MIRROR="https://steamdeck-packages.steamos.cloud/archlinux-mirror/extra-3.8/os/x86_64"
+fi
 
 # Runtime libs (always needed for bundling)
 ARCH_RUNTIME_PKGS=(
@@ -101,27 +107,47 @@ if [ "$PLATFORM" = "arch" ]; then
         fetch_arch_pkg "$pkg" "usr/" 1
     done
 else
-    echo "Ubuntu/CI: download .deb packages from $ROCM_RELEASE"
-    echo "Required packages:"
-    echo "  hip-runtime-amd (libamdhip64.so.6)"
-    echo "  hsa-rocr (libhsa-runtime64.so.1)"
-    echo "  comgr (libamd_comgr.so.2)"
-    echo "  hsakmt-roct (libhsakmt.so.1)"
-    echo ""
-    echo "Update URLs below for your ROCm version, then uncomment:"
-    echo "  # fetch_deb \$ROCM_RELEASE/h/hip-runtime-amd/hip-runtime-amd_..._amd64.deb"
+    echo "Downloading .deb packages from AMD repo..."
+
+    # Auto-discover package filenames from the AMD repo directory listing
+    fetch_deb_auto() {
+        local pkg_path="$1"
+        local url
+        # Get the 22.04 package (most compatible)
+        url=$(curl -sL "${ROCM_RELEASE}/${pkg_path}/" | grep -o 'href="[^"]*22.04[^"]*\.deb"' | head -1 | sed 's/href="//;s/"//')
+        if [ -z "$url" ]; then
+            # Fallback: get any amd64 deb
+            url=$(curl -sL "${ROCM_RELEASE}/${pkg_path}/" | grep -o 'href="[^"]*amd64\.deb"' | head -1 | sed 's/href="//;s/"//')
+        fi
+        if [ -n "$url" ]; then
+            fetch_deb "${ROCM_RELEASE}/${pkg_path}/${url}"
+        else
+            echo "  SKIP ${pkg_path} (no .deb found)"
+        fi
+    }
+
+    # Core runtime libraries
+    fetch_deb_auto "h/hip-runtime-amd"    # libamdhip64.so.6
+    fetch_deb_auto "h/hsa-rocr"           # libhsa-runtime64.so.1
+    fetch_deb_auto "c/comgr"              # libamd_comgr.so.3
+    fetch_deb_auto "r/rocm-smi-lib"       # librocm_smi64.so
+    fetch_deb_auto "r/rocprofiler-register"  # librocprofiler-register.so
+
+    # Transitive dependencies that may be needed
+    # (fmt, glog, gflags are usually available on the system)
 fi
 
 echo ""
 
-# Create version compat symlink (PhysX 3.3 links against libamdhip64.so.5)
-if [ -f "$OUTPUT_DIR/lib/libamdhip64.so.6" ] && [ ! -f "$OUTPUT_DIR/lib/libamdhip64.so.5" ]; then
-    cp "$OUTPUT_DIR/lib/libamdhip64.so.6" "$OUTPUT_DIR/lib/libamdhip64.so.5"
-    echo "Created libamdhip64.so.5 (copy of .so.6)"
-elif [ -f "$OUTPUT_DIR/libamdhip64.so.6" ] && [ ! -f "$OUTPUT_DIR/libamdhip64.so.5" ]; then
-    cp "$OUTPUT_DIR/libamdhip64.so.6" "$OUTPUT_DIR/libamdhip64.so.5"
-    echo "Created libamdhip64.so.5 (copy of .so.6)"
-fi
+# Create version compat shim: PhysX 3.3 links against libamdhip64.so.5 but
+# ROCm 6.x only ships .so.6. Always overwrite to keep in sync with .so.6.
+for dir in "$OUTPUT_DIR/lib" "$OUTPUT_DIR"; do
+    if [ -f "$dir/libamdhip64.so.6" ]; then
+        cp -f "$dir/libamdhip64.so.6" "$dir/libamdhip64.so.5"
+        echo "Created libamdhip64.so.5 (copy of .so.6) in $dir/"
+        break
+    fi
+done
 
 echo ""
 echo "Done. Libraries in $OUTPUT_DIR"
