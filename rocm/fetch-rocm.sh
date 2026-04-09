@@ -46,6 +46,17 @@ ARCH_RUNTIME_PKGS=(
     "rocprofiler-register"
 )
 
+# Optional debugger packages — only fetched when ROCM_DEBUGGER=1.
+# rocm-gdb is the AMD GDB fork with AMDGPU wave-level debugging support;
+# rocm-dbgapi is the runtime library it talks to. Both go into ext/rocm/.
+# On Steam Deck (gfx1033) the kernel must be running with
+# HSA_OVERRIDE_GFX_VERSION=10.3.0 in the target process so dbgapi sees
+# gfx1030 (which IS in its supported architecture list).
+ARCH_DEBUGGER_PKGS=(
+    "rocm-dbgapi"
+    "rocm-gdb"
+)
+
 # Transitive deps (needed for LD_LIBRARY_PATH resolution)
 ARCH_DEP_PKGS=(
     "fmt"
@@ -106,6 +117,13 @@ if [ "$PLATFORM" = "arch" ]; then
     for pkg in "${ARCH_DEP_PKGS[@]}"; do
         fetch_arch_pkg "$pkg" "usr/" 1
     done
+    if [ "${ROCM_DEBUGGER:-0}" = "1" ]; then
+        echo ""
+        echo "Downloading ROCm debugger packages..."
+        for pkg in "${ARCH_DEBUGGER_PKGS[@]}"; do
+            fetch_arch_pkg "$pkg" "opt/rocm/" 2
+        done
+    fi
 else
     echo "Downloading .deb packages from AMD repo..."
 
