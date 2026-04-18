@@ -12,7 +12,32 @@
 
 set -euo pipefail
 
-ROCM_VERSION="${ROCM_VERSION:-6.4.3}"
+# ROCm version.
+#
+# We PIN to 6.2.4 (not 6.4.3) because of a behavioral change in
+# clr/hipamd/src/hip_texture.cpp::hipTexRefSetArray that affects PhysX
+# texture handling in Batman: Arkham Knight:
+#
+#   - 6.2.4: HIP_TRSA_OVERRIDE_FORMAT is validated but the format override
+#     is a no-op — `texRef->format` keeps whatever hipTexRefSetFormat last
+#     set. This is what lsh's hipfix.rs format-inverse-transform machinery
+#     (ported in commit 3a203a3c) assumes.
+#   - 6.4.3+: hipTexRefSetArray was updated to actually clobber
+#     `texRef->format = array->Format`, which silently breaks lsh-style
+#     fixes because any format set by a prior hipTexRefSetFormat call is
+#     erased at bind time. The hipfix view-desc machinery only compensates
+#     for this on the cuTexObjectCreate path — the cuTexRefSetArray path
+#     (which Batman uses ~19:1 over cuTexObjectCreate) is left exposed.
+#
+# See memory reference_hip_clr_version_differences.md for the exact
+# source-level diff.
+#
+# If upgrading to 6.4.3 in the future, a preemptive fix is needed in
+# zluda/src/impl/tex.rs::ref_set_array — it must use
+# hipfix::broken_format_for_array to recover the original format instead
+# of reading the post-transform format via hipArrayGetDescriptor.
+# That work is tracked in project_physx_ms4_root_cause_turbulencefs.md.
+ROCM_VERSION="${ROCM_VERSION:-6.2.4}"
 OUTPUT_DIR="${1:-$(dirname "$0")/../files/lib64}"
 
 mkdir -p "$OUTPUT_DIR"

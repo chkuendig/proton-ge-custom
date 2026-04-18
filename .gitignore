@@ -5,3 +5,7 @@
 
 /.vagrant/
 /vagrant_share/
+/build/
+/contrib/
+/files/
+/test.json
