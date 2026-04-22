@@ -2175,6 +2175,8 @@ if __name__ == "__main__":
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
         g_session.env["DXVK_ENABLE_NVAPI"] = "1"
         g_session.env.setdefault("HSA_OVERRIDE_GFX_VERSION", "10.3.0")
+        # Steam Deck / gfx10.3 can wedge ROCm userspace copy paths when SDMA is
+        # enabled, so default to the safer blit-kernel path unless overridden.
         g_session.env.setdefault("HSA_ENABLE_SDMA", "0")
         g_session.env.setdefault("GPU_MAX_HW_QUEUES", "2")
         # Debug logging (opt-in via ZLUDA_DEBUG=1 in env/launch options)
