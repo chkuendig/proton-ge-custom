@@ -96,7 +96,8 @@
         branch = libxkbcommon-1.7.0
 [submodule "nvidia-libs"]
 	path = nvidia-libs
-	url = https://github.com/SveSop/nvidia-libs
+	url = https://github.com/chkuendig/nvidia-libs.git
+	branch = zluda-physx
 [submodule "zluda"]
 	path = zluda
 	url = https://github.com/chkuendig/ZLUDA
