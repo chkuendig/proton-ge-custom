@@ -2168,7 +2168,7 @@ if __name__ == "__main__":
         zluda_lib_dir = g_proton.path("files/lib64/")
         prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
         prepend_to_env_str(g_session.env, ld_path_var, g_proton.lib64_dir + "/wine/x86_64-unix", ":")
-        wine_stack_fix = os.path.join(zluda_lib_dir, "wine_stack_fix.so")
+        wine_stack_fix = os.path.join(g_proton.lib64_dir, "wine/x86_64-unix", "wine_stack_fix.so")
         if file_exists(wine_stack_fix, follow_symlinks=True):
             prepend_to_env_str(g_session.env, "LD_PRELOAD", wine_stack_fix, ":")
         g_session.env["PROTON_FORCE_NVAPI"] = "1"
