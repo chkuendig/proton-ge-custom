@@ -16,6 +16,8 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 /* Maximum stack size to report: 8MB (typical default) */
 #define MAX_STACK_SIZE (8 * 1024 * 1024)
@@ -39,6 +41,29 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
             /* Clamp to MAX_STACK_SIZE, adjusting base address accordingly */
             void *new_stackaddr = (char *)stackaddr + (stacksize - MAX_STACK_SIZE);
             pthread_attr_setstack(attr, new_stackaddr, MAX_STACK_SIZE);
+        }
+
+        /* Diagnostic: detect if SP is outside the reported range entirely.
+         * If this fires, the clamp above is insufficient and we need to
+         * synthesize a new range around the actual SP (see comprehensive
+         * version in /home/deck/Desktop/zluda/wine_stack_fix.c).
+         * Uncomment the fix block below if this diagnostic triggers.
+         */
+        uintptr_t sp = (uintptr_t)__builtin_frame_address(0);
+        uintptr_t base = (uintptr_t)stackaddr;
+        uintptr_t top = base + stacksize;
+        if (sp < base || sp >= top) {
+            fprintf(stderr, "[wine_stack_fix] WARNING: SP %p outside stack [%p, %p) — clamp insufficient\n",
+                    (void *)sp, stackaddr, (void *)top);
+            /* DISABLED: synthesize range around actual SP
+            uintptr_t new_base = (sp > MAX_STACK_SIZE + 0x10000UL)
+                ? (sp - MAX_STACK_SIZE) & ~(uintptr_t)0xFFF
+                : 0x10000UL;
+            uintptr_t new_top = new_base + MAX_STACK_SIZE;
+            if (sp + 0x10000UL > new_top)
+                new_top = (sp + 0x10000UL + 0xFFF) & ~(uintptr_t)0xFFF;
+            pthread_attr_setstack(attr, (void *)new_base, new_top - new_base);
+            */
         }
     }
 
