@@ -53,9 +53,6 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
         uintptr_t base = (uintptr_t)stackaddr;
         uintptr_t top = base + stacksize;
         if (sp < base || sp >= top) {
-            fprintf(stderr, "[wine_stack_fix] WARNING: SP %p outside stack [%p, %p) — clamp insufficient\n",
-                    (void *)sp, stackaddr, (void *)top);
-            /* DISABLED: synthesize range around actual SP
             uintptr_t new_base = (sp > MAX_STACK_SIZE + 0x10000UL)
                 ? (sp - MAX_STACK_SIZE) & ~(uintptr_t)0xFFF
                 : 0x10000UL;
@@ -63,7 +60,6 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
             if (sp + 0x10000UL > new_top)
                 new_top = (sp + 0x10000UL + 0xFFF) & ~(uintptr_t)0xFFF;
             pthread_attr_setstack(attr, (void *)new_base, new_top - new_base);
-            */
         }
     }
 
