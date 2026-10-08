@@ -70,6 +70,9 @@ apply_all_in_dir() {
     git reset --hard HEAD
     git clean -xdf
 
+    echo "WINE: -ZLUDA- preserve protocol/spec sync from the integration build"
+    apply_patch "../patches/proton/zluda-wine-protocol-spec-sync.patch"
+
 ### (2-1) PROBLEMATIC COMMIT REVERT SECTION ###
 
 # Bring back configure files. Staging uses them to regenerate fresh ones
