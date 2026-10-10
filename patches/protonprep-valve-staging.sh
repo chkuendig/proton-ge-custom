@@ -162,8 +162,7 @@ apply_all_in_dir() {
     -W wintrust-WTHelperGetProvCertFromChain \
     -W winex11-ime-check-thread-data \
     -W winex11-Fixed-scancodes \
-    -W Staging \
-    -W nvcuda-CUDA_Support
+    -W Staging
 
     # Manual sets use GE-rebased copies where their context overlaps our earlier patches.
     # A detailed list of why the above patches are disabled is listed below:
@@ -204,7 +203,8 @@ apply_all_in_dir() {
     # ntdll-Junction_Points - breaks CEG drm -- currently also disabled in upstream staging
     # shell32-Progress_Dialog - relies on kernel32-CopyFileEx -- currently also disabled in upstream staging
     # shell32-ACE_Viewer - adds a UI tab, not needed, relies on kernel32-CopyFileEx -- currently also disabled in upstream staging
-    # nvcuda-CUDA_Support - replaced by SveSop/nvidia-libs relay (CUDA SDK 13.2, 676 exports vs staging's ~492). Staging version is missing cuGetProcAddress, cuLaunchKernelEx, and many v2 variants needed by PhysX.
+    # nvcuda-CUDA_Support - not applied: replaced by SveSop/nvidia-libs relay (CUDA SDK 13.2, 676 exports vs staging's ~492). Staging version is missing cuGetProcAddress, cuLaunchKernelEx, and many v2 variants needed by PhysX.
+    #   It is "Disabled: True" in staging, so --all never selects it, and a -W for it makes patchinstall.py abort with a KeyError before applying any staging patch.
 
     # dinput-joy-mappings - disabled in favor of proton's gamepad patches -- currently also disabled in upstream staging
     # mfplat-streaming-support -- interferes with proton's mfplat -- currently also disabled in upstream staging
