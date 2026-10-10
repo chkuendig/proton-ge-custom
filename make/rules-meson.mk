@@ -22,9 +22,10 @@ pkgconfig = '$$$$PKG_CONFIG'
 
 [properties]
 needs_exe_wrapper = true
-c_args = [$$(call list-quote,$$($(2)_$(3)_INCFLAGS) $$($(2)_CFLAGS) $$($(3)_CFLAGS) $$(CFLAGS))]
-cpp_args = [$$(call list-quote,$$($(2)_$(3)_INCFLAGS) $$($(2)_CFLAGS) $$($(3)_CFLAGS) $$(CFLAGS))]
-link_args = [$$(call list-quote,$$($(2)_$(3)-$(4)_LIBFLAGS) $$($(2)_$(3)_LIBFLAGS) $$($(2)_LDFLAGS) $$($(3)_LDFLAGS) $$(LDFLAGS))]
+c_args = [$$(call list-quote,$$($(2)_$(3)_INCFLAGS) $$($(2)_CFLAGS) $$($(3)_CFLAGS) $$($(2)_$(3)_CFLAGS) $$(CFLAGS))]
+cpp_args = [$$(call list-quote,$$($(2)_$(3)_INCFLAGS) $$($(2)_CFLAGS) $$($(3)_CFLAGS) $$($(2)_$(3)_CFLAGS) $$(CFLAGS))]
+c_link_args = [$$(call list-quote,$$($(2)_$(3)-$(4)_LIBFLAGS) $$($(2)_$(3)_LIBFLAGS) $$($(2)_LDFLAGS) $$($(3)_LDFLAGS) $$($(2)_$(3)_CFLAGS) $$(LDFLAGS))]
+cpp_link_args = [$$(call list-quote,$$($(2)_$(3)-$(4)_LIBFLAGS) $$($(2)_$(3)_LIBFLAGS) $$($(2)_LDFLAGS) $$($(3)_LDFLAGS) $$($(2)_$(3)_CFLAGS) $$(LDFLAGS))]
 pkg_config_libdir = '$$$$PKG_CONFIG_LIBDIR'
 
 [host_machine]
@@ -68,6 +69,8 @@ endef
 
 i386_MESON_CPU := x86
 x86_64_MESON_CPU := x86_64
+aarch64_MESON_CPU := aarch64
+arm64ec_MESON_CPU := aarch64
 
 unix_MESON_SYSTEM := linux
 windows_MESON_SYSTEM := windows

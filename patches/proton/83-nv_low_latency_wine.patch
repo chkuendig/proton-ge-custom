@@ -1,19 +1,23 @@
-From a614ec584bc19995fdfb535ae4cef81efe9966df Mon Sep 17 00:00:00 2001
+From 0f0ea0f61b1300e5b2e0ff250dbc66f52931e611 Mon Sep 17 00:00:00 2001
 From: Eric Sullivan <esullivan@nvidia.com>
 Date: Wed, 11 Oct 2023 15:43:36 -0700
-Subject: [PATCH] winevulkan: Add support for VK_NV_low_latency2
+Subject: [PATCH] win32u: Add support for VK_NV_low_latency2
 
 To support VK_NV_low_latency2 a frame ID should be provided for each
 call to vkQueueSubmit. This commit adds a path for fshack to provide
 a frame ID when it submits its upscaling work, when low latency mode
 is enabled.
 ---
+ dlls/win32u/vulkan.c         | 46 ++++++++++++++++++++++++++++++++++++++++++++
+ include/wine/vulkan_driver.h |  2 ++
+ 2 files changed, 48 insertions(+)
+
 diff --git a/dlls/win32u/vulkan.c b/dlls/win32u/vulkan.c
-index 4cb3997f648..85ef9498575 100644
+index 9a6e24c373b0cb182c566fd897242e34a5c279e0..cf7e992e39e16c8c224e98a5c41fcf876c48ae73 100644
 --- a/dlls/win32u/vulkan.c
 +++ b/dlls/win32u/vulkan.c
-@@ -852,6 +852,24 @@ fail:
-     return res;
+@@ -2975,6 +2975,24 @@ static void win32u_vkGetLatencyTimingsNV( VkDevice device, VkSwapchainKHR swapch
+                                         vk_swapchain->obj.host.swapchain, latency_marker_info );
  }
  
 +static VkResult win32u_vkSetLatencySleepModeNV(VkDevice device, VkSwapchainKHR swapchain, const VkLatencySleepModeInfoNV *pSleepModeInfo)
@@ -34,10 +38,10 @@ index 4cb3997f648..85ef9498575 100644
 +    return vk_device->p_vkSetLatencySleepModeNV(vk_device->host.device, vk_swapchain->obj.host.swapchain, &sleep_mode_info_host);
 +}
 +
- static VkResult win32u_vkCreateSwapchainKHR( VkDevice client_device, const VkSwapchainCreateInfoKHR *create_info,
-                                              const VkAllocationCallbacks *allocator, VkSwapchainKHR *ret )
+ static BOOL surface_get_fshack_dpi( struct surface *surface )
  {
-@@ -1225,6 +1243,21 @@ static VkResult record_compute_cmd( struct vulkan_device *device, struct swapcha
+     UINT dpi = NtUserGetDpiForWindow( surface->hwnd ), raw = NtUserGetWinMonitorDpi( surface->hwnd, MDT_RAW_DPI );
+@@ -5490,6 +5508,21 @@ static VkResult record_fsr_cmd(struct vulkan_device *device, struct swapchain *s
      return VK_SUCCESS;
  }
  
@@ -56,59 +60,60 @@ index 4cb3997f648..85ef9498575 100644
 +    return NULL;
 +}
 +
- static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentInfoKHR *present_info )
+ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentInfoKHR *client_present_info )
  {
-     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-@@ -1335,6 +1368,8 @@ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentI
-     if (n_hacks > 0)
+     VkPresentInfoKHR present_info_data = *client_present_info;
+@@ -5585,6 +5618,8 @@ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentI
      {
-         VkPipelineStageFlags waitStage, *waitStages, *waitStages_arr = NULL;
+         VkSubmitInfo submit_info = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+         VkPipelineStageFlags *stages;
 +        VkLatencySubmissionPresentIdNV latencySubmitInfo;
 +        VkPresentIdKHR *present_id;
  
-         if (present_info->waitSemaphoreCount > 1)
-         {
-@@ -1359,6 +1394,15 @@ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentI
-         submitInfo.signalSemaphoreCount = 1;
-         submitInfo.pSignalSemaphores = &blit_sema;
- 
+         if (!(stages = mem_alloc( &pool, sizeof(VkPipelineStageFlags) * present_info->waitSemaphoreCount ))) goto failed;
+         for (uint32_t i = 0; i < present_info->waitSemaphoreCount; ++i) stages[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+@@ -5597,6 +5632,16 @@ static VkResult win32u_vkQueuePresentKHR( VkQueue client_queue, const VkPresentI
+         submit_info.pCommandBuffers = blit_cmds;
+         submit_info.signalSemaphoreCount = 1;
+         submit_info.pSignalSemaphores = &blit_sema;
++
 +        if ((queue->device->low_latency_enabled) &&
-+            (present_id = win32u_vk_find_struct(&present_info_host, PRESENT_ID_KHR)))
++            (present_id = win32u_vk_find_struct(present_info, PRESENT_ID_KHR)))
 +        {
 +            latencySubmitInfo.sType = VK_STRUCTURE_TYPE_LATENCY_SUBMISSION_PRESENT_ID_NV;
 +            latencySubmitInfo.pNext = NULL;
 +            latencySubmitInfo.presentID = *present_id->pPresentIds;
-+            submitInfo.pNext = &latencySubmitInfo;
++            submit_info.pNext = &latencySubmitInfo;
 +        }
 +
-         if ((res = device->p_vkQueueSubmit( queue->host.queue, 1, &submitInfo, VK_NULL_HANDLE )))
-         {
-             ERR( "vkQueueSubmit: %d\n", res );
-@@ -1452,6 +1496,7 @@ static struct vulkan_funcs vulkan_funcs =
-     .p_vkGetSwapchainImagesKHR = win32u_vkGetSwapchainImagesKHR,
-     .p_vkQueuePresentKHR = win32u_vkQueuePresentKHR,
-     .p_get_host_surface_extension = win32u_get_host_surface_extension,
+         /* Serialize with every other host-queue op (external sync). */
+         pthread_mutex_lock( &producer_device_lock );
+         device->p_vkQueueSubmit( queue->host.queue, 1, &submit_info, VK_NULL_HANDLE );
+@@ -6695,6 +6740,7 @@ static struct vulkan_funcs vulkan_funcs =
+     .p_vkReleaseSwapchainImagesKHR = win32u_vkReleaseSwapchainImagesKHR,
+     .p_vkSetHdrMetadataEXT = win32u_vkSetHdrMetadataEXT,
+     .p_vkSetLatencyMarkerNV = win32u_vkSetLatencyMarkerNV,
 +    .p_vkSetLatencySleepModeNV = win32u_vkSetLatencySleepModeNV,
- };
- 
- static VkResult nulldrv_vulkan_surface_create( HWND hwnd, VkInstance instance, VkSurfaceKHR *surface, void **private )
+     .p_vkSetSwapchainPresentTimingQueueSizeEXT = win32u_vkSetSwapchainPresentTimingQueueSizeEXT,
+     .p_vkQueueSubmit = win32u_vkQueueSubmit,
+     .p_vkQueueSubmit2 = win32u_vkQueueSubmit2,
 diff --git a/include/wine/vulkan_driver.h b/include/wine/vulkan_driver.h
-index 15d03383e12..329758551f6 100644
+index 1b6738c25a25dbd4b2f4988f5ce7f480465dbe57..68cde02334a4d15cd3cb06fbb2e91d0d89503ab4 100644
 --- a/include/wine/vulkan_driver.h
 +++ b/include/wine/vulkan_driver.h
-@@ -133,6 +133,7 @@ struct vulkan_device
-     unsigned int allocated_fence_ops_count;
- 
-     BOOL keyed_mutexes_enabled;
+@@ -222,6 +222,7 @@ struct vulkan_device
+     uint64_t queue_count;
+     struct vulkan_queue *queues;
+     VkQueueFamilyProperties *queue_props;
 +    BOOL low_latency_enabled;
- };
  
- static inline struct vulkan_device *vulkan_device_from_handle( VkDevice handle )
-@@ -210,6 +211,7 @@ struct vulkan_funcs
-     PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR p_vkGetPhysicalDeviceWin32PresentationSupportKHR;
-     PFN_vkGetSwapchainImagesKHR p_vkGetSwapchainImagesKHR;
-     PFN_vkQueuePresentKHR p_vkQueuePresentKHR;
+     pthread_t signaller_thread;
+     pthread_mutex_t signaller_mutex;
+@@ -362,6 +363,7 @@ struct vulkan_funcs
+     PFN_vkReleaseSwapchainImagesKHR p_vkReleaseSwapchainImagesKHR;
+     PFN_vkSetHdrMetadataEXT p_vkSetHdrMetadataEXT;
+     PFN_vkSetLatencyMarkerNV p_vkSetLatencyMarkerNV;
 +    PFN_vkSetLatencySleepModeNV p_vkSetLatencySleepModeNV;
- 
-     /* winevulkan specific functions */
-     const char *(*p_get_host_surface_extension)(void);
+     PFN_vkSetSwapchainPresentTimingQueueSizeEXT p_vkSetSwapchainPresentTimingQueueSizeEXT;
+     PFN_vkQueueSubmit p_vkQueueSubmit;
+     PFN_vkQueueSubmit2 p_vkQueueSubmit2;

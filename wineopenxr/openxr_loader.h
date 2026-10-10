@@ -30,6 +30,7 @@ static const char WINE_VULKAN_DEVICE_VARIABLE[] = "__WINE_OPENXR_VK_DEVICE_EXTEN
 struct IDXGIVkInteropDevice2;
 typedef struct IDXGIVkInteropDevice2 IDXGIVkInteropDevice2;
 typedef struct ID3D12DXVKInteropDevice ID3D12DXVKInteropDevice;
+typedef struct ID3D12DXVKInteropDevice2 ID3D12DXVKInteropDevice2;
 
 struct vk_create_callback_context {
   XrInstance wine_instance;
@@ -43,6 +44,12 @@ struct init_openxr_params {
   UINT64 create_device_callback;
 };
 
+struct is_available_instance_function_openxr_params {
+  XrInstance instance;
+  const char *name;
+  XrResult ret;
+};
+
 typedef struct {
   XrInstance host_instance;
   VkInstance vk_instance;
@@ -52,6 +59,7 @@ typedef struct {
 
   IDXGIVkInteropDevice2 *dxvk_device;
   ID3D12DXVKInteropDevice *d3d12_device;
+  ID3D12DXVKInteropDevice2 *d3d12_device2;
   ID3D12CommandQueue *d3d12_queue;
 
   VkDevice vk_device;

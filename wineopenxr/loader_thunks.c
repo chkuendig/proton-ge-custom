@@ -3,7 +3,7 @@
  * This file is generated from Vulkan xr.xml file covered
  * by the following copyright and permission notice:
  *
- * Copyright (c) 2017-2025 The Khronos Group Inc.
+ * Copyright (c) 2017-2026 The Khronos Group Inc.
  *
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  *
@@ -32,6 +32,17 @@ XrResult WINAPI xrAcquireEnvironmentDepthImageMETA(XrEnvironmentDepthProviderMET
     params.environmentDepthImage = environmentDepthImage;
     _status = UNIX_CALL(xrAcquireEnvironmentDepthImageMETA, &params);
     assert(!_status && "xrAcquireEnvironmentDepthImageMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrAddTrackableImageDatabaseANDROID(XrTrackableTrackerANDROID tracker, XrTrackableImageDatabaseANDROID database)
+{
+    struct xrAddTrackableImageDatabaseANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.database = database;
+    _status = UNIX_CALL(xrAddTrackableImageDatabaseANDROID, &params);
+    assert(!_status && "xrAddTrackableImageDatabaseANDROID");
     return params.result;
 }
 
@@ -170,6 +181,30 @@ XrResult WINAPI xrComputeNewSceneMSFT(XrSceneObserverMSFT sceneObserver, const X
     return params.result;
 }
 
+XrResult WINAPI xrConvertTimeToWin32PerformanceCounterKHR(XrInstance instance, XrTime time, LARGE_INTEGER *performanceCounter)
+{
+    struct xrConvertTimeToWin32PerformanceCounterKHR_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.time = time;
+    params.performanceCounter = performanceCounter;
+    _status = UNIX_CALL(xrConvertTimeToWin32PerformanceCounterKHR, &params);
+    assert(!_status && "xrConvertTimeToWin32PerformanceCounterKHR");
+    return params.result;
+}
+
+XrResult WINAPI xrConvertWin32PerformanceCounterToTimeKHR(XrInstance instance, const LARGE_INTEGER *performanceCounter, XrTime *time)
+{
+    struct xrConvertWin32PerformanceCounterToTimeKHR_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.performanceCounter = performanceCounter;
+    params.time = time;
+    _status = UNIX_CALL(xrConvertWin32PerformanceCounterToTimeKHR, &params);
+    assert(!_status && "xrConvertWin32PerformanceCounterToTimeKHR");
+    return params.result;
+}
+
 XrResult WINAPI xrCreateAction(XrActionSet actionSet, const XrActionCreateInfo *createInfo, XrAction *action)
 {
     struct xrCreateAction_params params;
@@ -203,6 +238,18 @@ XrResult WINAPI xrCreateActionSpace(XrSession session, const XrActionSpaceCreate
     params.space = space;
     _status = UNIX_CALL(xrCreateActionSpace, &params);
     assert(!_status && "xrCreateActionSpace");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateAnchorSpaceANDROID(XrSession session, const XrAnchorSpaceCreateInfoANDROID *createInfo, XrSpace *anchorOutput)
+{
+    struct xrCreateAnchorSpaceANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.anchorOutput = anchorOutput;
+    _status = UNIX_CALL(xrCreateAnchorSpaceANDROID, &params);
+    assert(!_status && "xrCreateAnchorSpaceANDROID");
     return params.result;
 }
 
@@ -254,6 +301,18 @@ XrResult WINAPI xrCreateBodyTrackerHTC(XrSession session, const XrBodyTrackerCre
     return params.result;
 }
 
+XrResult WINAPI xrCreateDeviceAnchorPersistenceANDROID(XrSession session, const XrDeviceAnchorPersistenceCreateInfoANDROID *createInfo, XrDeviceAnchorPersistenceANDROID *outHandle)
+{
+    struct xrCreateDeviceAnchorPersistenceANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.outHandle = outHandle;
+    _status = UNIX_CALL(xrCreateDeviceAnchorPersistenceANDROID, &params);
+    assert(!_status && "xrCreateDeviceAnchorPersistenceANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrCreateEnvironmentDepthProviderMETA(XrSession session, const XrEnvironmentDepthProviderCreateInfoMETA *createInfo, XrEnvironmentDepthProviderMETA *environmentDepthProvider)
 {
     struct xrCreateEnvironmentDepthProviderMETA_params params;
@@ -275,6 +334,30 @@ XrResult WINAPI xrCreateEnvironmentDepthSwapchainMETA(XrEnvironmentDepthProvider
     params.swapchain = swapchain;
     _status = UNIX_CALL(xrCreateEnvironmentDepthSwapchainMETA, &params);
     assert(!_status && "xrCreateEnvironmentDepthSwapchainMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateEnvironmentRaycasterAsyncMETA(XrSession session, const XrEnvironmentRaycasterCreateInfoMETA *info, XrFutureEXT *future)
+{
+    struct xrCreateEnvironmentRaycasterAsyncMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.info = info;
+    params.future = future;
+    _status = UNIX_CALL(xrCreateEnvironmentRaycasterAsyncMETA, &params);
+    assert(!_status && "xrCreateEnvironmentRaycasterAsyncMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateEnvironmentRaycasterCompleteMETA(XrSession session, XrFutureEXT future, XrEnvironmentRaycasterCreateCompletionMETA *completion)
+{
+    struct xrCreateEnvironmentRaycasterCompleteMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.future = future;
+    params.completion = completion;
+    _status = UNIX_CALL(xrCreateEnvironmentRaycasterCompleteMETA, &params);
+    assert(!_status && "xrCreateEnvironmentRaycasterCompleteMETA");
     return params.result;
 }
 
@@ -311,6 +394,30 @@ XrResult WINAPI xrCreateFaceTracker2FB(XrSession session, const XrFaceTrackerCre
     params.faceTracker = faceTracker;
     _status = UNIX_CALL(xrCreateFaceTracker2FB, &params);
     assert(!_status && "xrCreateFaceTracker2FB");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateFaceTrackerANDROID(XrSession session, const XrFaceTrackerCreateInfoANDROID *createInfo, XrFaceTrackerANDROID *faceTracker)
+{
+    struct xrCreateFaceTrackerANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.faceTracker = faceTracker;
+    _status = UNIX_CALL(xrCreateFaceTrackerANDROID, &params);
+    assert(!_status && "xrCreateFaceTrackerANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateFaceTrackerBD(XrSession session, const XrFaceTrackerCreateInfoBD *createInfo, XrFaceTrackerBD *tracker)
+{
+    struct xrCreateFaceTrackerBD_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.tracker = tracker;
+    _status = UNIX_CALL(xrCreateFaceTrackerBD, &params);
+    assert(!_status && "xrCreateFaceTrackerBD");
     return params.result;
 }
 
@@ -482,6 +589,18 @@ XrResult WINAPI xrCreatePassthroughHTC(XrSession session, const XrPassthroughCre
     return params.result;
 }
 
+XrResult WINAPI xrCreatePassthroughLayerANDROID(XrSession session, const XrPassthroughLayerCreateInfoANDROID *createInfo, XrPassthroughLayerANDROID *layer)
+{
+    struct xrCreatePassthroughLayerANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.layer = layer;
+    _status = UNIX_CALL(xrCreatePassthroughLayerANDROID, &params);
+    assert(!_status && "xrCreatePassthroughLayerANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrCreatePassthroughLayerFB(XrSession session, const XrPassthroughLayerCreateInfoFB *createInfo, XrPassthroughLayerFB *outLayer)
 {
     struct xrCreatePassthroughLayerFB_params params;
@@ -491,6 +610,18 @@ XrResult WINAPI xrCreatePassthroughLayerFB(XrSession session, const XrPassthroug
     params.outLayer = outLayer;
     _status = UNIX_CALL(xrCreatePassthroughLayerFB, &params);
     assert(!_status && "xrCreatePassthroughLayerFB");
+    return params.result;
+}
+
+XrResult WINAPI xrCreatePersistedAnchorSpaceANDROID(XrDeviceAnchorPersistenceANDROID handle, const XrPersistedAnchorSpaceCreateInfoANDROID *createInfo, XrSpace *anchorOutput)
+{
+    struct xrCreatePersistedAnchorSpaceANDROID_params params;
+    NTSTATUS _status;
+    params.handle = handle;
+    params.createInfo = createInfo;
+    params.anchorOutput = anchorOutput;
+    _status = UNIX_CALL(xrCreatePersistedAnchorSpaceANDROID, &params);
+    assert(!_status && "xrCreatePersistedAnchorSpaceANDROID");
     return params.result;
 }
 
@@ -518,6 +649,42 @@ XrResult WINAPI xrCreateReferenceSpace(XrSession session, const XrReferenceSpace
     return params.result;
 }
 
+XrResult WINAPI xrCreateRenderModelAssetEXT(XrSession session, const XrRenderModelAssetCreateInfoEXT *createInfo, XrRenderModelAssetEXT *asset)
+{
+    struct xrCreateRenderModelAssetEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.asset = asset;
+    _status = UNIX_CALL(xrCreateRenderModelAssetEXT, &params);
+    assert(!_status && "xrCreateRenderModelAssetEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateRenderModelEXT(XrSession session, const XrRenderModelCreateInfoEXT *createInfo, XrRenderModelEXT *renderModel)
+{
+    struct xrCreateRenderModelEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.renderModel = renderModel;
+    _status = UNIX_CALL(xrCreateRenderModelEXT, &params);
+    assert(!_status && "xrCreateRenderModelEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateRenderModelSpaceEXT(XrSession session, const XrRenderModelSpaceCreateInfoEXT *createInfo, XrSpace *space)
+{
+    struct xrCreateRenderModelSpaceEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.space = space;
+    _status = UNIX_CALL(xrCreateRenderModelSpaceEXT, &params);
+    assert(!_status && "xrCreateRenderModelSpaceEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrCreateSceneMSFT(XrSceneObserverMSFT sceneObserver, const XrSceneCreateInfoMSFT *createInfo, XrSceneMSFT *scene)
 {
     struct xrCreateSceneMSFT_params params;
@@ -527,6 +694,30 @@ XrResult WINAPI xrCreateSceneMSFT(XrSceneObserverMSFT sceneObserver, const XrSce
     params.scene = scene;
     _status = UNIX_CALL(xrCreateSceneMSFT, &params);
     assert(!_status && "xrCreateSceneMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSceneMeshSnapshotANDROID(XrSceneMeshingTrackerANDROID tracker, const XrSceneMeshSnapshotCreateInfoANDROID *createInfo, XrSceneMeshSnapshotCreationResultANDROID *outSnapshotCreationResult)
+{
+    struct xrCreateSceneMeshSnapshotANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.createInfo = createInfo;
+    params.outSnapshotCreationResult = outSnapshotCreationResult;
+    _status = UNIX_CALL(xrCreateSceneMeshSnapshotANDROID, &params);
+    assert(!_status && "xrCreateSceneMeshSnapshotANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSceneMeshingTrackerANDROID(XrSession session, const XrSceneMeshingTrackerCreateInfoANDROID *createInfo, XrSceneMeshingTrackerANDROID *tracker)
+{
+    struct xrCreateSceneMeshingTrackerANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.tracker = tracker;
+    _status = UNIX_CALL(xrCreateSceneMeshingTrackerANDROID, &params);
+    assert(!_status && "xrCreateSceneMeshingTrackerANDROID");
     return params.result;
 }
 
@@ -551,6 +742,55 @@ XrResult WINAPI xrCreateSenseDataProviderBD(XrSession session, const XrSenseData
     params.provider = provider;
     _status = UNIX_CALL(xrCreateSenseDataProviderBD, &params);
     assert(!_status && "xrCreateSenseDataProviderBD");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSoundFieldBD(XrSpatialAudioRendererBD renderer, const XrSoundFieldConfigBD *config, XrSoundFieldBD *soundField)
+{
+    struct xrCreateSoundFieldBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    params.config = config;
+    params.soundField = soundField;
+    _status = UNIX_CALL(xrCreateSoundFieldBD, &params);
+    assert(!_status && "xrCreateSoundFieldBD");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSoundObjectBD(XrSpatialAudioRendererBD renderer, const XrSoundObjectConfigBD *config, XrSoundObjectBD *soundObject)
+{
+    struct xrCreateSoundObjectBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    params.config = config;
+    params.soundObject = soundObject;
+    _status = UNIX_CALL(xrCreateSoundObjectBD, &params);
+    assert(!_status && "xrCreateSoundObjectBD");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSoundObstacleBD(XrSpatialAudioRendererBD renderer, const XrSoundObstacleConfigBD *config, const XrSoundTriangleMeshBD *mesh, XrSoundObstacleBD *soundObstacle)
+{
+    struct xrCreateSoundObstacleBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    params.config = config;
+    params.mesh = mesh;
+    params.soundObstacle = soundObstacle;
+    _status = UNIX_CALL(xrCreateSoundObstacleBD, &params);
+    assert(!_status && "xrCreateSoundObstacleBD");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSoundObstacleMaterialBD(XrSpatialAudioRendererBD renderer, const XrSoundObstacleMaterialConfigBD *config, XrSoundObstacleMaterialBD *material)
+{
+    struct xrCreateSoundObstacleMaterialBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    params.config = config;
+    params.material = material;
+    _status = UNIX_CALL(xrCreateSoundObstacleMaterialBD, &params);
+    assert(!_status && "xrCreateSoundObstacleMaterialBD");
     return params.result;
 }
 
@@ -587,6 +827,19 @@ XrResult WINAPI xrCreateSpatialAnchorCompleteBD(XrSenseDataProviderBD provider, 
     params.completion = completion;
     _status = UNIX_CALL(xrCreateSpatialAnchorCompleteBD, &params);
     assert(!_status && "xrCreateSpatialAnchorCompleteBD");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialAnchorEXT(XrSpatialContextEXT spatialContext, const XrSpatialAnchorCreateInfoEXT *createInfo, XrSpatialEntityIdEXT *anchorEntityId, XrSpatialEntityEXT *anchorEntity)
+{
+    struct xrCreateSpatialAnchorEXT_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.anchorEntityId = anchorEntityId;
+    params.anchorEntity = anchorEntity;
+    _status = UNIX_CALL(xrCreateSpatialAnchorEXT, &params);
+    assert(!_status && "xrCreateSpatialAnchorEXT");
     return params.result;
 }
 
@@ -635,6 +888,33 @@ XrResult WINAPI xrCreateSpatialAnchorMSFT(XrSession session, const XrSpatialAnch
     params.anchor = anchor;
     _status = UNIX_CALL(xrCreateSpatialAnchorMSFT, &params);
     assert(!_status && "xrCreateSpatialAnchorMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialAnchorSpaceANDROID(XrSession session, XrSpatialContextEXT spatialContext, const XrSpatialAnchorCreateInfoEXT *createInfo, XrSpatialEntityIdEXT *anchorEntityId, XrSpace *anchorSpace)
+{
+    struct xrCreateSpatialAnchorSpaceANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.anchorEntityId = anchorEntityId;
+    params.anchorSpace = anchorSpace;
+    _status = UNIX_CALL(xrCreateSpatialAnchorSpaceANDROID, &params);
+    assert(!_status && "xrCreateSpatialAnchorSpaceANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialAnchorSpaceFromIdANDROID(XrSession session, XrSpatialContextEXT spatialContext, const XrSpatialAnchorSpaceFromIdCreateInfoANDROID *createInfo, XrSpace *anchorSpace)
+{
+    struct xrCreateSpatialAnchorSpaceFromIdANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.anchorSpace = anchorSpace;
+    _status = UNIX_CALL(xrCreateSpatialAnchorSpaceFromIdANDROID, &params);
+    assert(!_status && "xrCreateSpatialAnchorSpaceFromIdANDROID");
     return params.result;
 }
 
@@ -697,6 +977,66 @@ XrResult WINAPI xrCreateSpatialAnchorsStorageML(XrSession session, const XrSpati
     return params.result;
 }
 
+XrResult WINAPI xrCreateSpatialAudioRendererBD(XrSession session, const XrSpatialAudioRendererCreateInfoBD *createInfo, XrSpatialAudioRendererBD *renderer)
+{
+    struct xrCreateSpatialAudioRendererBD_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.renderer = renderer;
+    _status = UNIX_CALL(xrCreateSpatialAudioRendererBD, &params);
+    assert(!_status && "xrCreateSpatialAudioRendererBD");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialContextAsyncEXT(XrSession session, const XrSpatialContextCreateInfoEXT *createInfo, XrFutureEXT *future)
+{
+    struct xrCreateSpatialContextAsyncEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.future = future;
+    _status = UNIX_CALL(xrCreateSpatialContextAsyncEXT, &params);
+    assert(!_status && "xrCreateSpatialContextAsyncEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialContextCompleteEXT(XrSession session, XrFutureEXT future, XrCreateSpatialContextCompletionEXT *completion)
+{
+    struct xrCreateSpatialContextCompleteEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.future = future;
+    params.completion = completion;
+    _status = UNIX_CALL(xrCreateSpatialContextCompleteEXT, &params);
+    assert(!_status && "xrCreateSpatialContextCompleteEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialDiscoverySnapshotAsyncEXT(XrSpatialContextEXT spatialContext, const XrSpatialDiscoverySnapshotCreateInfoEXT *createInfo, XrFutureEXT *future)
+{
+    struct xrCreateSpatialDiscoverySnapshotAsyncEXT_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.future = future;
+    _status = UNIX_CALL(xrCreateSpatialDiscoverySnapshotAsyncEXT, &params);
+    assert(!_status && "xrCreateSpatialDiscoverySnapshotAsyncEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialDiscoverySnapshotCompleteEXT(XrSpatialContextEXT spatialContext, const XrCreateSpatialDiscoverySnapshotCompletionInfoEXT *createSnapshotCompletionInfo, XrCreateSpatialDiscoverySnapshotCompletionEXT *completion)
+{
+    struct xrCreateSpatialDiscoverySnapshotCompleteEXT_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    params.createSnapshotCompletionInfo = createSnapshotCompletionInfo;
+    params.completion = completion;
+    _status = UNIX_CALL(xrCreateSpatialDiscoverySnapshotCompleteEXT, &params);
+    assert(!_status && "xrCreateSpatialDiscoverySnapshotCompleteEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrCreateSpatialEntityAnchorBD(XrSenseDataProviderBD provider, const XrSpatialEntityAnchorCreateInfoBD *createInfo, XrAnchorBD *anchor)
 {
     struct xrCreateSpatialEntityAnchorBD_params params;
@@ -709,6 +1049,18 @@ XrResult WINAPI xrCreateSpatialEntityAnchorBD(XrSenseDataProviderBD provider, co
     return params.result;
 }
 
+XrResult WINAPI xrCreateSpatialEntityFromIdEXT(XrSpatialContextEXT spatialContext, const XrSpatialEntityFromIdCreateInfoEXT *createInfo, XrSpatialEntityEXT *spatialEntity)
+{
+    struct xrCreateSpatialEntityFromIdEXT_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.spatialEntity = spatialEntity;
+    _status = UNIX_CALL(xrCreateSpatialEntityFromIdEXT, &params);
+    assert(!_status && "xrCreateSpatialEntityFromIdEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrCreateSpatialGraphNodeSpaceMSFT(XrSession session, const XrSpatialGraphNodeSpaceCreateInfoMSFT *createInfo, XrSpace *space)
 {
     struct xrCreateSpatialGraphNodeSpaceMSFT_params params;
@@ -718,6 +1070,90 @@ XrResult WINAPI xrCreateSpatialGraphNodeSpaceMSFT(XrSession session, const XrSpa
     params.space = space;
     _status = UNIX_CALL(xrCreateSpatialGraphNodeSpaceMSFT, &params);
     assert(!_status && "xrCreateSpatialGraphNodeSpaceMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialPersistenceContextAsyncEXT(XrSession session, const XrSpatialPersistenceContextCreateInfoEXT *createInfo, XrFutureEXT *future)
+{
+    struct xrCreateSpatialPersistenceContextAsyncEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.future = future;
+    _status = UNIX_CALL(xrCreateSpatialPersistenceContextAsyncEXT, &params);
+    assert(!_status && "xrCreateSpatialPersistenceContextAsyncEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialPersistenceContextCompleteEXT(XrSession session, XrFutureEXT future, XrCreateSpatialPersistenceContextCompletionEXT *completion)
+{
+    struct xrCreateSpatialPersistenceContextCompleteEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.future = future;
+    params.completion = completion;
+    _status = UNIX_CALL(xrCreateSpatialPersistenceContextCompleteEXT, &params);
+    assert(!_status && "xrCreateSpatialPersistenceContextCompleteEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialRaycastSnapshotANDROID(XrSpatialContextEXT spatialContext, const XrSpatialRaycastSnapshotCreateInfoANDROID *createInfo, XrSpatialSnapshotEXT *snapshot)
+{
+    struct xrCreateSpatialRaycastSnapshotANDROID_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.snapshot = snapshot;
+    _status = UNIX_CALL(xrCreateSpatialRaycastSnapshotANDROID, &params);
+    assert(!_status && "xrCreateSpatialRaycastSnapshotANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateSpatialUpdateSnapshotEXT(XrSpatialContextEXT spatialContext, const XrSpatialUpdateSnapshotCreateInfoEXT *createInfo, XrSpatialSnapshotEXT *snapshot)
+{
+    struct xrCreateSpatialUpdateSnapshotEXT_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    params.createInfo = createInfo;
+    params.snapshot = snapshot;
+    _status = UNIX_CALL(xrCreateSpatialUpdateSnapshotEXT, &params);
+    assert(!_status && "xrCreateSpatialUpdateSnapshotEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateTrackableImageDatabaseAsyncANDROID(XrSession session, const XrTrackableImageDatabaseCreateInfoANDROID *createInfo, XrFutureEXT *future)
+{
+    struct xrCreateTrackableImageDatabaseAsyncANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.future = future;
+    _status = UNIX_CALL(xrCreateTrackableImageDatabaseAsyncANDROID, &params);
+    assert(!_status && "xrCreateTrackableImageDatabaseAsyncANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateTrackableImageDatabaseCompleteANDROID(XrSession session, XrFutureEXT future, XrCreateTrackableImageDatabaseCompletionANDROID *completion)
+{
+    struct xrCreateTrackableImageDatabaseCompleteANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.future = future;
+    params.completion = completion;
+    _status = UNIX_CALL(xrCreateTrackableImageDatabaseCompleteANDROID, &params);
+    assert(!_status && "xrCreateTrackableImageDatabaseCompleteANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrCreateTrackableTrackerANDROID(XrSession session, const XrTrackableTrackerCreateInfoANDROID *createInfo, XrTrackableTrackerANDROID *trackableTracker)
+{
+    struct xrCreateTrackableTrackerANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.createInfo = createInfo;
+    params.trackableTracker = trackableTracker;
+    _status = UNIX_CALL(xrCreateTrackableTrackerANDROID, &params);
+    assert(!_status && "xrCreateTrackableTrackerANDROID");
     return params.result;
 }
 
@@ -865,6 +1301,16 @@ XrResult WINAPI xrDestroyBodyTrackerHTC(XrBodyTrackerHTC bodyTracker)
     return params.result;
 }
 
+XrResult WINAPI xrDestroyDeviceAnchorPersistenceANDROID(XrDeviceAnchorPersistenceANDROID handle)
+{
+    struct xrDestroyDeviceAnchorPersistenceANDROID_params params;
+    NTSTATUS _status;
+    params.handle = handle;
+    _status = UNIX_CALL(xrDestroyDeviceAnchorPersistenceANDROID, &params);
+    assert(!_status && "xrDestroyDeviceAnchorPersistenceANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrDestroyEnvironmentDepthProviderMETA(XrEnvironmentDepthProviderMETA environmentDepthProvider)
 {
     struct xrDestroyEnvironmentDepthProviderMETA_params params;
@@ -882,6 +1328,16 @@ XrResult WINAPI xrDestroyEnvironmentDepthSwapchainMETA(XrEnvironmentDepthSwapcha
     params.swapchain = swapchain;
     _status = UNIX_CALL(xrDestroyEnvironmentDepthSwapchainMETA, &params);
     assert(!_status && "xrDestroyEnvironmentDepthSwapchainMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroyEnvironmentRaycasterMETA(XrEnvironmentRaycasterMETA environmentRaycaster)
+{
+    struct xrDestroyEnvironmentRaycasterMETA_params params;
+    NTSTATUS _status;
+    params.environmentRaycaster = environmentRaycaster;
+    _status = UNIX_CALL(xrDestroyEnvironmentRaycasterMETA, &params);
+    assert(!_status && "xrDestroyEnvironmentRaycasterMETA");
     return params.result;
 }
 
@@ -912,6 +1368,26 @@ XrResult WINAPI xrDestroyFaceTracker2FB(XrFaceTracker2FB faceTracker)
     params.faceTracker = faceTracker;
     _status = UNIX_CALL(xrDestroyFaceTracker2FB, &params);
     assert(!_status && "xrDestroyFaceTracker2FB");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroyFaceTrackerANDROID(XrFaceTrackerANDROID faceTracker)
+{
+    struct xrDestroyFaceTrackerANDROID_params params;
+    NTSTATUS _status;
+    params.faceTracker = faceTracker;
+    _status = UNIX_CALL(xrDestroyFaceTrackerANDROID, &params);
+    assert(!_status && "xrDestroyFaceTrackerANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroyFaceTrackerBD(XrFaceTrackerBD tracker)
+{
+    struct xrDestroyFaceTrackerBD_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    _status = UNIX_CALL(xrDestroyFaceTrackerBD, &params);
+    assert(!_status && "xrDestroyFaceTrackerBD");
     return params.result;
 }
 
@@ -1015,6 +1491,16 @@ XrResult WINAPI xrDestroyPassthroughHTC(XrPassthroughHTC passthrough)
     return params.result;
 }
 
+XrResult WINAPI xrDestroyPassthroughLayerANDROID(XrPassthroughLayerANDROID layer)
+{
+    struct xrDestroyPassthroughLayerANDROID_params params;
+    NTSTATUS _status;
+    params.layer = layer;
+    _status = UNIX_CALL(xrDestroyPassthroughLayerANDROID, &params);
+    assert(!_status && "xrDestroyPassthroughLayerANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrDestroyPassthroughLayerFB(XrPassthroughLayerFB layer)
 {
     struct xrDestroyPassthroughLayerFB_params params;
@@ -1035,6 +1521,26 @@ XrResult WINAPI xrDestroyPlaneDetectorEXT(XrPlaneDetectorEXT planeDetector)
     return params.result;
 }
 
+XrResult WINAPI xrDestroyRenderModelAssetEXT(XrRenderModelAssetEXT asset)
+{
+    struct xrDestroyRenderModelAssetEXT_params params;
+    NTSTATUS _status;
+    params.asset = asset;
+    _status = UNIX_CALL(xrDestroyRenderModelAssetEXT, &params);
+    assert(!_status && "xrDestroyRenderModelAssetEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroyRenderModelEXT(XrRenderModelEXT renderModel)
+{
+    struct xrDestroyRenderModelEXT_params params;
+    NTSTATUS _status;
+    params.renderModel = renderModel;
+    _status = UNIX_CALL(xrDestroyRenderModelEXT, &params);
+    assert(!_status && "xrDestroyRenderModelEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrDestroySceneMSFT(XrSceneMSFT scene)
 {
     struct xrDestroySceneMSFT_params params;
@@ -1042,6 +1548,26 @@ XrResult WINAPI xrDestroySceneMSFT(XrSceneMSFT scene)
     params.scene = scene;
     _status = UNIX_CALL(xrDestroySceneMSFT, &params);
     assert(!_status && "xrDestroySceneMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySceneMeshSnapshotANDROID(XrSceneMeshSnapshotANDROID snapshot)
+{
+    struct xrDestroySceneMeshSnapshotANDROID_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    _status = UNIX_CALL(xrDestroySceneMeshSnapshotANDROID, &params);
+    assert(!_status && "xrDestroySceneMeshSnapshotANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySceneMeshingTrackerANDROID(XrSceneMeshingTrackerANDROID tracker)
+{
+    struct xrDestroySceneMeshingTrackerANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    _status = UNIX_CALL(xrDestroySceneMeshingTrackerANDROID, &params);
+    assert(!_status && "xrDestroySceneMeshingTrackerANDROID");
     return params.result;
 }
 
@@ -1072,6 +1598,46 @@ XrResult WINAPI xrDestroySenseDataSnapshotBD(XrSenseDataSnapshotBD snapshot)
     params.snapshot = snapshot;
     _status = UNIX_CALL(xrDestroySenseDataSnapshotBD, &params);
     assert(!_status && "xrDestroySenseDataSnapshotBD");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySoundFieldBD(XrSoundFieldBD soundField)
+{
+    struct xrDestroySoundFieldBD_params params;
+    NTSTATUS _status;
+    params.soundField = soundField;
+    _status = UNIX_CALL(xrDestroySoundFieldBD, &params);
+    assert(!_status && "xrDestroySoundFieldBD");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySoundObjectBD(XrSoundObjectBD soundObject)
+{
+    struct xrDestroySoundObjectBD_params params;
+    NTSTATUS _status;
+    params.soundObject = soundObject;
+    _status = UNIX_CALL(xrDestroySoundObjectBD, &params);
+    assert(!_status && "xrDestroySoundObjectBD");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySoundObstacleBD(XrSoundObstacleBD soundObstacle)
+{
+    struct xrDestroySoundObstacleBD_params params;
+    NTSTATUS _status;
+    params.soundObstacle = soundObstacle;
+    _status = UNIX_CALL(xrDestroySoundObstacleBD, &params);
+    assert(!_status && "xrDestroySoundObstacleBD");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySoundObstacleMaterialBD(XrSoundObstacleMaterialBD material)
+{
+    struct xrDestroySoundObstacleMaterialBD_params params;
+    NTSTATUS _status;
+    params.material = material;
+    _status = UNIX_CALL(xrDestroySoundObstacleMaterialBD, &params);
+    assert(!_status && "xrDestroySoundObstacleMaterialBD");
     return params.result;
 }
 
@@ -1125,6 +1691,36 @@ XrResult WINAPI xrDestroySpatialAnchorsStorageML(XrSpatialAnchorsStorageML stora
     return params.result;
 }
 
+XrResult WINAPI xrDestroySpatialAudioRendererBD(XrSpatialAudioRendererBD renderer)
+{
+    struct xrDestroySpatialAudioRendererBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    _status = UNIX_CALL(xrDestroySpatialAudioRendererBD, &params);
+    assert(!_status && "xrDestroySpatialAudioRendererBD");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySpatialContextEXT(XrSpatialContextEXT spatialContext)
+{
+    struct xrDestroySpatialContextEXT_params params;
+    NTSTATUS _status;
+    params.spatialContext = spatialContext;
+    _status = UNIX_CALL(xrDestroySpatialContextEXT, &params);
+    assert(!_status && "xrDestroySpatialContextEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySpatialEntityEXT(XrSpatialEntityEXT spatialEntity)
+{
+    struct xrDestroySpatialEntityEXT_params params;
+    NTSTATUS _status;
+    params.spatialEntity = spatialEntity;
+    _status = UNIX_CALL(xrDestroySpatialEntityEXT, &params);
+    assert(!_status && "xrDestroySpatialEntityEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrDestroySpatialGraphNodeBindingMSFT(XrSpatialGraphNodeBindingMSFT nodeBinding)
 {
     struct xrDestroySpatialGraphNodeBindingMSFT_params params;
@@ -1132,6 +1728,46 @@ XrResult WINAPI xrDestroySpatialGraphNodeBindingMSFT(XrSpatialGraphNodeBindingMS
     params.nodeBinding = nodeBinding;
     _status = UNIX_CALL(xrDestroySpatialGraphNodeBindingMSFT, &params);
     assert(!_status && "xrDestroySpatialGraphNodeBindingMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySpatialPersistenceContextEXT(XrSpatialPersistenceContextEXT persistenceContext)
+{
+    struct xrDestroySpatialPersistenceContextEXT_params params;
+    NTSTATUS _status;
+    params.persistenceContext = persistenceContext;
+    _status = UNIX_CALL(xrDestroySpatialPersistenceContextEXT, &params);
+    assert(!_status && "xrDestroySpatialPersistenceContextEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroySpatialSnapshotEXT(XrSpatialSnapshotEXT snapshot)
+{
+    struct xrDestroySpatialSnapshotEXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    _status = UNIX_CALL(xrDestroySpatialSnapshotEXT, &params);
+    assert(!_status && "xrDestroySpatialSnapshotEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroyTrackableImageDatabaseANDROID(XrTrackableImageDatabaseANDROID database)
+{
+    struct xrDestroyTrackableImageDatabaseANDROID_params params;
+    NTSTATUS _status;
+    params.database = database;
+    _status = UNIX_CALL(xrDestroyTrackableImageDatabaseANDROID, &params);
+    assert(!_status && "xrDestroyTrackableImageDatabaseANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrDestroyTrackableTrackerANDROID(XrTrackableTrackerANDROID trackableTracker)
+{
+    struct xrDestroyTrackableTrackerANDROID_params params;
+    NTSTATUS _status;
+    params.trackableTracker = trackableTracker;
+    _status = UNIX_CALL(xrDestroyTrackableTrackerANDROID, &params);
+    assert(!_status && "xrDestroyTrackableTrackerANDROID");
     return params.result;
 }
 
@@ -1162,6 +1798,18 @@ XrResult WINAPI xrDestroyWorldMeshDetectorML(XrWorldMeshDetectorML detector)
     params.detector = detector;
     _status = UNIX_CALL(xrDestroyWorldMeshDetectorML, &params);
     assert(!_status && "xrDestroyWorldMeshDetectorML");
+    return params.result;
+}
+
+XrResult WINAPI xrDiscoverSpacesMETA(XrSession session, const XrSpaceDiscoveryInfoMETA *info, XrAsyncRequestIdFB *requestId)
+{
+    struct xrDiscoverSpacesMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.info = info;
+    params.requestId = requestId;
+    _status = UNIX_CALL(xrDiscoverSpacesMETA, &params);
+    assert(!_status && "xrDiscoverSpacesMETA");
     return params.result;
 }
 
@@ -1208,6 +1856,16 @@ XrResult WINAPI xrEnableUserCalibrationEventsML(XrInstance instance, const XrUse
     params.enableInfo = enableInfo;
     _status = UNIX_CALL(xrEnableUserCalibrationEventsML, &params);
     assert(!_status && "xrEnableUserCalibrationEventsML");
+    return params.result;
+}
+
+XrResult WINAPI xrEndAudioPeriodBD(XrSpatialAudioRendererBD renderer)
+{
+    struct xrEndAudioPeriodBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    _status = UNIX_CALL(xrEndAudioPeriodBD, &params);
+    assert(!_status && "xrEndAudioPeriodBD");
     return params.result;
 }
 
@@ -1314,6 +1972,19 @@ XrResult WINAPI xrEnumerateExternalCamerasOCULUS(XrSession session, uint32_t cam
     return params.result;
 }
 
+XrResult WINAPI xrEnumerateFacialSimulationModesBD(XrSession session, uint32_t modeCapacityInput, uint32_t *modeCountOutput, XrFacialSimulationModeBD *modes)
+{
+    struct xrEnumerateFacialSimulationModesBD_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.modeCapacityInput = modeCapacityInput;
+    params.modeCountOutput = modeCountOutput;
+    params.modes = modes;
+    _status = UNIX_CALL(xrEnumerateFacialSimulationModesBD, &params);
+    assert(!_status && "xrEnumerateFacialSimulationModesBD");
+    return params.result;
+}
+
 XrResult WINAPI xrEnumerateInstanceExtensionProperties(const char *layerName, uint32_t propertyCapacityInput, uint32_t *propertyCountOutput, XrExtensionProperties *properties)
 {
     struct xrEnumerateInstanceExtensionProperties_params params;
@@ -1324,6 +1995,33 @@ XrResult WINAPI xrEnumerateInstanceExtensionProperties(const char *layerName, ui
     params.properties = properties;
     _status = UNIX_CALL(xrEnumerateInstanceExtensionProperties, &params);
     assert(!_status && "xrEnumerateInstanceExtensionProperties");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateInteractionRenderModelIdsEXT(XrSession session, const XrInteractionRenderModelIdsEnumerateInfoEXT *getInfo, uint32_t renderModelIdCapacityInput, uint32_t *renderModelIdCountOutput, XrRenderModelIdEXT *renderModelIds)
+{
+    struct xrEnumerateInteractionRenderModelIdsEXT_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.getInfo = getInfo;
+    params.renderModelIdCapacityInput = renderModelIdCapacityInput;
+    params.renderModelIdCountOutput = renderModelIdCountOutput;
+    params.renderModelIds = renderModelIds;
+    _status = UNIX_CALL(xrEnumerateInteractionRenderModelIdsEXT, &params);
+    assert(!_status && "xrEnumerateInteractionRenderModelIdsEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumeratePerformanceMetricsCounterPathsANDROID(XrInstance instance, uint32_t counterPathCapacityInput, uint32_t *counterPathCountOutput, XrPath *counterPaths)
+{
+    struct xrEnumeratePerformanceMetricsCounterPathsANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.counterPathCapacityInput = counterPathCapacityInput;
+    params.counterPathCountOutput = counterPathCountOutput;
+    params.counterPaths = counterPaths;
+    _status = UNIX_CALL(xrEnumeratePerformanceMetricsCounterPathsANDROID, &params);
+    assert(!_status && "xrEnumeratePerformanceMetricsCounterPathsANDROID");
     return params.result;
 }
 
@@ -1340,6 +2038,19 @@ XrResult WINAPI xrEnumeratePerformanceMetricsCounterPathsMETA(XrInstance instanc
     return params.result;
 }
 
+XrResult WINAPI xrEnumeratePersistedAnchorsANDROID(XrDeviceAnchorPersistenceANDROID handle, uint32_t anchorIdCapacityInput, uint32_t *anchorIdCountOutput, XrUuidEXT *anchorIds)
+{
+    struct xrEnumeratePersistedAnchorsANDROID_params params;
+    NTSTATUS _status;
+    params.handle = handle;
+    params.anchorIdCapacityInput = anchorIdCapacityInput;
+    params.anchorIdCountOutput = anchorIdCountOutput;
+    params.anchorIds = anchorIds;
+    _status = UNIX_CALL(xrEnumeratePersistedAnchorsANDROID, &params);
+    assert(!_status && "xrEnumeratePersistedAnchorsANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrEnumeratePersistedSpatialAnchorNamesMSFT(XrSpatialAnchorStoreConnectionMSFT spatialAnchorStore, uint32_t spatialAnchorNameCapacityInput, uint32_t *spatialAnchorNameCountOutput, XrSpatialAnchorPersistenceNameMSFT *spatialAnchorNames)
 {
     struct xrEnumeratePersistedSpatialAnchorNamesMSFT_params params;
@@ -1350,6 +2061,20 @@ XrResult WINAPI xrEnumeratePersistedSpatialAnchorNamesMSFT(XrSpatialAnchorStoreC
     params.spatialAnchorNames = spatialAnchorNames;
     _status = UNIX_CALL(xrEnumeratePersistedSpatialAnchorNamesMSFT, &params);
     assert(!_status && "xrEnumeratePersistedSpatialAnchorNamesMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateRaycastSupportedTrackableTypesANDROID(XrInstance instance, XrSystemId systemId, uint32_t trackableTypeCapacityInput, uint32_t *trackableTypeCountOutput, XrTrackableTypeANDROID *trackableTypes)
+{
+    struct xrEnumerateRaycastSupportedTrackableTypesANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.trackableTypeCapacityInput = trackableTypeCapacityInput;
+    params.trackableTypeCountOutput = trackableTypeCountOutput;
+    params.trackableTypes = trackableTypes;
+    _status = UNIX_CALL(xrEnumerateRaycastSupportedTrackableTypesANDROID, &params);
+    assert(!_status && "xrEnumerateRaycastSupportedTrackableTypesANDROID");
     return params.result;
 }
 
@@ -1376,6 +2101,20 @@ XrResult WINAPI xrEnumerateRenderModelPathsFB(XrSession session, uint32_t pathCa
     params.paths = paths;
     _status = UNIX_CALL(xrEnumerateRenderModelPathsFB, &params);
     assert(!_status && "xrEnumerateRenderModelPathsFB");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateRenderModelSubactionPathsEXT(XrRenderModelEXT renderModel, const XrInteractionRenderModelSubactionPathInfoEXT *info, uint32_t pathCapacityInput, uint32_t *pathCountOutput, XrPath *paths)
+{
+    struct xrEnumerateRenderModelSubactionPathsEXT_params params;
+    NTSTATUS _status;
+    params.renderModel = renderModel;
+    params.info = info;
+    params.pathCapacityInput = pathCapacityInput;
+    params.pathCountOutput = pathCountOutput;
+    params.paths = paths;
+    _status = UNIX_CALL(xrEnumerateRenderModelSubactionPathsEXT, &params);
+    assert(!_status && "xrEnumerateRenderModelSubactionPathsEXT");
     return params.result;
 }
 
@@ -1421,6 +2160,62 @@ XrResult WINAPI xrEnumerateSpaceSupportedComponentsFB(XrSpace space, uint32_t co
     return params.result;
 }
 
+XrResult WINAPI xrEnumerateSpatialAnchorAttachableComponentsANDROID(XrInstance instance, XrSystemId systemId, uint32_t attachableComponentCapacityInput, uint32_t *attachableComponentCountOutput, XrSpatialComponentTypeEXT *attachableComponents)
+{
+    struct xrEnumerateSpatialAnchorAttachableComponentsANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.attachableComponentCapacityInput = attachableComponentCapacityInput;
+    params.attachableComponentCountOutput = attachableComponentCountOutput;
+    params.attachableComponents = attachableComponents;
+    _status = UNIX_CALL(xrEnumerateSpatialAnchorAttachableComponentsANDROID, &params);
+    assert(!_status && "xrEnumerateSpatialAnchorAttachableComponentsANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSpatialCapabilitiesEXT(XrInstance instance, XrSystemId systemId, uint32_t capabilityCapacityInput, uint32_t *capabilityCountOutput, XrSpatialCapabilityEXT *capabilities)
+{
+    struct xrEnumerateSpatialCapabilitiesEXT_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.capabilityCapacityInput = capabilityCapacityInput;
+    params.capabilityCountOutput = capabilityCountOutput;
+    params.capabilities = capabilities;
+    _status = UNIX_CALL(xrEnumerateSpatialCapabilitiesEXT, &params);
+    assert(!_status && "xrEnumerateSpatialCapabilitiesEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSpatialCapabilityComponentTypesEXT(XrInstance instance, XrSystemId systemId, XrSpatialCapabilityEXT capability, XrSpatialCapabilityComponentTypesEXT *capabilityComponents)
+{
+    struct xrEnumerateSpatialCapabilityComponentTypesEXT_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.capability = capability;
+    params.capabilityComponents = capabilityComponents;
+    _status = UNIX_CALL(xrEnumerateSpatialCapabilityComponentTypesEXT, &params);
+    assert(!_status && "xrEnumerateSpatialCapabilityComponentTypesEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSpatialCapabilityFeaturesEXT(XrInstance instance, XrSystemId systemId, XrSpatialCapabilityEXT capability, uint32_t capabilityFeatureCapacityInput, uint32_t *capabilityFeatureCountOutput, XrSpatialCapabilityFeatureEXT *capabilityFeatures)
+{
+    struct xrEnumerateSpatialCapabilityFeaturesEXT_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.capability = capability;
+    params.capabilityFeatureCapacityInput = capabilityFeatureCapacityInput;
+    params.capabilityFeatureCountOutput = capabilityFeatureCountOutput;
+    params.capabilityFeatures = capabilityFeatures;
+    _status = UNIX_CALL(xrEnumerateSpatialCapabilityFeaturesEXT, &params);
+    assert(!_status && "xrEnumerateSpatialCapabilityFeaturesEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrEnumerateSpatialEntityComponentTypesBD(XrSenseDataSnapshotBD snapshot, XrSpatialEntityIdBD entityId, uint32_t componentTypeCapacityInput, uint32_t *componentTypeCountOutput, XrSpatialEntityComponentTypeBD *componentTypes)
 {
     struct xrEnumerateSpatialEntityComponentTypesBD_params params;
@@ -1432,6 +2227,89 @@ XrResult WINAPI xrEnumerateSpatialEntityComponentTypesBD(XrSenseDataSnapshotBD s
     params.componentTypes = componentTypes;
     _status = UNIX_CALL(xrEnumerateSpatialEntityComponentTypesBD, &params);
     assert(!_status && "xrEnumerateSpatialEntityComponentTypesBD");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSpatialPersistenceScopesEXT(XrInstance instance, XrSystemId systemId, uint32_t persistenceScopeCapacityInput, uint32_t *persistenceScopeCountOutput, XrSpatialPersistenceScopeEXT *persistenceScopes)
+{
+    struct xrEnumerateSpatialPersistenceScopesEXT_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.persistenceScopeCapacityInput = persistenceScopeCapacityInput;
+    params.persistenceScopeCountOutput = persistenceScopeCountOutput;
+    params.persistenceScopes = persistenceScopes;
+    _status = UNIX_CALL(xrEnumerateSpatialPersistenceScopesEXT, &params);
+    assert(!_status && "xrEnumerateSpatialPersistenceScopesEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSupportedAnchorTrackableTypesANDROID(XrInstance instance, XrSystemId systemId, uint32_t trackableTypeCapacityInput, uint32_t *trackableTypeCountOutput, XrTrackableTypeANDROID *trackableTypes)
+{
+    struct xrEnumerateSupportedAnchorTrackableTypesANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.trackableTypeCapacityInput = trackableTypeCapacityInput;
+    params.trackableTypeCountOutput = trackableTypeCountOutput;
+    params.trackableTypes = trackableTypes;
+    _status = UNIX_CALL(xrEnumerateSupportedAnchorTrackableTypesANDROID, &params);
+    assert(!_status && "xrEnumerateSupportedAnchorTrackableTypesANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSupportedAudioSampleRateBD(XrSession session, uint32_t sampleRateCapacityInput, uint32_t *sampleRateCountOutput, XrAudioSampleRateBD *sampleRates)
+{
+    struct xrEnumerateSupportedAudioSampleRateBD_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.sampleRateCapacityInput = sampleRateCapacityInput;
+    params.sampleRateCountOutput = sampleRateCountOutput;
+    params.sampleRates = sampleRates;
+    _status = UNIX_CALL(xrEnumerateSupportedAudioSampleRateBD, &params);
+    assert(!_status && "xrEnumerateSupportedAudioSampleRateBD");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSupportedPersistenceAnchorTypesANDROID(XrInstance instance, XrSystemId systemId, uint32_t trackableTypeCapacityInput, uint32_t *trackableTypeCountOutput, XrTrackableTypeANDROID *trackableTypes)
+{
+    struct xrEnumerateSupportedPersistenceAnchorTypesANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.trackableTypeCapacityInput = trackableTypeCapacityInput;
+    params.trackableTypeCountOutput = trackableTypeCountOutput;
+    params.trackableTypes = trackableTypes;
+    _status = UNIX_CALL(xrEnumerateSupportedPersistenceAnchorTypesANDROID, &params);
+    assert(!_status && "xrEnumerateSupportedPersistenceAnchorTypesANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSupportedSemanticLabelSetsANDROID(XrInstance instance, XrSystemId systemId, uint32_t supportedSemanticLabelSetsInputCapacity, uint32_t *supportedSemanticLabelSetsOutputCount, XrSceneMeshSemanticLabelSetANDROID *supportedSemanticLabelSets)
+{
+    struct xrEnumerateSupportedSemanticLabelSetsANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.supportedSemanticLabelSetsInputCapacity = supportedSemanticLabelSetsInputCapacity;
+    params.supportedSemanticLabelSetsOutputCount = supportedSemanticLabelSetsOutputCount;
+    params.supportedSemanticLabelSets = supportedSemanticLabelSets;
+    _status = UNIX_CALL(xrEnumerateSupportedSemanticLabelSetsANDROID, &params);
+    assert(!_status && "xrEnumerateSupportedSemanticLabelSetsANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrEnumerateSupportedTrackableTypesANDROID(XrInstance instance, XrSystemId systemId, uint32_t trackableTypeCapacityInput, uint32_t *trackableTypeCountOutput, XrTrackableTypeANDROID *trackableTypes)
+{
+    struct xrEnumerateSupportedTrackableTypesANDROID_params params;
+    NTSTATUS _status;
+    params.instance = instance;
+    params.systemId = systemId;
+    params.trackableTypeCapacityInput = trackableTypeCapacityInput;
+    params.trackableTypeCountOutput = trackableTypeCountOutput;
+    params.trackableTypes = trackableTypes;
+    _status = UNIX_CALL(xrEnumerateSupportedTrackableTypesANDROID, &params);
+    assert(!_status && "xrEnumerateSupportedTrackableTypesANDROID");
     return params.result;
 }
 
@@ -1486,6 +2364,18 @@ XrResult WINAPI xrEraseSpaceFB(XrSession session, const XrSpaceEraseInfoFB *info
     params.requestId = requestId;
     _status = UNIX_CALL(xrEraseSpaceFB, &params);
     assert(!_status && "xrEraseSpaceFB");
+    return params.result;
+}
+
+XrResult WINAPI xrEraseSpacesMETA(XrSession session, const XrSpacesEraseInfoMETA *info, XrAsyncRequestIdFB *requestId)
+{
+    struct xrEraseSpacesMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.info = info;
+    params.requestId = requestId;
+    _status = UNIX_CALL(xrEraseSpacesMETA, &params);
+    assert(!_status && "xrEraseSpacesMETA");
     return params.result;
 }
 
@@ -1556,6 +2446,44 @@ XrResult WINAPI xrGetActionStateVector2f(XrSession session, const XrActionStateG
     params.state = state;
     _status = UNIX_CALL(xrGetActionStateVector2f, &params);
     assert(!_status && "xrGetActionStateVector2f");
+    return params.result;
+}
+
+XrResult WINAPI xrGetAllSubmeshStatesANDROID(XrSceneMeshSnapshotANDROID snapshot, uint32_t submeshStateCapacityInput, uint32_t *submeshStateCountOutput, XrSceneSubmeshStateANDROID *submeshStates)
+{
+    struct xrGetAllSubmeshStatesANDROID_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.submeshStateCapacityInput = submeshStateCapacityInput;
+    params.submeshStateCountOutput = submeshStateCountOutput;
+    params.submeshStates = submeshStates;
+    _status = UNIX_CALL(xrGetAllSubmeshStatesANDROID, &params);
+    assert(!_status && "xrGetAllSubmeshStatesANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrGetAllTrackablesANDROID(XrTrackableTrackerANDROID trackableTracker, uint32_t trackableCapacityInput, uint32_t *trackableCountOutput, XrTrackableANDROID *trackables)
+{
+    struct xrGetAllTrackablesANDROID_params params;
+    NTSTATUS _status;
+    params.trackableTracker = trackableTracker;
+    params.trackableCapacityInput = trackableCapacityInput;
+    params.trackableCountOutput = trackableCountOutput;
+    params.trackables = trackables;
+    _status = UNIX_CALL(xrGetAllTrackablesANDROID, &params);
+    assert(!_status && "xrGetAllTrackablesANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrGetAnchorPersistStateANDROID(XrDeviceAnchorPersistenceANDROID handle, const XrUuidEXT *anchorId, XrAnchorPersistStateANDROID *persistState)
+{
+    struct xrGetAnchorPersistStateANDROID_params params;
+    NTSTATUS _status;
+    params.handle = handle;
+    params.anchorId = anchorId;
+    params.persistState = persistState;
+    _status = UNIX_CALL(xrGetAnchorPersistStateANDROID, &params);
+    assert(!_status && "xrGetAnchorPersistStateANDROID");
     return params.result;
 }
 
@@ -1723,6 +2651,17 @@ XrResult WINAPI xrGetEyeGazesFB(XrEyeTrackerFB eyeTracker, const XrEyeGazesInfoF
     return params.result;
 }
 
+XrResult WINAPI xrGetFaceCalibrationStateANDROID(XrFaceTrackerANDROID faceTracker, XrBool32 *faceIsCalibratedOutput)
+{
+    struct xrGetFaceCalibrationStateANDROID_params params;
+    NTSTATUS _status;
+    params.faceTracker = faceTracker;
+    params.faceIsCalibratedOutput = faceIsCalibratedOutput;
+    _status = UNIX_CALL(xrGetFaceCalibrationStateANDROID, &params);
+    assert(!_status && "xrGetFaceCalibrationStateANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrGetFaceExpressionWeights2FB(XrFaceTracker2FB faceTracker, const XrFaceExpressionInfo2FB *expressionInfo, XrFaceExpressionWeights2FB *expressionWeights)
 {
     struct xrGetFaceExpressionWeights2FB_params params;
@@ -1744,6 +2683,18 @@ XrResult WINAPI xrGetFaceExpressionWeightsFB(XrFaceTrackerFB faceTracker, const 
     params.expressionWeights = expressionWeights;
     _status = UNIX_CALL(xrGetFaceExpressionWeightsFB, &params);
     assert(!_status && "xrGetFaceExpressionWeightsFB");
+    return params.result;
+}
+
+XrResult WINAPI xrGetFaceStateANDROID(XrFaceTrackerANDROID faceTracker, const XrFaceStateGetInfoANDROID *getInfo, XrFaceStateANDROID *faceStateOutput)
+{
+    struct xrGetFaceStateANDROID_params params;
+    NTSTATUS _status;
+    params.faceTracker = faceTracker;
+    params.getInfo = getInfo;
+    params.faceStateOutput = faceStateOutput;
+    _status = UNIX_CALL(xrGetFaceStateANDROID, &params);
+    assert(!_status && "xrGetFaceStateANDROID");
     return params.result;
 }
 
@@ -1771,6 +2722,29 @@ XrResult WINAPI xrGetFacialExpressionsHTC(XrFacialTrackerHTC facialTracker, XrFa
     return params.result;
 }
 
+XrResult WINAPI xrGetFacialSimulationDataBD(XrFaceTrackerBD tracker, const XrFacialSimulationDataGetInfoBD *info, XrFacialSimulationDataBD *facialData)
+{
+    struct xrGetFacialSimulationDataBD_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.info = info;
+    params.facialData = facialData;
+    _status = UNIX_CALL(xrGetFacialSimulationDataBD, &params);
+    assert(!_status && "xrGetFacialSimulationDataBD");
+    return params.result;
+}
+
+XrResult WINAPI xrGetFacialSimulationModeBD(XrFaceTrackerBD tracker, XrFacialSimulationModeBD *mode)
+{
+    struct xrGetFacialSimulationModeBD_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.mode = mode;
+    _status = UNIX_CALL(xrGetFacialSimulationModeBD, &params);
+    assert(!_status && "xrGetFacialSimulationModeBD");
+    return params.result;
+}
+
 XrResult WINAPI xrGetFoveationEyeTrackedStateMETA(XrSession session, XrFoveationEyeTrackedStateMETA *foveationState)
 {
     struct xrGetFoveationEyeTrackedStateMETA_params params;
@@ -1779,6 +2753,18 @@ XrResult WINAPI xrGetFoveationEyeTrackedStateMETA(XrSession session, XrFoveation
     params.foveationState = foveationState;
     _status = UNIX_CALL(xrGetFoveationEyeTrackedStateMETA, &params);
     assert(!_status && "xrGetFoveationEyeTrackedStateMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrGetHandGestureQCOM(XrHandTrackerEXT handTracker, XrTime time, XrHandGestureQCOM *handGesture)
+{
+    struct xrGetHandGestureQCOM_params params;
+    NTSTATUS _status;
+    params.handTracker = handTracker;
+    params.time = time;
+    params.handGesture = handGesture;
+    _status = UNIX_CALL(xrGetHandGestureQCOM, &params);
+    assert(!_status && "xrGetHandGestureQCOM");
     return params.result;
 }
 
@@ -1916,6 +2902,18 @@ XrResult WINAPI xrGetOpenGLGraphicsRequirementsKHR(XrInstance instance, XrSystem
     return params.result;
 }
 
+XrResult WINAPI xrGetPassthroughCameraStateANDROID(XrSession session, const XrPassthroughCameraStateGetInfoANDROID *getInfo, XrPassthroughCameraStateANDROID *cameraStateOutput)
+{
+    struct xrGetPassthroughCameraStateANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.getInfo = getInfo;
+    params.cameraStateOutput = cameraStateOutput;
+    _status = UNIX_CALL(xrGetPassthroughCameraStateANDROID, &params);
+    assert(!_status && "xrGetPassthroughCameraStateANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrGetPassthroughPreferencesMETA(XrSession session, XrPassthroughPreferencesMETA *preferences)
 {
     struct xrGetPassthroughPreferencesMETA_params params;
@@ -1924,6 +2922,17 @@ XrResult WINAPI xrGetPassthroughPreferencesMETA(XrSession session, XrPassthrough
     params.preferences = preferences;
     _status = UNIX_CALL(xrGetPassthroughPreferencesMETA, &params);
     assert(!_status && "xrGetPassthroughPreferencesMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrGetPerformanceMetricsStateANDROID(XrSession session, XrPerformanceMetricsStateANDROID *state)
+{
+    struct xrGetPerformanceMetricsStateANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.state = state;
+    _status = UNIX_CALL(xrGetPerformanceMetricsStateANDROID, &params);
+    assert(!_status && "xrGetPerformanceMetricsStateANDROID");
     return params.result;
 }
 
@@ -2010,6 +3019,54 @@ XrResult WINAPI xrGetReferenceSpaceBoundsRect(XrSession session, XrReferenceSpac
     return params.result;
 }
 
+XrResult WINAPI xrGetRenderModelAssetDataEXT(XrRenderModelAssetEXT asset, const XrRenderModelAssetDataGetInfoEXT *getInfo, XrRenderModelAssetDataEXT *buffer)
+{
+    struct xrGetRenderModelAssetDataEXT_params params;
+    NTSTATUS _status;
+    params.asset = asset;
+    params.getInfo = getInfo;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetRenderModelAssetDataEXT, &params);
+    assert(!_status && "xrGetRenderModelAssetDataEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetRenderModelAssetPropertiesEXT(XrRenderModelAssetEXT asset, const XrRenderModelAssetPropertiesGetInfoEXT *getInfo, XrRenderModelAssetPropertiesEXT *properties)
+{
+    struct xrGetRenderModelAssetPropertiesEXT_params params;
+    NTSTATUS _status;
+    params.asset = asset;
+    params.getInfo = getInfo;
+    params.properties = properties;
+    _status = UNIX_CALL(xrGetRenderModelAssetPropertiesEXT, &params);
+    assert(!_status && "xrGetRenderModelAssetPropertiesEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetRenderModelPoseTopLevelUserPathEXT(XrRenderModelEXT renderModel, const XrInteractionRenderModelTopLevelUserPathGetInfoEXT *info, XrPath *topLevelUserPath)
+{
+    struct xrGetRenderModelPoseTopLevelUserPathEXT_params params;
+    NTSTATUS _status;
+    params.renderModel = renderModel;
+    params.info = info;
+    params.topLevelUserPath = topLevelUserPath;
+    _status = UNIX_CALL(xrGetRenderModelPoseTopLevelUserPathEXT, &params);
+    assert(!_status && "xrGetRenderModelPoseTopLevelUserPathEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetRenderModelPropertiesEXT(XrRenderModelEXT renderModel, const XrRenderModelPropertiesGetInfoEXT *getInfo, XrRenderModelPropertiesEXT *properties)
+{
+    struct xrGetRenderModelPropertiesEXT_params params;
+    NTSTATUS _status;
+    params.renderModel = renderModel;
+    params.getInfo = getInfo;
+    params.properties = properties;
+    _status = UNIX_CALL(xrGetRenderModelPropertiesEXT, &params);
+    assert(!_status && "xrGetRenderModelPropertiesEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrGetRenderModelPropertiesFB(XrSession session, XrPath path, XrRenderModelPropertiesFB *properties)
 {
     struct xrGetRenderModelPropertiesFB_params params;
@@ -2019,6 +3076,18 @@ XrResult WINAPI xrGetRenderModelPropertiesFB(XrSession session, XrPath path, XrR
     params.properties = properties;
     _status = UNIX_CALL(xrGetRenderModelPropertiesFB, &params);
     assert(!_status && "xrGetRenderModelPropertiesFB");
+    return params.result;
+}
+
+XrResult WINAPI xrGetRenderModelStateEXT(XrRenderModelEXT renderModel, const XrRenderModelStateGetInfoEXT *getInfo, XrRenderModelStateEXT *state)
+{
+    struct xrGetRenderModelStateEXT_params params;
+    NTSTATUS _status;
+    params.renderModel = renderModel;
+    params.getInfo = getInfo;
+    params.state = state;
+    _status = UNIX_CALL(xrGetRenderModelStateEXT, &params);
+    assert(!_status && "xrGetRenderModelStateEXT");
     return params.result;
 }
 
@@ -2250,6 +3319,104 @@ XrResult WINAPI xrGetSpatialAnchorStateML(XrSpace anchor, XrSpatialAnchorStateML
     return params.result;
 }
 
+XrResult WINAPI xrGetSpatialBufferFloatEXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, float *buffer)
+{
+    struct xrGetSpatialBufferFloatEXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferFloatEXT, &params);
+    assert(!_status && "xrGetSpatialBufferFloatEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetSpatialBufferStringEXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, char *buffer)
+{
+    struct xrGetSpatialBufferStringEXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferStringEXT, &params);
+    assert(!_status && "xrGetSpatialBufferStringEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetSpatialBufferUint16EXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, uint16_t *buffer)
+{
+    struct xrGetSpatialBufferUint16EXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferUint16EXT, &params);
+    assert(!_status && "xrGetSpatialBufferUint16EXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetSpatialBufferUint32EXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, uint32_t *buffer)
+{
+    struct xrGetSpatialBufferUint32EXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferUint32EXT, &params);
+    assert(!_status && "xrGetSpatialBufferUint32EXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetSpatialBufferUint8EXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, uint8_t *buffer)
+{
+    struct xrGetSpatialBufferUint8EXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferUint8EXT, &params);
+    assert(!_status && "xrGetSpatialBufferUint8EXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetSpatialBufferVector2fEXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, XrVector2f *buffer)
+{
+    struct xrGetSpatialBufferVector2fEXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferVector2fEXT, &params);
+    assert(!_status && "xrGetSpatialBufferVector2fEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrGetSpatialBufferVector3fEXT(XrSpatialSnapshotEXT snapshot, const XrSpatialBufferGetInfoEXT *info, uint32_t bufferCapacityInput, uint32_t *bufferCountOutput, XrVector3f *buffer)
+{
+    struct xrGetSpatialBufferVector3fEXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.info = info;
+    params.bufferCapacityInput = bufferCapacityInput;
+    params.bufferCountOutput = bufferCountOutput;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrGetSpatialBufferVector3fEXT, &params);
+    assert(!_status && "xrGetSpatialBufferVector3fEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrGetSpatialEntityComponentDataBD(XrSenseDataSnapshotBD snapshot, const XrSpatialEntityComponentGetInfoBD *getInfo, XrSpatialEntityComponentDataBaseHeaderBD *componentData)
 {
     struct xrGetSpatialEntityComponentDataBD_params params;
@@ -2286,6 +3453,18 @@ XrResult WINAPI xrGetSpatialGraphNodeBindingPropertiesMSFT(XrSpatialGraphNodeBin
     return params.result;
 }
 
+XrResult WINAPI xrGetSubmeshDataANDROID(XrSceneMeshSnapshotANDROID snapshot, uint32_t submeshDataCount, XrSceneSubmeshDataANDROID *inoutSubmeshData)
+{
+    struct xrGetSubmeshDataANDROID_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.submeshDataCount = submeshDataCount;
+    params.inoutSubmeshData = inoutSubmeshData;
+    _status = UNIX_CALL(xrGetSubmeshDataANDROID, &params);
+    assert(!_status && "xrGetSubmeshDataANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrGetSwapchainStateFB(XrSwapchain swapchain, XrSwapchainStateBaseHeaderFB *state)
 {
     struct xrGetSwapchainStateFB_params params;
@@ -2306,6 +3485,66 @@ XrResult WINAPI xrGetSystemProperties(XrInstance instance, XrSystemId systemId, 
     params.properties = properties;
     _status = UNIX_CALL(xrGetSystemProperties, &params);
     assert(!_status && "xrGetSystemProperties");
+    return params.result;
+}
+
+XrResult WINAPI xrGetTrackableImageANDROID(XrTrackableTrackerANDROID tracker, const XrTrackableGetInfoANDROID *getInfo, XrTrackableImageANDROID *trackable)
+{
+    struct xrGetTrackableImageANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.getInfo = getInfo;
+    params.trackable = trackable;
+    _status = UNIX_CALL(xrGetTrackableImageANDROID, &params);
+    assert(!_status && "xrGetTrackableImageANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrGetTrackableMarkerANDROID(XrTrackableTrackerANDROID tracker, const XrTrackableGetInfoANDROID *getInfo, XrTrackableMarkerANDROID *markerOutput)
+{
+    struct xrGetTrackableMarkerANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.getInfo = getInfo;
+    params.markerOutput = markerOutput;
+    _status = UNIX_CALL(xrGetTrackableMarkerANDROID, &params);
+    assert(!_status && "xrGetTrackableMarkerANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrGetTrackableObjectANDROID(XrTrackableTrackerANDROID tracker, const XrTrackableGetInfoANDROID *getInfo, XrTrackableObjectANDROID *objectOutput)
+{
+    struct xrGetTrackableObjectANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.getInfo = getInfo;
+    params.objectOutput = objectOutput;
+    _status = UNIX_CALL(xrGetTrackableObjectANDROID, &params);
+    assert(!_status && "xrGetTrackableObjectANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrGetTrackablePlaneANDROID(XrTrackableTrackerANDROID trackableTracker, const XrTrackableGetInfoANDROID *getInfo, XrTrackablePlaneANDROID *planeOutput)
+{
+    struct xrGetTrackablePlaneANDROID_params params;
+    NTSTATUS _status;
+    params.trackableTracker = trackableTracker;
+    params.getInfo = getInfo;
+    params.planeOutput = planeOutput;
+    _status = UNIX_CALL(xrGetTrackablePlaneANDROID, &params);
+    assert(!_status && "xrGetTrackablePlaneANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrGetTrackableQrCodeANDROID(XrTrackableTrackerANDROID tracker, const XrTrackableGetInfoANDROID *getInfo, XrTrackableQrCodeANDROID *qrCodeOutput)
+{
+    struct xrGetTrackableQrCodeANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.getInfo = getInfo;
+    params.qrCodeOutput = qrCodeOutput;
+    _status = UNIX_CALL(xrGetTrackableQrCodeANDROID, &params);
+    assert(!_status && "xrGetTrackableQrCodeANDROID");
     return params.result;
 }
 
@@ -2684,6 +3923,17 @@ XrResult WINAPI xrPathToString(XrInstance instance, XrPath path, uint32_t buffer
     return params.result;
 }
 
+XrResult WINAPI xrPauseSimultaneousHandsAndControllersTrackingMETA(XrSession session, const XrSimultaneousHandsAndControllersTrackingPauseInfoMETA *pauseInfo)
+{
+    struct xrPauseSimultaneousHandsAndControllersTrackingMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.pauseInfo = pauseInfo;
+    _status = UNIX_CALL(xrPauseSimultaneousHandsAndControllersTrackingMETA, &params);
+    assert(!_status && "xrPauseSimultaneousHandsAndControllersTrackingMETA");
+    return params.result;
+}
+
 XrResult WINAPI xrPerfSettingsSetPerformanceLevelEXT(XrSession session, XrPerfSettingsDomainEXT domain, XrPerfSettingsLevelEXT level)
 {
     struct xrPerfSettingsSetPerformanceLevelEXT_params params;
@@ -2693,6 +3943,30 @@ XrResult WINAPI xrPerfSettingsSetPerformanceLevelEXT(XrSession session, XrPerfSe
     params.level = level;
     _status = UNIX_CALL(xrPerfSettingsSetPerformanceLevelEXT, &params);
     assert(!_status && "xrPerfSettingsSetPerformanceLevelEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrPerformEnvironmentRaycastMETA(XrEnvironmentRaycasterMETA environmentRaycaster, const XrEnvironmentRaycastHitGetInfoMETA *info, XrEnvironmentRaycastHitMETA *hitPoint)
+{
+    struct xrPerformEnvironmentRaycastMETA_params params;
+    NTSTATUS _status;
+    params.environmentRaycaster = environmentRaycaster;
+    params.info = info;
+    params.hitPoint = hitPoint;
+    _status = UNIX_CALL(xrPerformEnvironmentRaycastMETA, &params);
+    assert(!_status && "xrPerformEnvironmentRaycastMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrPersistAnchorANDROID(XrDeviceAnchorPersistenceANDROID handle, const XrPersistedAnchorSpaceInfoANDROID *persistedInfo, XrUuidEXT *anchorIdOutput)
+{
+    struct xrPersistAnchorANDROID_params params;
+    NTSTATUS _status;
+    params.handle = handle;
+    params.persistedInfo = persistedInfo;
+    params.anchorIdOutput = anchorIdOutput;
+    _status = UNIX_CALL(xrPersistAnchorANDROID, &params);
+    assert(!_status && "xrPersistAnchorANDROID");
     return params.result;
 }
 
@@ -2728,6 +4002,30 @@ XrResult WINAPI xrPersistSpatialAnchorMSFT(XrSpatialAnchorStoreConnectionMSFT sp
     params.spatialAnchorPersistenceInfo = spatialAnchorPersistenceInfo;
     _status = UNIX_CALL(xrPersistSpatialAnchorMSFT, &params);
     assert(!_status && "xrPersistSpatialAnchorMSFT");
+    return params.result;
+}
+
+XrResult WINAPI xrPersistSpatialEntityAsyncEXT(XrSpatialPersistenceContextEXT persistenceContext, const XrSpatialEntityPersistInfoEXT *persistInfo, XrFutureEXT *future)
+{
+    struct xrPersistSpatialEntityAsyncEXT_params params;
+    NTSTATUS _status;
+    params.persistenceContext = persistenceContext;
+    params.persistInfo = persistInfo;
+    params.future = future;
+    _status = UNIX_CALL(xrPersistSpatialEntityAsyncEXT, &params);
+    assert(!_status && "xrPersistSpatialEntityAsyncEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrPersistSpatialEntityCompleteEXT(XrSpatialPersistenceContextEXT persistenceContext, XrFutureEXT future, XrPersistSpatialEntityCompletionEXT *completion)
+{
+    struct xrPersistSpatialEntityCompleteEXT_params params;
+    NTSTATUS _status;
+    params.persistenceContext = persistenceContext;
+    params.future = future;
+    params.completion = completion;
+    _status = UNIX_CALL(xrPersistSpatialEntityCompleteEXT, &params);
+    assert(!_status && "xrPersistSpatialEntityCompleteEXT");
     return params.result;
 }
 
@@ -2767,6 +4065,19 @@ XrResult WINAPI xrPublishSpatialAnchorsCompleteML(XrSpatialAnchorsStorageML stor
     return params.result;
 }
 
+XrResult WINAPI xrQueryFramesPerBufferRangeBD(XrSession session, XrAudioSampleRateBD sampleRate, uint32_t *min, uint32_t *max)
+{
+    struct xrQueryFramesPerBufferRangeBD_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.sampleRate = sampleRate;
+    params.min = min;
+    params.max = max;
+    _status = UNIX_CALL(xrQueryFramesPerBufferRangeBD, &params);
+    assert(!_status && "xrQueryFramesPerBufferRangeBD");
+    return params.result;
+}
+
 XrResult WINAPI xrQueryLocalizationMapsML(XrSession session, const XrLocalizationMapQueryInfoBaseHeaderML *queryInfo, uint32_t mapCapacityInput, uint32_t *mapCountOutput, XrLocalizationMapML *maps)
 {
     struct xrQueryLocalizationMapsML_params params;
@@ -2778,6 +4089,18 @@ XrResult WINAPI xrQueryLocalizationMapsML(XrSession session, const XrLocalizatio
     params.maps = maps;
     _status = UNIX_CALL(xrQueryLocalizationMapsML, &params);
     assert(!_status && "xrQueryLocalizationMapsML");
+    return params.result;
+}
+
+XrResult WINAPI xrQueryPerformanceMetricsCounterANDROID(XrSession session, XrPath counterPath, XrPerformanceMetricsCounterANDROID *counter)
+{
+    struct xrQueryPerformanceMetricsCounterANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.counterPath = counterPath;
+    params.counter = counter;
+    _status = UNIX_CALL(xrQueryPerformanceMetricsCounterANDROID, &params);
+    assert(!_status && "xrQueryPerformanceMetricsCounterANDROID");
     return params.result;
 }
 
@@ -2853,6 +4176,18 @@ XrResult WINAPI xrQuerySpatialAnchorsCompleteML(XrSpatialAnchorsStorageML storag
     return params.result;
 }
 
+XrResult WINAPI xrQuerySpatialComponentDataEXT(XrSpatialSnapshotEXT snapshot, const XrSpatialComponentDataQueryConditionEXT *queryCondition, XrSpatialComponentDataQueryResultEXT *queryResult)
+{
+    struct xrQuerySpatialComponentDataEXT_params params;
+    NTSTATUS _status;
+    params.snapshot = snapshot;
+    params.queryCondition = queryCondition;
+    params.queryResult = queryResult;
+    _status = UNIX_CALL(xrQuerySpatialComponentDataEXT, &params);
+    assert(!_status && "xrQuerySpatialComponentDataEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrQuerySystemTrackedKeyboardFB(XrSession session, const XrKeyboardTrackingQueryFB *queryInfo, XrKeyboardTrackingDescriptionFB *keyboard)
 {
     struct xrQuerySystemTrackedKeyboardFB_params params;
@@ -2862,6 +4197,40 @@ XrResult WINAPI xrQuerySystemTrackedKeyboardFB(XrSession session, const XrKeyboa
     params.keyboard = keyboard;
     _status = UNIX_CALL(xrQuerySystemTrackedKeyboardFB, &params);
     assert(!_status && "xrQuerySystemTrackedKeyboardFB");
+    return params.result;
+}
+
+XrResult WINAPI xrRaycastANDROID(XrSession session, const XrRaycastInfoANDROID *rayInfo, XrRaycastHitResultsANDROID *results)
+{
+    struct xrRaycastANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.rayInfo = rayInfo;
+    params.results = results;
+    _status = UNIX_CALL(xrRaycastANDROID, &params);
+    assert(!_status && "xrRaycastANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrRemoveTrackableImageDatabaseANDROID(XrTrackableTrackerANDROID tracker, XrTrackableImageDatabaseANDROID database)
+{
+    struct xrRemoveTrackableImageDatabaseANDROID_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.database = database;
+    _status = UNIX_CALL(xrRemoveTrackableImageDatabaseANDROID, &params);
+    assert(!_status && "xrRemoveTrackableImageDatabaseANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrRequestBodyTrackingFidelityMETA(XrBodyTrackerFB bodyTracker, const XrBodyTrackingFidelityMETA fidelity)
+{
+    struct xrRequestBodyTrackingFidelityMETA_params params;
+    NTSTATUS _status;
+    params.bodyTracker = bodyTracker;
+    params.fidelity = fidelity;
+    _status = UNIX_CALL(xrRequestBodyTrackingFidelityMETA, &params);
+    assert(!_status && "xrRequestBodyTrackingFidelityMETA");
     return params.result;
 }
 
@@ -2959,6 +4328,16 @@ XrResult WINAPI xrRequestWorldMeshStateCompleteML(XrWorldMeshDetectorML detector
     return params.result;
 }
 
+XrResult WINAPI xrResetBodyTrackingCalibrationMETA(XrBodyTrackerFB bodyTracker)
+{
+    struct xrResetBodyTrackingCalibrationMETA_params params;
+    NTSTATUS _status;
+    params.bodyTracker = bodyTracker;
+    _status = UNIX_CALL(xrResetBodyTrackingCalibrationMETA, &params);
+    assert(!_status && "xrResetBodyTrackingCalibrationMETA");
+    return params.result;
+}
+
 XrResult WINAPI xrResultToString(XrInstance instance, XrResult value, char buffer[])
 {
     struct xrResultToString_params params;
@@ -2968,6 +4347,29 @@ XrResult WINAPI xrResultToString(XrInstance instance, XrResult value, char buffe
     params.buffer = buffer;
     _status = UNIX_CALL(xrResultToString, &params);
     assert(!_status && "xrResultToString");
+    return params.result;
+}
+
+XrResult WINAPI xrResumeSimultaneousHandsAndControllersTrackingMETA(XrSession session, const XrSimultaneousHandsAndControllersTrackingResumeInfoMETA *resumeInfo)
+{
+    struct xrResumeSimultaneousHandsAndControllersTrackingMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.resumeInfo = resumeInfo;
+    _status = UNIX_CALL(xrResumeSimultaneousHandsAndControllersTrackingMETA, &params);
+    assert(!_status && "xrResumeSimultaneousHandsAndControllersTrackingMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrRetrieveSpaceDiscoveryResultsMETA(XrSession session, XrAsyncRequestIdFB requestId, XrSpaceDiscoveryResultsMETA *results)
+{
+    struct xrRetrieveSpaceDiscoveryResultsMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.requestId = requestId;
+    params.results = results;
+    _status = UNIX_CALL(xrRetrieveSpaceDiscoveryResultsMETA, &params);
+    assert(!_status && "xrRetrieveSpaceDiscoveryResultsMETA");
     return params.result;
 }
 
@@ -3004,6 +4406,18 @@ XrResult WINAPI xrSaveSpaceListFB(XrSession session, const XrSpaceListSaveInfoFB
     params.requestId = requestId;
     _status = UNIX_CALL(xrSaveSpaceListFB, &params);
     assert(!_status && "xrSaveSpaceListFB");
+    return params.result;
+}
+
+XrResult WINAPI xrSaveSpacesMETA(XrSession session, const XrSpacesSaveInfoMETA *info, XrAsyncRequestIdFB *requestId)
+{
+    struct xrSaveSpacesMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.info = info;
+    params.requestId = requestId;
+    _status = UNIX_CALL(xrSaveSpacesMETA, &params);
+    assert(!_status && "xrSaveSpacesMETA");
     return params.result;
 }
 
@@ -3060,6 +4474,17 @@ XrResult WINAPI xrSetEnvironmentDepthHandRemovalMETA(XrEnvironmentDepthProviderM
     params.setInfo = setInfo;
     _status = UNIX_CALL(xrSetEnvironmentDepthHandRemovalMETA, &params);
     assert(!_status && "xrSetEnvironmentDepthHandRemovalMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrSetFacialSimulationModeBD(XrFaceTrackerBD tracker, XrFacialSimulationModeBD mode)
+{
+    struct xrSetFacialSimulationModeBD_params params;
+    NTSTATUS _status;
+    params.tracker = tracker;
+    params.mode = mode;
+    _status = UNIX_CALL(xrSetFacialSimulationModeBD, &params);
+    assert(!_status && "xrSetFacialSimulationModeBD");
     return params.result;
 }
 
@@ -3164,6 +4589,28 @@ XrResult WINAPI xrSetMarkerTrackingVARJO(XrSession session, XrBool32 enabled)
     return params.result;
 }
 
+XrResult WINAPI xrSetPassthroughLayerMeshANDROID(XrPassthroughLayerANDROID layer, const XrPassthroughLayerMeshANDROID *mesh)
+{
+    struct xrSetPassthroughLayerMeshANDROID_params params;
+    NTSTATUS _status;
+    params.layer = layer;
+    params.mesh = mesh;
+    _status = UNIX_CALL(xrSetPassthroughLayerMeshANDROID, &params);
+    assert(!_status && "xrSetPassthroughLayerMeshANDROID");
+    return params.result;
+}
+
+XrResult WINAPI xrSetPerformanceMetricsStateANDROID(XrSession session, const XrPerformanceMetricsStateANDROID *state)
+{
+    struct xrSetPerformanceMetricsStateANDROID_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.state = state;
+    _status = UNIX_CALL(xrSetPerformanceMetricsStateANDROID, &params);
+    assert(!_status && "xrSetPerformanceMetricsStateANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrSetPerformanceMetricsStateMETA(XrSession session, const XrPerformanceMetricsStateMETA *state)
 {
     struct xrSetPerformanceMetricsStateMETA_params params;
@@ -3195,6 +4642,17 @@ XrResult WINAPI xrSetSystemNotificationsML(XrInstance instance, const XrSystemNo
     params.info = info;
     _status = UNIX_CALL(xrSetSystemNotificationsML, &params);
     assert(!_status && "xrSetSystemNotificationsML");
+    return params.result;
+}
+
+XrResult WINAPI xrSetTilePropertiesHintMETA(XrSession session, const XrTilePropertiesHintMETA *properties)
+{
+    struct xrSetTilePropertiesHintMETA_params params;
+    NTSTATUS _status;
+    params.session = session;
+    params.properties = properties;
+    _status = UNIX_CALL(xrSetTilePropertiesHintMETA, &params);
+    assert(!_status && "xrSetTilePropertiesHintMETA");
     return params.result;
 }
 
@@ -3440,6 +4898,39 @@ XrResult WINAPI xrStructureTypeToString2KHR(XrInstance instance, XrStructureType
     return params.result;
 }
 
+XrResult WINAPI xrSubmitSoundFieldBufferBD(XrSoundFieldBD soundField, const XrAudioBufferBD *buffer)
+{
+    struct xrSubmitSoundFieldBufferBD_params params;
+    NTSTATUS _status;
+    params.soundField = soundField;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrSubmitSoundFieldBufferBD, &params);
+    assert(!_status && "xrSubmitSoundFieldBufferBD");
+    return params.result;
+}
+
+XrResult WINAPI xrSubmitSoundObjectBufferBD(XrSoundObjectBD soundObject, const XrAudioBufferBD *buffer)
+{
+    struct xrSubmitSoundObjectBufferBD_params params;
+    NTSTATUS _status;
+    params.soundObject = soundObject;
+    params.buffer = buffer;
+    _status = UNIX_CALL(xrSubmitSoundObjectBufferBD, &params);
+    assert(!_status && "xrSubmitSoundObjectBufferBD");
+    return params.result;
+}
+
+XrResult WINAPI xrSuggestBodyTrackingCalibrationOverrideMETA(XrBodyTrackerFB bodyTracker, const XrBodyTrackingCalibrationInfoMETA *calibrationInfo)
+{
+    struct xrSuggestBodyTrackingCalibrationOverrideMETA_params params;
+    NTSTATUS _status;
+    params.bodyTracker = bodyTracker;
+    params.calibrationInfo = calibrationInfo;
+    _status = UNIX_CALL(xrSuggestBodyTrackingCalibrationOverrideMETA, &params);
+    assert(!_status && "xrSuggestBodyTrackingCalibrationOverrideMETA");
+    return params.result;
+}
+
 XrResult WINAPI xrSuggestInteractionProfileBindings(XrInstance instance, const XrInteractionProfileSuggestedBinding *suggestedBindings)
 {
     struct xrSuggestInteractionProfileBindings_params params;
@@ -3564,6 +5055,17 @@ XrResult WINAPI xrTryCreateSpatialGraphStaticNodeBindingMSFT(XrSession session, 
     return params.result;
 }
 
+XrResult WINAPI xrUnpersistAnchorANDROID(XrDeviceAnchorPersistenceANDROID handle, const XrUuidEXT *anchorId)
+{
+    struct xrUnpersistAnchorANDROID_params params;
+    NTSTATUS _status;
+    params.handle = handle;
+    params.anchorId = anchorId;
+    _status = UNIX_CALL(xrUnpersistAnchorANDROID, &params);
+    assert(!_status && "xrUnpersistAnchorANDROID");
+    return params.result;
+}
+
 XrResult WINAPI xrUnpersistSpatialAnchorAsyncBD(XrSenseDataProviderBD provider, const XrSpatialAnchorUnpersistInfoBD *info, XrFutureEXT *future)
 {
     struct xrUnpersistSpatialAnchorAsyncBD_params params;
@@ -3599,6 +5101,30 @@ XrResult WINAPI xrUnpersistSpatialAnchorMSFT(XrSpatialAnchorStoreConnectionMSFT 
     return params.result;
 }
 
+XrResult WINAPI xrUnpersistSpatialEntityAsyncEXT(XrSpatialPersistenceContextEXT persistenceContext, const XrSpatialEntityUnpersistInfoEXT *unpersistInfo, XrFutureEXT *future)
+{
+    struct xrUnpersistSpatialEntityAsyncEXT_params params;
+    NTSTATUS _status;
+    params.persistenceContext = persistenceContext;
+    params.unpersistInfo = unpersistInfo;
+    params.future = future;
+    _status = UNIX_CALL(xrUnpersistSpatialEntityAsyncEXT, &params);
+    assert(!_status && "xrUnpersistSpatialEntityAsyncEXT");
+    return params.result;
+}
+
+XrResult WINAPI xrUnpersistSpatialEntityCompleteEXT(XrSpatialPersistenceContextEXT persistenceContext, XrFutureEXT future, XrUnpersistSpatialEntityCompletionEXT *completion)
+{
+    struct xrUnpersistSpatialEntityCompleteEXT_params params;
+    NTSTATUS _status;
+    params.persistenceContext = persistenceContext;
+    params.future = future;
+    params.completion = completion;
+    _status = UNIX_CALL(xrUnpersistSpatialEntityCompleteEXT, &params);
+    assert(!_status && "xrUnpersistSpatialEntityCompleteEXT");
+    return params.result;
+}
+
 XrResult WINAPI xrUpdateHandMeshMSFT(XrHandTrackerEXT handTracker, const XrHandMeshUpdateInfoMSFT *updateInfo, XrHandMeshMSFT *handMesh)
 {
     struct xrUpdateHandMeshMSFT_params params;
@@ -3619,6 +5145,54 @@ XrResult WINAPI xrUpdatePassthroughColorLutMETA(XrPassthroughColorLutMETA colorL
     params.updateInfo = updateInfo;
     _status = UNIX_CALL(xrUpdatePassthroughColorLutMETA, &params);
     assert(!_status && "xrUpdatePassthroughColorLutMETA");
+    return params.result;
+}
+
+XrResult WINAPI xrUpdateSoundFieldConfigBD(XrSoundFieldBD soundField, const XrSoundFieldConfigBD *config, XrSoundFieldFlagsBD flags)
+{
+    struct xrUpdateSoundFieldConfigBD_params params;
+    NTSTATUS _status;
+    params.soundField = soundField;
+    params.config = config;
+    params.flags = flags;
+    _status = UNIX_CALL(xrUpdateSoundFieldConfigBD, &params);
+    assert(!_status && "xrUpdateSoundFieldConfigBD");
+    return params.result;
+}
+
+XrResult WINAPI xrUpdateSoundObjectConfigBD(XrSoundObjectBD soundObject, const XrSoundObjectConfigBD *config, XrSoundObjectFlagsBD flags)
+{
+    struct xrUpdateSoundObjectConfigBD_params params;
+    NTSTATUS _status;
+    params.soundObject = soundObject;
+    params.config = config;
+    params.flags = flags;
+    _status = UNIX_CALL(xrUpdateSoundObjectConfigBD, &params);
+    assert(!_status && "xrUpdateSoundObjectConfigBD");
+    return params.result;
+}
+
+XrResult WINAPI xrUpdateSoundObstacleConfigBD(XrSoundObstacleBD soundObstacle, const XrSoundObstacleConfigBD *config, const XrSoundTriangleMeshBD *mesh, XrSoundObstacleFlagsBD flags)
+{
+    struct xrUpdateSoundObstacleConfigBD_params params;
+    NTSTATUS _status;
+    params.soundObstacle = soundObstacle;
+    params.config = config;
+    params.mesh = mesh;
+    params.flags = flags;
+    _status = UNIX_CALL(xrUpdateSoundObstacleConfigBD, &params);
+    assert(!_status && "xrUpdateSoundObstacleConfigBD");
+    return params.result;
+}
+
+XrResult WINAPI xrUpdateSoundObstacleMaterialConfigBD(XrSoundObstacleMaterialBD material, const XrSoundObstacleMaterialConfigBD *config)
+{
+    struct xrUpdateSoundObstacleMaterialConfigBD_params params;
+    NTSTATUS _status;
+    params.material = material;
+    params.config = config;
+    _status = UNIX_CALL(xrUpdateSoundObstacleMaterialConfigBD, &params);
+    assert(!_status && "xrUpdateSoundObstacleMaterialConfigBD");
     return params.result;
 }
 
@@ -3657,6 +5231,17 @@ XrResult WINAPI xrUpdateSwapchainFB(XrSwapchain swapchain, const XrSwapchainStat
     return params.result;
 }
 
+XrResult WINAPI xrWaitAudioPeriodBD(XrSpatialAudioRendererBD renderer, XrDuration timeout)
+{
+    struct xrWaitAudioPeriodBD_params params;
+    NTSTATUS _status;
+    params.renderer = renderer;
+    params.timeout = timeout;
+    _status = UNIX_CALL(xrWaitAudioPeriodBD, &params);
+    assert(!_status && "xrWaitAudioPeriodBD");
+    return params.result;
+}
+
 XrResult WINAPI xrWaitFrame(XrSession session, const XrFrameWaitInfo *frameWaitInfo, XrFrameState *frameState)
 {
     struct xrWaitFrame_params params;
@@ -3684,6 +5269,7 @@ static const struct openxr_func xr_instance_dispatch_table[] =
 {
     {"xrAcquireEnvironmentDepthImageMETA", xrAcquireEnvironmentDepthImageMETA},
     {"xrAcquireSwapchainImage", xrAcquireSwapchainImage},
+    {"xrAddTrackableImageDatabaseANDROID", xrAddTrackableImageDatabaseANDROID},
     {"xrAllocateWorldMeshBufferML", xrAllocateWorldMeshBufferML},
     {"xrApplyForceFeedbackCurlMNDX", xrApplyForceFeedbackCurlMNDX},
     {"xrApplyHapticFeedback", xrApplyHapticFeedback},
@@ -3702,16 +5288,22 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrCreateAction", xrCreateAction},
     {"xrCreateActionSet", xrCreateActionSet},
     {"xrCreateActionSpace", xrCreateActionSpace},
+    {"xrCreateAnchorSpaceANDROID", xrCreateAnchorSpaceANDROID},
     {"xrCreateAnchorSpaceBD", xrCreateAnchorSpaceBD},
     {"xrCreateApiLayerInstance", xrCreateApiLayerInstance},
     {"xrCreateBodyTrackerBD", xrCreateBodyTrackerBD},
     {"xrCreateBodyTrackerFB", xrCreateBodyTrackerFB},
     {"xrCreateBodyTrackerHTC", xrCreateBodyTrackerHTC},
+    {"xrCreateDeviceAnchorPersistenceANDROID", xrCreateDeviceAnchorPersistenceANDROID},
     {"xrCreateEnvironmentDepthProviderMETA", xrCreateEnvironmentDepthProviderMETA},
     {"xrCreateEnvironmentDepthSwapchainMETA", xrCreateEnvironmentDepthSwapchainMETA},
+    {"xrCreateEnvironmentRaycasterAsyncMETA", xrCreateEnvironmentRaycasterAsyncMETA},
+    {"xrCreateEnvironmentRaycasterCompleteMETA", xrCreateEnvironmentRaycasterCompleteMETA},
     {"xrCreateExportedLocalizationMapML", xrCreateExportedLocalizationMapML},
     {"xrCreateEyeTrackerFB", xrCreateEyeTrackerFB},
     {"xrCreateFaceTracker2FB", xrCreateFaceTracker2FB},
+    {"xrCreateFaceTrackerANDROID", xrCreateFaceTrackerANDROID},
+    {"xrCreateFaceTrackerBD", xrCreateFaceTrackerBD},
     {"xrCreateFaceTrackerFB", xrCreateFaceTrackerFB},
     {"xrCreateFacialExpressionClientML", xrCreateFacialExpressionClientML},
     {"xrCreateFacialTrackerHTC", xrCreateFacialTrackerHTC},
@@ -3727,28 +5319,55 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrCreatePassthroughColorLutMETA", xrCreatePassthroughColorLutMETA},
     {"xrCreatePassthroughFB", xrCreatePassthroughFB},
     {"xrCreatePassthroughHTC", xrCreatePassthroughHTC},
+    {"xrCreatePassthroughLayerANDROID", xrCreatePassthroughLayerANDROID},
     {"xrCreatePassthroughLayerFB", xrCreatePassthroughLayerFB},
+    {"xrCreatePersistedAnchorSpaceANDROID", xrCreatePersistedAnchorSpaceANDROID},
     {"xrCreatePlaneDetectorEXT", xrCreatePlaneDetectorEXT},
     {"xrCreateReferenceSpace", xrCreateReferenceSpace},
+    {"xrCreateRenderModelAssetEXT", xrCreateRenderModelAssetEXT},
+    {"xrCreateRenderModelEXT", xrCreateRenderModelEXT},
+    {"xrCreateRenderModelSpaceEXT", xrCreateRenderModelSpaceEXT},
     {"xrCreateSceneMSFT", xrCreateSceneMSFT},
+    {"xrCreateSceneMeshSnapshotANDROID", xrCreateSceneMeshSnapshotANDROID},
+    {"xrCreateSceneMeshingTrackerANDROID", xrCreateSceneMeshingTrackerANDROID},
     {"xrCreateSceneObserverMSFT", xrCreateSceneObserverMSFT},
     {"xrCreateSenseDataProviderBD", xrCreateSenseDataProviderBD},
     {"xrCreateSession", xrCreateSession},
+    {"xrCreateSoundFieldBD", xrCreateSoundFieldBD},
+    {"xrCreateSoundObjectBD", xrCreateSoundObjectBD},
+    {"xrCreateSoundObstacleBD", xrCreateSoundObstacleBD},
+    {"xrCreateSoundObstacleMaterialBD", xrCreateSoundObstacleMaterialBD},
     {"xrCreateSpaceUserFB", xrCreateSpaceUserFB},
     {"xrCreateSpatialAnchorAsyncBD", xrCreateSpatialAnchorAsyncBD},
     {"xrCreateSpatialAnchorCompleteBD", xrCreateSpatialAnchorCompleteBD},
+    {"xrCreateSpatialAnchorEXT", xrCreateSpatialAnchorEXT},
     {"xrCreateSpatialAnchorFB", xrCreateSpatialAnchorFB},
     {"xrCreateSpatialAnchorFromPersistedNameMSFT", xrCreateSpatialAnchorFromPersistedNameMSFT},
     {"xrCreateSpatialAnchorHTC", xrCreateSpatialAnchorHTC},
     {"xrCreateSpatialAnchorMSFT", xrCreateSpatialAnchorMSFT},
+    {"xrCreateSpatialAnchorSpaceANDROID", xrCreateSpatialAnchorSpaceANDROID},
+    {"xrCreateSpatialAnchorSpaceFromIdANDROID", xrCreateSpatialAnchorSpaceFromIdANDROID},
     {"xrCreateSpatialAnchorSpaceMSFT", xrCreateSpatialAnchorSpaceMSFT},
     {"xrCreateSpatialAnchorStoreConnectionMSFT", xrCreateSpatialAnchorStoreConnectionMSFT},
     {"xrCreateSpatialAnchorsAsyncML", xrCreateSpatialAnchorsAsyncML},
     {"xrCreateSpatialAnchorsCompleteML", xrCreateSpatialAnchorsCompleteML},
     {"xrCreateSpatialAnchorsStorageML", xrCreateSpatialAnchorsStorageML},
+    {"xrCreateSpatialAudioRendererBD", xrCreateSpatialAudioRendererBD},
+    {"xrCreateSpatialContextAsyncEXT", xrCreateSpatialContextAsyncEXT},
+    {"xrCreateSpatialContextCompleteEXT", xrCreateSpatialContextCompleteEXT},
+    {"xrCreateSpatialDiscoverySnapshotAsyncEXT", xrCreateSpatialDiscoverySnapshotAsyncEXT},
+    {"xrCreateSpatialDiscoverySnapshotCompleteEXT", xrCreateSpatialDiscoverySnapshotCompleteEXT},
     {"xrCreateSpatialEntityAnchorBD", xrCreateSpatialEntityAnchorBD},
+    {"xrCreateSpatialEntityFromIdEXT", xrCreateSpatialEntityFromIdEXT},
     {"xrCreateSpatialGraphNodeSpaceMSFT", xrCreateSpatialGraphNodeSpaceMSFT},
+    {"xrCreateSpatialPersistenceContextAsyncEXT", xrCreateSpatialPersistenceContextAsyncEXT},
+    {"xrCreateSpatialPersistenceContextCompleteEXT", xrCreateSpatialPersistenceContextCompleteEXT},
+    {"xrCreateSpatialRaycastSnapshotANDROID", xrCreateSpatialRaycastSnapshotANDROID},
+    {"xrCreateSpatialUpdateSnapshotEXT", xrCreateSpatialUpdateSnapshotEXT},
     {"xrCreateSwapchain", xrCreateSwapchain},
+    {"xrCreateTrackableImageDatabaseAsyncANDROID", xrCreateTrackableImageDatabaseAsyncANDROID},
+    {"xrCreateTrackableImageDatabaseCompleteANDROID", xrCreateTrackableImageDatabaseCompleteANDROID},
+    {"xrCreateTrackableTrackerANDROID", xrCreateTrackableTrackerANDROID},
     {"xrCreateTriangleMeshFB", xrCreateTriangleMeshFB},
     {"xrCreateVirtualKeyboardMETA", xrCreateVirtualKeyboardMETA},
     {"xrCreateVirtualKeyboardSpaceMETA", xrCreateVirtualKeyboardSpaceMETA},
@@ -3764,11 +5383,15 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrDestroyBodyTrackerBD", xrDestroyBodyTrackerBD},
     {"xrDestroyBodyTrackerFB", xrDestroyBodyTrackerFB},
     {"xrDestroyBodyTrackerHTC", xrDestroyBodyTrackerHTC},
+    {"xrDestroyDeviceAnchorPersistenceANDROID", xrDestroyDeviceAnchorPersistenceANDROID},
     {"xrDestroyEnvironmentDepthProviderMETA", xrDestroyEnvironmentDepthProviderMETA},
     {"xrDestroyEnvironmentDepthSwapchainMETA", xrDestroyEnvironmentDepthSwapchainMETA},
+    {"xrDestroyEnvironmentRaycasterMETA", xrDestroyEnvironmentRaycasterMETA},
     {"xrDestroyExportedLocalizationMapML", xrDestroyExportedLocalizationMapML},
     {"xrDestroyEyeTrackerFB", xrDestroyEyeTrackerFB},
     {"xrDestroyFaceTracker2FB", xrDestroyFaceTracker2FB},
+    {"xrDestroyFaceTrackerANDROID", xrDestroyFaceTrackerANDROID},
+    {"xrDestroyFaceTrackerBD", xrDestroyFaceTrackerBD},
     {"xrDestroyFaceTrackerFB", xrDestroyFaceTrackerFB},
     {"xrDestroyFacialExpressionClientML", xrDestroyFacialExpressionClientML},
     {"xrDestroyFacialTrackerHTC", xrDestroyFacialTrackerHTC},
@@ -3780,27 +5403,45 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrDestroyPassthroughColorLutMETA", xrDestroyPassthroughColorLutMETA},
     {"xrDestroyPassthroughFB", xrDestroyPassthroughFB},
     {"xrDestroyPassthroughHTC", xrDestroyPassthroughHTC},
+    {"xrDestroyPassthroughLayerANDROID", xrDestroyPassthroughLayerANDROID},
     {"xrDestroyPassthroughLayerFB", xrDestroyPassthroughLayerFB},
     {"xrDestroyPlaneDetectorEXT", xrDestroyPlaneDetectorEXT},
+    {"xrDestroyRenderModelAssetEXT", xrDestroyRenderModelAssetEXT},
+    {"xrDestroyRenderModelEXT", xrDestroyRenderModelEXT},
     {"xrDestroySceneMSFT", xrDestroySceneMSFT},
+    {"xrDestroySceneMeshSnapshotANDROID", xrDestroySceneMeshSnapshotANDROID},
+    {"xrDestroySceneMeshingTrackerANDROID", xrDestroySceneMeshingTrackerANDROID},
     {"xrDestroySceneObserverMSFT", xrDestroySceneObserverMSFT},
     {"xrDestroySenseDataProviderBD", xrDestroySenseDataProviderBD},
     {"xrDestroySenseDataSnapshotBD", xrDestroySenseDataSnapshotBD},
     {"xrDestroySession", xrDestroySession},
+    {"xrDestroySoundFieldBD", xrDestroySoundFieldBD},
+    {"xrDestroySoundObjectBD", xrDestroySoundObjectBD},
+    {"xrDestroySoundObstacleBD", xrDestroySoundObstacleBD},
+    {"xrDestroySoundObstacleMaterialBD", xrDestroySoundObstacleMaterialBD},
     {"xrDestroySpace", xrDestroySpace},
     {"xrDestroySpaceUserFB", xrDestroySpaceUserFB},
     {"xrDestroySpatialAnchorMSFT", xrDestroySpatialAnchorMSFT},
     {"xrDestroySpatialAnchorStoreConnectionMSFT", xrDestroySpatialAnchorStoreConnectionMSFT},
     {"xrDestroySpatialAnchorsStorageML", xrDestroySpatialAnchorsStorageML},
+    {"xrDestroySpatialAudioRendererBD", xrDestroySpatialAudioRendererBD},
+    {"xrDestroySpatialContextEXT", xrDestroySpatialContextEXT},
+    {"xrDestroySpatialEntityEXT", xrDestroySpatialEntityEXT},
     {"xrDestroySpatialGraphNodeBindingMSFT", xrDestroySpatialGraphNodeBindingMSFT},
+    {"xrDestroySpatialPersistenceContextEXT", xrDestroySpatialPersistenceContextEXT},
+    {"xrDestroySpatialSnapshotEXT", xrDestroySpatialSnapshotEXT},
     {"xrDestroySwapchain", xrDestroySwapchain},
+    {"xrDestroyTrackableImageDatabaseANDROID", xrDestroyTrackableImageDatabaseANDROID},
+    {"xrDestroyTrackableTrackerANDROID", xrDestroyTrackableTrackerANDROID},
     {"xrDestroyTriangleMeshFB", xrDestroyTriangleMeshFB},
     {"xrDestroyVirtualKeyboardMETA", xrDestroyVirtualKeyboardMETA},
     {"xrDestroyWorldMeshDetectorML", xrDestroyWorldMeshDetectorML},
+    {"xrDiscoverSpacesMETA", xrDiscoverSpacesMETA},
     {"xrDownloadSharedSpatialAnchorAsyncBD", xrDownloadSharedSpatialAnchorAsyncBD},
     {"xrDownloadSharedSpatialAnchorCompleteBD", xrDownloadSharedSpatialAnchorCompleteBD},
     {"xrEnableLocalizationEventsML", xrEnableLocalizationEventsML},
     {"xrEnableUserCalibrationEventsML", xrEnableUserCalibrationEventsML},
+    {"xrEndAudioPeriodBD", xrEndAudioPeriodBD},
     {"xrEndFrame", xrEndFrame},
     {"xrEndSession", xrEndSession},
     {"xrEnumerateApiLayerProperties", xrEnumerateApiLayerProperties},
@@ -3810,27 +5451,47 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrEnumerateEnvironmentBlendModes", xrEnumerateEnvironmentBlendModes},
     {"xrEnumerateEnvironmentDepthSwapchainImagesMETA", xrEnumerateEnvironmentDepthSwapchainImagesMETA},
     {"xrEnumerateExternalCamerasOCULUS", xrEnumerateExternalCamerasOCULUS},
+    {"xrEnumerateFacialSimulationModesBD", xrEnumerateFacialSimulationModesBD},
     {"xrEnumerateInstanceExtensionProperties", xrEnumerateInstanceExtensionProperties},
+    {"xrEnumerateInteractionRenderModelIdsEXT", xrEnumerateInteractionRenderModelIdsEXT},
+    {"xrEnumeratePerformanceMetricsCounterPathsANDROID", xrEnumeratePerformanceMetricsCounterPathsANDROID},
     {"xrEnumeratePerformanceMetricsCounterPathsMETA", xrEnumeratePerformanceMetricsCounterPathsMETA},
+    {"xrEnumeratePersistedAnchorsANDROID", xrEnumeratePersistedAnchorsANDROID},
     {"xrEnumeratePersistedSpatialAnchorNamesMSFT", xrEnumeratePersistedSpatialAnchorNamesMSFT},
+    {"xrEnumerateRaycastSupportedTrackableTypesANDROID", xrEnumerateRaycastSupportedTrackableTypesANDROID},
     {"xrEnumerateReferenceSpaces", xrEnumerateReferenceSpaces},
     {"xrEnumerateRenderModelPathsFB", xrEnumerateRenderModelPathsFB},
+    {"xrEnumerateRenderModelSubactionPathsEXT", xrEnumerateRenderModelSubactionPathsEXT},
     {"xrEnumerateReprojectionModesMSFT", xrEnumerateReprojectionModesMSFT},
     {"xrEnumerateSceneComputeFeaturesMSFT", xrEnumerateSceneComputeFeaturesMSFT},
     {"xrEnumerateSpaceSupportedComponentsFB", xrEnumerateSpaceSupportedComponentsFB},
+    {"xrEnumerateSpatialAnchorAttachableComponentsANDROID", xrEnumerateSpatialAnchorAttachableComponentsANDROID},
+    {"xrEnumerateSpatialCapabilitiesEXT", xrEnumerateSpatialCapabilitiesEXT},
+    {"xrEnumerateSpatialCapabilityComponentTypesEXT", xrEnumerateSpatialCapabilityComponentTypesEXT},
+    {"xrEnumerateSpatialCapabilityFeaturesEXT", xrEnumerateSpatialCapabilityFeaturesEXT},
     {"xrEnumerateSpatialEntityComponentTypesBD", xrEnumerateSpatialEntityComponentTypesBD},
+    {"xrEnumerateSpatialPersistenceScopesEXT", xrEnumerateSpatialPersistenceScopesEXT},
+    {"xrEnumerateSupportedAnchorTrackableTypesANDROID", xrEnumerateSupportedAnchorTrackableTypesANDROID},
+    {"xrEnumerateSupportedAudioSampleRateBD", xrEnumerateSupportedAudioSampleRateBD},
+    {"xrEnumerateSupportedPersistenceAnchorTypesANDROID", xrEnumerateSupportedPersistenceAnchorTypesANDROID},
+    {"xrEnumerateSupportedSemanticLabelSetsANDROID", xrEnumerateSupportedSemanticLabelSetsANDROID},
+    {"xrEnumerateSupportedTrackableTypesANDROID", xrEnumerateSupportedTrackableTypesANDROID},
     {"xrEnumerateSwapchainFormats", xrEnumerateSwapchainFormats},
     {"xrEnumerateSwapchainImages", xrEnumerateSwapchainImages},
     {"xrEnumerateViewConfigurationViews", xrEnumerateViewConfigurationViews},
     {"xrEnumerateViewConfigurations", xrEnumerateViewConfigurations},
     {"xrEnumerateViveTrackerPathsHTCX", xrEnumerateViveTrackerPathsHTCX},
     {"xrEraseSpaceFB", xrEraseSpaceFB},
+    {"xrEraseSpacesMETA", xrEraseSpacesMETA},
     {"xrFreeWorldMeshBufferML", xrFreeWorldMeshBufferML},
     {"xrGeometryInstanceSetTransformFB", xrGeometryInstanceSetTransformFB},
     {"xrGetActionStateBoolean", xrGetActionStateBoolean},
     {"xrGetActionStateFloat", xrGetActionStateFloat},
     {"xrGetActionStatePose", xrGetActionStatePose},
     {"xrGetActionStateVector2f", xrGetActionStateVector2f},
+    {"xrGetAllSubmeshStatesANDROID", xrGetAllSubmeshStatesANDROID},
+    {"xrGetAllTrackablesANDROID", xrGetAllTrackablesANDROID},
+    {"xrGetAnchorPersistStateANDROID", xrGetAnchorPersistStateANDROID},
     {"xrGetAnchorUuidBD", xrGetAnchorUuidBD},
     {"xrGetAudioInputDeviceGuidOculus", xrGetAudioInputDeviceGuidOculus},
     {"xrGetAudioOutputDeviceGuidOculus", xrGetAudioOutputDeviceGuidOculus},
@@ -3847,11 +5508,16 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrGetEnvironmentDepthSwapchainStateMETA", xrGetEnvironmentDepthSwapchainStateMETA},
     {"xrGetExportedLocalizationMapDataML", xrGetExportedLocalizationMapDataML},
     {"xrGetEyeGazesFB", xrGetEyeGazesFB},
+    {"xrGetFaceCalibrationStateANDROID", xrGetFaceCalibrationStateANDROID},
     {"xrGetFaceExpressionWeights2FB", xrGetFaceExpressionWeights2FB},
     {"xrGetFaceExpressionWeightsFB", xrGetFaceExpressionWeightsFB},
+    {"xrGetFaceStateANDROID", xrGetFaceStateANDROID},
     {"xrGetFacialExpressionBlendShapePropertiesML", xrGetFacialExpressionBlendShapePropertiesML},
     {"xrGetFacialExpressionsHTC", xrGetFacialExpressionsHTC},
+    {"xrGetFacialSimulationDataBD", xrGetFacialSimulationDataBD},
+    {"xrGetFacialSimulationModeBD", xrGetFacialSimulationModeBD},
     {"xrGetFoveationEyeTrackedStateMETA", xrGetFoveationEyeTrackedStateMETA},
+    {"xrGetHandGestureQCOM", xrGetHandGestureQCOM},
     {"xrGetHandMeshFB", xrGetHandMeshFB},
     {"xrGetInputSourceLocalizedName", xrGetInputSourceLocalizedName},
     {"xrGetInstanceProcAddr", xrGetInstanceProcAddr},
@@ -3864,7 +5530,9 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrGetMarkerStringML", xrGetMarkerStringML},
     {"xrGetMarkersML", xrGetMarkersML},
     {"xrGetOpenGLGraphicsRequirementsKHR", xrGetOpenGLGraphicsRequirementsKHR},
+    {"xrGetPassthroughCameraStateANDROID", xrGetPassthroughCameraStateANDROID},
     {"xrGetPassthroughPreferencesMETA", xrGetPassthroughPreferencesMETA},
+    {"xrGetPerformanceMetricsStateANDROID", xrGetPerformanceMetricsStateANDROID},
     {"xrGetPerformanceMetricsStateMETA", xrGetPerformanceMetricsStateMETA},
     {"xrGetPlaneDetectionStateEXT", xrGetPlaneDetectionStateEXT},
     {"xrGetPlaneDetectionsEXT", xrGetPlaneDetectionsEXT},
@@ -3872,7 +5540,12 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrGetQueriedSenseDataBD", xrGetQueriedSenseDataBD},
     {"xrGetRecommendedLayerResolutionMETA", xrGetRecommendedLayerResolutionMETA},
     {"xrGetReferenceSpaceBoundsRect", xrGetReferenceSpaceBoundsRect},
+    {"xrGetRenderModelAssetDataEXT", xrGetRenderModelAssetDataEXT},
+    {"xrGetRenderModelAssetPropertiesEXT", xrGetRenderModelAssetPropertiesEXT},
+    {"xrGetRenderModelPoseTopLevelUserPathEXT", xrGetRenderModelPoseTopLevelUserPathEXT},
+    {"xrGetRenderModelPropertiesEXT", xrGetRenderModelPropertiesEXT},
     {"xrGetRenderModelPropertiesFB", xrGetRenderModelPropertiesFB},
+    {"xrGetRenderModelStateEXT", xrGetRenderModelStateEXT},
     {"xrGetSceneComponentsMSFT", xrGetSceneComponentsMSFT},
     {"xrGetSceneComputeStateMSFT", xrGetSceneComputeStateMSFT},
     {"xrGetSceneMarkerDecodedStringMSFT", xrGetSceneMarkerDecodedStringMSFT},
@@ -3892,12 +5565,25 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrGetSpaceUuidFB", xrGetSpaceUuidFB},
     {"xrGetSpatialAnchorNameHTC", xrGetSpatialAnchorNameHTC},
     {"xrGetSpatialAnchorStateML", xrGetSpatialAnchorStateML},
+    {"xrGetSpatialBufferFloatEXT", xrGetSpatialBufferFloatEXT},
+    {"xrGetSpatialBufferStringEXT", xrGetSpatialBufferStringEXT},
+    {"xrGetSpatialBufferUint16EXT", xrGetSpatialBufferUint16EXT},
+    {"xrGetSpatialBufferUint32EXT", xrGetSpatialBufferUint32EXT},
+    {"xrGetSpatialBufferUint8EXT", xrGetSpatialBufferUint8EXT},
+    {"xrGetSpatialBufferVector2fEXT", xrGetSpatialBufferVector2fEXT},
+    {"xrGetSpatialBufferVector3fEXT", xrGetSpatialBufferVector3fEXT},
     {"xrGetSpatialEntityComponentDataBD", xrGetSpatialEntityComponentDataBD},
     {"xrGetSpatialEntityUuidBD", xrGetSpatialEntityUuidBD},
     {"xrGetSpatialGraphNodeBindingPropertiesMSFT", xrGetSpatialGraphNodeBindingPropertiesMSFT},
+    {"xrGetSubmeshDataANDROID", xrGetSubmeshDataANDROID},
     {"xrGetSwapchainStateFB", xrGetSwapchainStateFB},
     {"xrGetSystem", xrGetSystem},
     {"xrGetSystemProperties", xrGetSystemProperties},
+    {"xrGetTrackableImageANDROID", xrGetTrackableImageANDROID},
+    {"xrGetTrackableMarkerANDROID", xrGetTrackableMarkerANDROID},
+    {"xrGetTrackableObjectANDROID", xrGetTrackableObjectANDROID},
+    {"xrGetTrackablePlaneANDROID", xrGetTrackablePlaneANDROID},
+    {"xrGetTrackableQrCodeANDROID", xrGetTrackableQrCodeANDROID},
     {"xrGetViewConfigurationProperties", xrGetViewConfigurationProperties},
     {"xrGetVirtualKeyboardDirtyTexturesMETA", xrGetVirtualKeyboardDirtyTexturesMETA},
     {"xrGetVirtualKeyboardModelAnimationStatesMETA", xrGetVirtualKeyboardModelAnimationStatesMETA},
@@ -3931,23 +5617,34 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrPassthroughPauseFB", xrPassthroughPauseFB},
     {"xrPassthroughStartFB", xrPassthroughStartFB},
     {"xrPathToString", xrPathToString},
+    {"xrPauseSimultaneousHandsAndControllersTrackingMETA", xrPauseSimultaneousHandsAndControllersTrackingMETA},
     {"xrPerfSettingsSetPerformanceLevelEXT", xrPerfSettingsSetPerformanceLevelEXT},
+    {"xrPerformEnvironmentRaycastMETA", xrPerformEnvironmentRaycastMETA},
+    {"xrPersistAnchorANDROID", xrPersistAnchorANDROID},
     {"xrPersistSpatialAnchorAsyncBD", xrPersistSpatialAnchorAsyncBD},
     {"xrPersistSpatialAnchorCompleteBD", xrPersistSpatialAnchorCompleteBD},
     {"xrPersistSpatialAnchorMSFT", xrPersistSpatialAnchorMSFT},
+    {"xrPersistSpatialEntityAsyncEXT", xrPersistSpatialEntityAsyncEXT},
+    {"xrPersistSpatialEntityCompleteEXT", xrPersistSpatialEntityCompleteEXT},
     {"xrPollEvent", xrPollEvent},
     {"xrPollFutureEXT", xrPollFutureEXT},
     {"xrPublishSpatialAnchorsAsyncML", xrPublishSpatialAnchorsAsyncML},
     {"xrPublishSpatialAnchorsCompleteML", xrPublishSpatialAnchorsCompleteML},
+    {"xrQueryFramesPerBufferRangeBD", xrQueryFramesPerBufferRangeBD},
     {"xrQueryLocalizationMapsML", xrQueryLocalizationMapsML},
+    {"xrQueryPerformanceMetricsCounterANDROID", xrQueryPerformanceMetricsCounterANDROID},
     {"xrQueryPerformanceMetricsCounterMETA", xrQueryPerformanceMetricsCounterMETA},
     {"xrQuerySenseDataAsyncBD", xrQuerySenseDataAsyncBD},
     {"xrQuerySenseDataCompleteBD", xrQuerySenseDataCompleteBD},
     {"xrQuerySpacesFB", xrQuerySpacesFB},
     {"xrQuerySpatialAnchorsAsyncML", xrQuerySpatialAnchorsAsyncML},
     {"xrQuerySpatialAnchorsCompleteML", xrQuerySpatialAnchorsCompleteML},
+    {"xrQuerySpatialComponentDataEXT", xrQuerySpatialComponentDataEXT},
     {"xrQuerySystemTrackedKeyboardFB", xrQuerySystemTrackedKeyboardFB},
+    {"xrRaycastANDROID", xrRaycastANDROID},
     {"xrReleaseSwapchainImage", xrReleaseSwapchainImage},
+    {"xrRemoveTrackableImageDatabaseANDROID", xrRemoveTrackableImageDatabaseANDROID},
+    {"xrRequestBodyTrackingFidelityMETA", xrRequestBodyTrackingFidelityMETA},
     {"xrRequestDisplayRefreshRateFB", xrRequestDisplayRefreshRateFB},
     {"xrRequestExitSession", xrRequestExitSession},
     {"xrRequestMapLocalizationML", xrRequestMapLocalizationML},
@@ -3956,15 +5653,20 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrRequestWorldMeshCompleteML", xrRequestWorldMeshCompleteML},
     {"xrRequestWorldMeshStateAsyncML", xrRequestWorldMeshStateAsyncML},
     {"xrRequestWorldMeshStateCompleteML", xrRequestWorldMeshStateCompleteML},
+    {"xrResetBodyTrackingCalibrationMETA", xrResetBodyTrackingCalibrationMETA},
     {"xrResultToString", xrResultToString},
+    {"xrResumeSimultaneousHandsAndControllersTrackingMETA", xrResumeSimultaneousHandsAndControllersTrackingMETA},
+    {"xrRetrieveSpaceDiscoveryResultsMETA", xrRetrieveSpaceDiscoveryResultsMETA},
     {"xrRetrieveSpaceQueryResultsFB", xrRetrieveSpaceQueryResultsFB},
     {"xrSaveSpaceFB", xrSaveSpaceFB},
     {"xrSaveSpaceListFB", xrSaveSpaceListFB},
+    {"xrSaveSpacesMETA", xrSaveSpacesMETA},
     {"xrSendVirtualKeyboardInputMETA", xrSendVirtualKeyboardInputMETA},
     {"xrSetColorSpaceFB", xrSetColorSpaceFB},
     {"xrSetDigitalLensControlALMALENCE", xrSetDigitalLensControlALMALENCE},
     {"xrSetEnvironmentDepthEstimationVARJO", xrSetEnvironmentDepthEstimationVARJO},
     {"xrSetEnvironmentDepthHandRemovalMETA", xrSetEnvironmentDepthHandRemovalMETA},
+    {"xrSetFacialSimulationModeBD", xrSetFacialSimulationModeBD},
     {"xrSetInputDeviceActiveEXT", xrSetInputDeviceActiveEXT},
     {"xrSetInputDeviceLocationEXT", xrSetInputDeviceLocationEXT},
     {"xrSetInputDeviceStateBoolEXT", xrSetInputDeviceStateBoolEXT},
@@ -3973,9 +5675,12 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrSetMarkerTrackingPredictionVARJO", xrSetMarkerTrackingPredictionVARJO},
     {"xrSetMarkerTrackingTimeoutVARJO", xrSetMarkerTrackingTimeoutVARJO},
     {"xrSetMarkerTrackingVARJO", xrSetMarkerTrackingVARJO},
+    {"xrSetPassthroughLayerMeshANDROID", xrSetPassthroughLayerMeshANDROID},
+    {"xrSetPerformanceMetricsStateANDROID", xrSetPerformanceMetricsStateANDROID},
     {"xrSetPerformanceMetricsStateMETA", xrSetPerformanceMetricsStateMETA},
     {"xrSetSpaceComponentStatusFB", xrSetSpaceComponentStatusFB},
     {"xrSetSystemNotificationsML", xrSetSystemNotificationsML},
+    {"xrSetTilePropertiesHintMETA", xrSetTilePropertiesHintMETA},
     {"xrSetTrackingOptimizationSettingsHintQCOM", xrSetTrackingOptimizationSettingsHintQCOM},
     {"xrSetViewOffsetVARJO", xrSetViewOffsetVARJO},
     {"xrSetVirtualKeyboardModelVisibilityMETA", xrSetVirtualKeyboardModelVisibilityMETA},
@@ -3997,6 +5702,9 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrStringToPath", xrStringToPath},
     {"xrStructureTypeToString", xrStructureTypeToString},
     {"xrStructureTypeToString2KHR", xrStructureTypeToString2KHR},
+    {"xrSubmitSoundFieldBufferBD", xrSubmitSoundFieldBufferBD},
+    {"xrSubmitSoundObjectBufferBD", xrSubmitSoundObjectBufferBD},
+    {"xrSuggestBodyTrackingCalibrationOverrideMETA", xrSuggestBodyTrackingCalibrationOverrideMETA},
     {"xrSuggestInteractionProfileBindings", xrSuggestInteractionProfileBindings},
     {"xrSuggestVirtualKeyboardLocationMETA", xrSuggestVirtualKeyboardLocationMETA},
     {"xrSyncActions", xrSyncActions},
@@ -4008,14 +5716,22 @@ static const struct openxr_func xr_instance_dispatch_table[] =
     {"xrTriangleMeshGetIndexBufferFB", xrTriangleMeshGetIndexBufferFB},
     {"xrTriangleMeshGetVertexBufferFB", xrTriangleMeshGetVertexBufferFB},
     {"xrTryCreateSpatialGraphStaticNodeBindingMSFT", xrTryCreateSpatialGraphStaticNodeBindingMSFT},
+    {"xrUnpersistAnchorANDROID", xrUnpersistAnchorANDROID},
     {"xrUnpersistSpatialAnchorAsyncBD", xrUnpersistSpatialAnchorAsyncBD},
     {"xrUnpersistSpatialAnchorCompleteBD", xrUnpersistSpatialAnchorCompleteBD},
     {"xrUnpersistSpatialAnchorMSFT", xrUnpersistSpatialAnchorMSFT},
+    {"xrUnpersistSpatialEntityAsyncEXT", xrUnpersistSpatialEntityAsyncEXT},
+    {"xrUnpersistSpatialEntityCompleteEXT", xrUnpersistSpatialEntityCompleteEXT},
     {"xrUpdateHandMeshMSFT", xrUpdateHandMeshMSFT},
     {"xrUpdatePassthroughColorLutMETA", xrUpdatePassthroughColorLutMETA},
+    {"xrUpdateSoundFieldConfigBD", xrUpdateSoundFieldConfigBD},
+    {"xrUpdateSoundObjectConfigBD", xrUpdateSoundObjectConfigBD},
+    {"xrUpdateSoundObstacleConfigBD", xrUpdateSoundObstacleConfigBD},
+    {"xrUpdateSoundObstacleMaterialConfigBD", xrUpdateSoundObstacleMaterialConfigBD},
     {"xrUpdateSpatialAnchorsExpirationAsyncML", xrUpdateSpatialAnchorsExpirationAsyncML},
     {"xrUpdateSpatialAnchorsExpirationCompleteML", xrUpdateSpatialAnchorsExpirationCompleteML},
     {"xrUpdateSwapchainFB", xrUpdateSwapchainFB},
+    {"xrWaitAudioPeriodBD", xrWaitAudioPeriodBD},
     {"xrWaitFrame", xrWaitFrame},
     {"xrWaitSwapchainImage", xrWaitSwapchainImage},
 };

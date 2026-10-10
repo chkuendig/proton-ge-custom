@@ -14,31 +14,10 @@
 [submodule "fonts/liberation-fonts"]
 	path = fonts/liberation-fonts
 	url = https://github.com/liberationfonts/liberation-fonts
-[submodule "FAudio"]
-	path = FAudio
-	url = https://github.com/FNA-XNA/FAudio
 [submodule "protonfixes"]
 	path = protonfixes
 	url = https://github.com/chkuendig/umu-protonfixes
 	branch = proton-zluda
-[submodule "gstreamer"]
-	path = gstreamer
-	url = https://github.com/GStreamer/gstreamer.git
-[submodule "gst-plugins-base"]
-	path = gst-plugins-base
-	url = https://github.com/GStreamer/gst-plugins-base.git
-[submodule "gst-plugins-good"]
-	path = gst-plugins-good
-	url = https://github.com/GStreamer/gst-plugins-good.git
-[submodule "gst-plugins-bad"]
-	path = gst-plugins-bad
-	url = https://github.com/GStreamer/gst-plugins-bad.git
-[submodule "gst-plugins-ugly"]
-	path = gst-plugins-ugly
-	url = https://github.com/GStreamer/gst-plugins-ugly.git
-[submodule "gst-orc"]
-	path = gst-orc
-	url = https://github.com/GStreamer/orc.git
 [submodule "vkd3d-proton"]
 	path = vkd3d-proton
 	url = https://github.com/HansKristian-Work/vkd3d-proton
@@ -58,24 +37,15 @@
 [submodule "SPIRV-Headers"]
 	path = SPIRV-Headers
 	url = https://github.com/KhronosGroup/SPIRV-Headers
-[submodule "gst-libav"]
-	path = gst-libav
-	url = https://github.com/GStreamer/gst-libav
 [submodule "ffmpeg"]
 	path = ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg
 [submodule "dav1d"]
 	path = dav1d
 	url = https://github.com/videolan/dav1d.git
-[submodule "gst-plugins-rs"]
-	path = gst-plugins-rs
-	url = https://github.com/sdroege/gst-plugin-rs
 [submodule "graphene"]
 	path = graphene
 	url = https://github.com/ebassi/graphene
-[submodule "glslang"]
-	path = glslang
-	url = https://github.com/KhronosGroup/glslang
 [submodule "openfst"]
 	path = openfst
 	url = https://github.com/alphacep/openfst
@@ -93,7 +63,82 @@
 [submodule "libxkbcommon"]
         path = libxkbcommon
         url = https://github.com/xkbcommon/libxkbcommon.git
-        branch = libxkbcommon-1.7.0
+	branch = libxkbcommon-1.7.0
+[submodule "libxml2"]
+	path = libxml2
+	url = https://gitlab.gnome.org/GNOME/libxml2.git
+[submodule "wayland-protocols"]
+	path = wayland-protocols
+	url = https://gitlab.freedesktop.org/wayland/wayland-protocols.git
+[submodule "libpcap"]
+	path = libpcap
+	url = https://github.com/the-tcpdump-group/libpcap.git
+[submodule "FEX"]
+        path = FEX
+        url = https://github.com/FEX-Emu/FEX.git
+[submodule "glslang"]
+	path = glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "meson"]
+	path = meson
+	url = https://github.com/mesonbuild/meson.git
+[submodule "libsoup"]
+	path = libsoup
+	url = https://github.com/GNOME/libsoup.git
+[submodule "xz"]
+	path = xz
+	url = https://github.com/tukaani-project/xz.git
+[submodule "d7vk"]
+	path = d7vk
+	url = https://github.com/WinterSnowfall/d7vk.git
+[submodule "discord-rpc-bridge"]
+	path = discord-rpc-bridge
+	url = https://github.com/enderice2/rpc-bridge.git
+[submodule "bzip2"]
+	path = bzip2
+	url = https://sourceware.org/git/bzip2.git
+[submodule "nvidia-libs/dxvk-nvapi"]
+	path = nvidia-libs/dxvk-nvapi
+	url = https://github.com/SveSop/dxvk-nvapi.git
+	branch = experimental
+[submodule "nvidia-libs/nvcuda"]
+	path = nvidia-libs/nvcuda
+	url = https://github.com/SveSop/nvcuda.git
+[submodule "nvidia-libs/nvcuda32"]
+	path = nvidia-libs/nvcuda32
+	url = https://github.com/SveSop/nvcuda.git
+	branch = 32bit_only
+[submodule "nvidia-libs/nvenc"]
+	path = nvidia-libs/nvenc
+	url = https://github.com/SveSop/nvenc.git
+[submodule "nvidia-libs/nvenc32"]
+	path = nvidia-libs/nvenc32
+	url = https://github.com/SveSop/nvenc.git
+	branch = old-32-64_version
+[submodule "nvidia-libs/wine-nvml"]
+	path = nvidia-libs/wine-nvml
+	url = https://github.com/Saancreed/wine-nvml.git
+[submodule "nvidia-libs/wine-nvoptix"]
+	path = nvidia-libs/wine-nvoptix
+	url = https://github.com/SveSop/wine-nvoptix.git
+[submodule "vklayers/pyroveil"]
+	path = vklayers/pyroveil
+	url = https://github.com/HansKristian-Work/pyroveil.git
+[submodule "vklayers/Vulkan-Utility-Libraries"]
+	path = vklayers/Vulkan-Utility-Libraries
+	url = https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git
+[submodule "vklayers/low_latency_layer"]
+	path = vklayers/low_latency_layer
+	url = https://github.com/Korthos-Software/low_latency_layer.git
+[submodule "vklayers/vkbasalt"]
+	path = vklayers/vkBasalt
+	url = https://github.com/DadSchoorse/vkBasalt.git
+[submodule "pipewire"]
+	path = pipewire
+	url = https://gitlab.freedesktop.org/pipewire/pipewire.git
+[submodule "dxvk-igdext"]
+	path = dxvk-igdext
+	url = https://github.com/GameTechDev/dxvk-igdext
 [submodule "zluda"]
 	path = zluda
 	url = https://github.com/chkuendig/ZLUDA

@@ -11,6 +11,9 @@ import os
 import re
 
 SDK_VERSIONS = [
+    "165",
+    "164",
+    "163",
     "162",
     "161",
     "160",
@@ -130,6 +133,9 @@ SDK_SOURCES = {
         "ISteamUserStats",
         "ISteamUtils",
         "ISteamVideo"
+    ],
+    "isteambilling.h": [
+        "ISteamBilling"
     ],
     "isteamappticket.h": [
         "ISteamAppTicket"
@@ -288,6 +294,7 @@ MANUAL_METHODS = {
     "ISteamMatchmakingServers_RequestInternetServerList": lambda ver, abi: abi == 'u' or ver >= 2,
     "ISteamMatchmakingServers_RequestLANServerList": lambda ver, abi: abi == 'u' or ver >= 2,
     "ISteamMatchmakingServers_RequestSpectatorServerList": lambda ver, abi: abi == 'u' or ver >= 2,
+    "ISteamMatchmakingServers_ServerFriends": lambda ver, abi: abi == 'u',
     "ISteamMatchmakingServers_ServerRules": lambda ver, abi: abi == 'u',
 
     "ISteamNetworkingUtils_AllocateMessage": True,
@@ -314,7 +321,6 @@ MANUAL_METHODS = {
 
     "ISteamRemoteStorage_UpdatePublishedFile": lambda ver, abi: abi == 'u' and ver >= 5,
 }
-
 
 DEFINE_INTERFACE_VERSION = re.compile(r'^#define\s*(?P<name>STEAM(?:\w*)_VERSION(?:\w*))\s*"(?P<version>.*)"')
 
@@ -569,6 +575,8 @@ class Struct:
         for cursor in self.type.get_fields():
             assert not cursor.is_bitfield()
             offset = self.type.get_offset(cursor.spelling)
+            if offset % 8 != 0:
+                print(cursor.spelling, ', offset=', offset)
             assert offset % 8 == 0
             offset = offset // 8
             # assert offset >= size or type(self) is Union
@@ -840,9 +848,9 @@ class Class:
             # CGameID -> CGameID &
             # Windows side follows the prototype in the header while Linux
             # steamclient treats gameID parameter as pointer
-            if self.full_name == 'ISteamUser_SteamUser008' \
-               and method.name == 'InitiateGameConnection':
-                types[3] = 'CGameID *'
+            for i, t in enumerate(types):
+                if t == 'CGameID':
+                    types[i] = 'CGameID &'
 
             if type(method) is Destructor:
                 out(f'    virtual ~{prefix}{self.full_name}( {", ".join(types)} ) = 0;\n')
@@ -912,8 +920,6 @@ def struct_needs_conversion(struct, wow64):
     if abis['w32'].needs_conversion(abis['u32']):
         return True
     if abis['w64'].needs_conversion(abis['u64']):
-        return True
-    if abis['w32'].needs_conversion(abis['u64']):
         return True
     return wow64
 
@@ -1123,13 +1129,6 @@ def handle_method_cpp(method, classname, out, wow64):
         return f'params->{name}'
 
     params = [param_call(n, p) for n, p in zip(names[1:], method.get_arguments())]
-
-    # CGameID -> CGameID &
-    # Windows side follows the prototype in the header while Linux
-    # steamclient treats gameID parameter as pointer
-    if klass.full_name == 'ISteamUser_SteamUser008' \
-       and method.name == 'InitiateGameConnection':
-        params[3] = f'&{params[3]}'
 
     out(f'iface->{method.spelling}( {", ".join(params)} );\n')
 

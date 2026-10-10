@@ -64,7 +64,7 @@ from enum import Enum
 LOGGER = logging.Logger("openxr")
 LOGGER.addHandler(logging.StreamHandler())
 
-XR_XML_VERSION = "1.1.47"
+XR_XML_VERSION = "1.1.58"
 WINE_XR_VERSION = (1, 1)
 
 # Filenames to create.
@@ -148,8 +148,6 @@ MANUAL_UNIX_THUNKS = {
 
 # loader functions which are entirely manually implemented
 MANUAL_LOADER_FUNCTIONS = {
-    "xrConvertTimeToWin32PerformanceCounterKHR",
-    "xrConvertWin32PerformanceCounterToTimeKHR",
     "xrGetD3D11GraphicsRequirementsKHR",
     "xrGetD3D12GraphicsRequirementsKHR",
     "xrCreateApiLayerInstance",
@@ -2666,6 +2664,7 @@ class XrGenerator(object):
         f.write("const unixlib_entry_t __wine_unix_call_funcs[] =\n")
         f.write("{\n")
         f.write("    init_openxr,\n")
+        f.write("    is_available_instance_function_openxr,\n")
         for xr_func in self.registry.funcs.values():
             if not xr_func.needs_exposing():
                 continue
@@ -2777,6 +2776,7 @@ class XrGenerator(object):
         f.write("enum unix_call\n")
         f.write("{\n")
         f.write("    unix_init,\n")
+        f.write("    unix_is_available_instance_function,\n")
         for xr_func in self.registry.funcs.values():
             if not xr_func.needs_exposing():
                 continue

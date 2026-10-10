@@ -20,6 +20,7 @@ void *create_LinuxMatchmakingServerListResponse(void *win);
 typedef struct ID3D11Device ID3D11Device;
 typedef struct IDXGIVkInteropDevice IDXGIVkInteropDevice;
 typedef struct ID3D12DXVKInteropDevice ID3D12DXVKInteropDevice;
+typedef struct ID3D12DXVKInteropDevice2 ID3D12DXVKInteropDevice2;
 typedef struct ID3D12CommandQueue ID3D12CommandQueue;
 
 struct client_core_data
@@ -54,8 +55,11 @@ struct compositor_data
      * IDXGIVkInteropDevice or ID3D12DXVKInteropDevice interfaces. */
     IDXGIVkInteropDevice *dxvk_device;
     ID3D12DXVKInteropDevice *d3d12_device;
+    ID3D12DXVKInteropDevice2 *d3d12_device2; /* if not NULL, d3d12_device points to the same interface;
+                                              * d3d12_device is referenced counted and d3d12_device2 is not. */
     ID3D12CommandQueue *d3d12_queue;
     BOOL d3d11_explicit_handoff, handoff_called;
+    int32_t explicit_timing_mode;
     struct u_iface u_client_core_iface;
 
 #define X(proc) PFN_##proc p_##proc;
@@ -64,8 +68,8 @@ struct compositor_data
     VkDevice vk_device;
     VkQueue vk_queue;
     VkCommandPool vk_command_pool;
-    VkCommandBuffer vk_command_buffers[4];
-    VkFence vk_fences[4];
+    VkCommandBuffer vk_command_buffers[12];
+    VkFence vk_fences[12];
     int command_buffer_index;
 
 #if defined(__x86_64__) || defined(__aarch64__)

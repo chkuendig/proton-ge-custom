@@ -183,6 +183,37 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVRApplications_IVRApplications_007_GetSceneApplicationStateNameFromEnum,
     IVRApplications_IVRApplications_007_LaunchInternalProcess,
     IVRApplications_IVRApplications_007_GetCurrentSceneProcessId,
+    IVRApplications_IVRApplications_008_AddApplicationManifest,
+    IVRApplications_IVRApplications_008_RemoveApplicationManifest,
+    IVRApplications_IVRApplications_008_IsApplicationInstalled,
+    IVRApplications_IVRApplications_008_GetApplicationCount,
+    IVRApplications_IVRApplications_008_GetApplicationKeyByIndex,
+    IVRApplications_IVRApplications_008_GetApplicationKeyByProcessId,
+    IVRApplications_IVRApplications_008_LaunchApplication,
+    IVRApplications_IVRApplications_008_LaunchTemplateApplication,
+    IVRApplications_IVRApplications_008_LaunchApplicationFromMimeType,
+    IVRApplications_IVRApplications_008_LaunchDashboardOverlay,
+    IVRApplications_IVRApplications_008_CancelApplicationLaunch,
+    IVRApplications_IVRApplications_008_IdentifyApplication,
+    IVRApplications_IVRApplications_008_GetApplicationProcessId,
+    IVRApplications_IVRApplications_008_GetApplicationsErrorNameFromEnum,
+    IVRApplications_IVRApplications_008_GetApplicationPropertyString,
+    IVRApplications_IVRApplications_008_GetApplicationPropertyBool,
+    IVRApplications_IVRApplications_008_GetApplicationPropertyUint64,
+    IVRApplications_IVRApplications_008_SetApplicationAutoLaunch,
+    IVRApplications_IVRApplications_008_GetApplicationAutoLaunch,
+    IVRApplications_IVRApplications_008_SetDefaultApplicationForMimeType,
+    IVRApplications_IVRApplications_008_GetDefaultApplicationForMimeType,
+    IVRApplications_IVRApplications_008_GetApplicationSupportedMimeTypes,
+    IVRApplications_IVRApplications_008_GetApplicationsThatSupportMimeType,
+    IVRApplications_IVRApplications_008_GetApplicationLaunchArguments,
+    IVRApplications_IVRApplications_008_GetStartingApplication,
+    IVRApplications_IVRApplications_008_GetSceneApplicationState,
+    IVRApplications_IVRApplications_008_PerformApplicationPrelaunchCheck,
+    IVRApplications_IVRApplications_008_GetSceneApplicationStateNameFromEnum,
+    IVRApplications_IVRApplications_008_LaunchInternalProcess,
+    IVRApplications_IVRApplications_008_RegisterSubprocess,
+    IVRApplications_IVRApplications_008_GetCurrentSceneProcessId,
     IVRChaperoneSetup_IVRChaperoneSetup_004_CommitWorkingCopy,
     IVRChaperoneSetup_IVRChaperoneSetup_004_RevertWorkingCopy,
     IVRChaperoneSetup_IVRChaperoneSetup_004_GetWorkingPlayAreaSize,
@@ -368,6 +399,8 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVRCompositor_IVRCompositor_008_CompositorDumpImages,
     IVRCompositor_IVRCompositor_008_GetFrameTimeRemaining,
     IVRCompositor_IVRCompositor_008_GetLastFrameRenderer,
+    IVRCompositor_IVRCompositor_008_GetLastPoses,
+    IVRCompositor_IVRCompositor_008_PostPresentHandoff,
     IVRCompositor_IVRCompositor_009_SetTrackingSpace,
     IVRCompositor_IVRCompositor_009_GetTrackingSpace,
     IVRCompositor_IVRCompositor_009_WaitGetPoses,
@@ -1040,6 +1073,59 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVRCompositor_IVRCompositor_028_GetCompositorBenchmarkResults,
     IVRCompositor_IVRCompositor_028_GetLastPosePredictionIDs,
     IVRCompositor_IVRCompositor_028_GetPosesForFrame,
+    IVRCompositor_IVRCompositor_029_SetTrackingSpace,
+    IVRCompositor_IVRCompositor_029_GetTrackingSpace,
+    IVRCompositor_IVRCompositor_029_WaitGetPoses,
+    IVRCompositor_IVRCompositor_029_GetLastPoses,
+    IVRCompositor_IVRCompositor_029_GetLastPoseForTrackedDeviceIndex,
+    IVRCompositor_IVRCompositor_029_GetSubmitTexture,
+    IVRCompositor_IVRCompositor_029_Submit,
+    IVRCompositor_IVRCompositor_029_SubmitWithArrayIndex,
+    IVRCompositor_IVRCompositor_029_ClearLastSubmittedFrame,
+    IVRCompositor_IVRCompositor_029_PostPresentHandoff,
+    IVRCompositor_IVRCompositor_029_GetFrameTiming,
+    IVRCompositor_IVRCompositor_029_GetFrameTimings,
+    IVRCompositor_IVRCompositor_029_GetFrameTimeRemaining,
+    IVRCompositor_IVRCompositor_029_GetCumulativeStats,
+    IVRCompositor_IVRCompositor_029_FadeToColor,
+    IVRCompositor_IVRCompositor_029_GetCurrentFadeColor,
+    IVRCompositor_IVRCompositor_029_FadeGrid,
+    IVRCompositor_IVRCompositor_029_GetCurrentGridAlpha,
+    IVRCompositor_IVRCompositor_029_SetSkyboxOverride,
+    IVRCompositor_IVRCompositor_029_ClearSkyboxOverride,
+    IVRCompositor_IVRCompositor_029_CompositorBringToFront,
+    IVRCompositor_IVRCompositor_029_CompositorGoToBack,
+    IVRCompositor_IVRCompositor_029_CompositorQuit,
+    IVRCompositor_IVRCompositor_029_IsFullscreen,
+    IVRCompositor_IVRCompositor_029_GetCurrentSceneFocusProcess,
+    IVRCompositor_IVRCompositor_029_GetLastFrameRenderer,
+    IVRCompositor_IVRCompositor_029_CanRenderScene,
+    IVRCompositor_IVRCompositor_029_ShowMirrorWindow,
+    IVRCompositor_IVRCompositor_029_HideMirrorWindow,
+    IVRCompositor_IVRCompositor_029_IsMirrorWindowVisible,
+    IVRCompositor_IVRCompositor_029_CompositorDumpImages,
+    IVRCompositor_IVRCompositor_029_ShouldAppRenderWithLowResources,
+    IVRCompositor_IVRCompositor_029_ForceInterleavedReprojectionOn,
+    IVRCompositor_IVRCompositor_029_ForceReconnectProcess,
+    IVRCompositor_IVRCompositor_029_SuspendRendering,
+    IVRCompositor_IVRCompositor_029_GetMirrorTextureD3D11,
+    IVRCompositor_IVRCompositor_029_ReleaseMirrorTextureD3D11,
+    IVRCompositor_IVRCompositor_029_GetMirrorTextureGL,
+    IVRCompositor_IVRCompositor_029_ReleaseSharedGLTexture,
+    IVRCompositor_IVRCompositor_029_LockGLSharedTextureForAccess,
+    IVRCompositor_IVRCompositor_029_UnlockGLSharedTextureForAccess,
+    IVRCompositor_IVRCompositor_029_GetVulkanInstanceExtensionsRequired,
+    IVRCompositor_IVRCompositor_029_GetVulkanDeviceExtensionsRequired,
+    IVRCompositor_IVRCompositor_029_SetExplicitTimingMode,
+    IVRCompositor_IVRCompositor_029_SubmitExplicitTimingData,
+    IVRCompositor_IVRCompositor_029_IsMotionSmoothingEnabled,
+    IVRCompositor_IVRCompositor_029_IsMotionSmoothingSupported,
+    IVRCompositor_IVRCompositor_029_IsCurrentSceneFocusAppLoading,
+    IVRCompositor_IVRCompositor_029_SetStageOverride_Async,
+    IVRCompositor_IVRCompositor_029_ClearStageOverride,
+    IVRCompositor_IVRCompositor_029_GetCompositorBenchmarkResults,
+    IVRCompositor_IVRCompositor_029_GetLastPosePredictionIDs,
+    IVRCompositor_IVRCompositor_029_GetPosesForFrame,
     IVRControlPanel_IVRControlPanel_006_undoc1,
     IVRControlPanel_IVRControlPanel_006_undoc2,
     IVRControlPanel_IVRControlPanel_006_undoc3,
@@ -1241,6 +1327,40 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVRInput_IVRInput_010_IsUsingLegacyInput,
     IVRInput_IVRInput_010_OpenBindingUI,
     IVRInput_IVRInput_010_GetBindingVariant,
+    IVRInput_IVRInput_011_SetActionManifestPath,
+    IVRInput_IVRInput_011_GetActionSetHandle,
+    IVRInput_IVRInput_011_GetActionHandle,
+    IVRInput_IVRInput_011_GetInputSourceHandle,
+    IVRInput_IVRInput_011_UpdateActionState,
+    IVRInput_IVRInput_011_GetDigitalActionData,
+    IVRInput_IVRInput_011_GetAnalogActionData,
+    IVRInput_IVRInput_011_GetPoseActionDataRelativeToNow,
+    IVRInput_IVRInput_011_GetPoseActionDataForNextFrame,
+    IVRInput_IVRInput_011_GetSkeletalActionData,
+    IVRInput_IVRInput_011_GetDominantHand,
+    IVRInput_IVRInput_011_SetDominantHand,
+    IVRInput_IVRInput_011_GetEyeTrackingDataRelativeToNow,
+    IVRInput_IVRInput_011_GetEyeTrackingDataForNextFrame,
+    IVRInput_IVRInput_011_GetBoneCount,
+    IVRInput_IVRInput_011_GetBoneHierarchy,
+    IVRInput_IVRInput_011_GetBoneName,
+    IVRInput_IVRInput_011_GetSkeletalReferenceTransforms,
+    IVRInput_IVRInput_011_GetSkeletalTrackingLevel,
+    IVRInput_IVRInput_011_GetSkeletalBoneData,
+    IVRInput_IVRInput_011_GetSkeletalSummaryData,
+    IVRInput_IVRInput_011_GetSkeletalBoneDataCompressed,
+    IVRInput_IVRInput_011_DecompressSkeletalBoneData,
+    IVRInput_IVRInput_011_TriggerHapticVibrationAction,
+    IVRInput_IVRInput_011_GetActionOrigins,
+    IVRInput_IVRInput_011_GetOriginLocalizedName,
+    IVRInput_IVRInput_011_GetOriginTrackedDeviceInfo,
+    IVRInput_IVRInput_011_GetActionBindingInfo,
+    IVRInput_IVRInput_011_ShowActionOrigins,
+    IVRInput_IVRInput_011_ShowBindingsForActionSet,
+    IVRInput_IVRInput_011_GetComponentStateForBinding,
+    IVRInput_IVRInput_011_IsUsingLegacyInput,
+    IVRInput_IVRInput_011_OpenBindingUI,
+    IVRInput_IVRInput_011_GetBindingVariant,
     IVRMailbox_IVRMailbox_001_undoc1,
     IVRMailbox_IVRMailbox_001_undoc2,
     IVRMailbox_IVRMailbox_001_undoc3,
@@ -1482,6 +1602,63 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVROverlay_IVROverlay_005_ShowKeyboard,
     IVROverlay_IVROverlay_005_GetKeyboardText,
     IVROverlay_IVROverlay_005_HideKeyboard,
+    IVROverlay_IVROverlay_006_FindOverlay,
+    IVROverlay_IVROverlay_006_CreateOverlay,
+    IVROverlay_IVROverlay_006_DestroyOverlay,
+    IVROverlay_IVROverlay_006_SetHighQualityOverlay,
+    IVROverlay_IVROverlay_006_GetHighQualityOverlay,
+    IVROverlay_IVROverlay_006_GetOverlayKey,
+    IVROverlay_IVROverlay_006_GetOverlayName,
+    IVROverlay_IVROverlay_006_GetOverlayImageData,
+    IVROverlay_IVROverlay_006_GetOverlayErrorNameFromEnum,
+    IVROverlay_IVROverlay_006_SetOverlayFlag,
+    IVROverlay_IVROverlay_006_GetOverlayFlag,
+    IVROverlay_IVROverlay_006_SetOverlayColor,
+    IVROverlay_IVROverlay_006_GetOverlayColor,
+    IVROverlay_IVROverlay_006_SetOverlayAlpha,
+    IVROverlay_IVROverlay_006_GetOverlayAlpha,
+    IVROverlay_IVROverlay_006_SetOverlayGamma,
+    IVROverlay_IVROverlay_006_GetOverlayGamma,
+    IVROverlay_IVROverlay_006_SetOverlayWidthInMeters,
+    IVROverlay_IVROverlay_006_GetOverlayWidthInMeters,
+    IVROverlay_IVROverlay_006_SetOverlayAutoCurveDistanceRangeInMeters,
+    IVROverlay_IVROverlay_006_GetOverlayAutoCurveDistanceRangeInMeters,
+    IVROverlay_IVROverlay_006_SetOverlayTextureBounds,
+    IVROverlay_IVROverlay_006_GetOverlayTextureBounds,
+    IVROverlay_IVROverlay_006_GetOverlayTransformType,
+    IVROverlay_IVROverlay_006_SetOverlayTransformAbsolute,
+    IVROverlay_IVROverlay_006_GetOverlayTransformAbsolute,
+    IVROverlay_IVROverlay_006_SetOverlayTransformTrackedDeviceRelative,
+    IVROverlay_IVROverlay_006_GetOverlayTransformTrackedDeviceRelative,
+    IVROverlay_IVROverlay_006_ShowOverlay,
+    IVROverlay_IVROverlay_006_HideOverlay,
+    IVROverlay_IVROverlay_006_IsOverlayVisible,
+    IVROverlay_IVROverlay_006_PollNextOverlayEvent,
+    IVROverlay_IVROverlay_006_GetOverlayInputMethod,
+    IVROverlay_IVROverlay_006_SetOverlayInputMethod,
+    IVROverlay_IVROverlay_006_GetOverlayMouseScale,
+    IVROverlay_IVROverlay_006_SetOverlayMouseScale,
+    IVROverlay_IVROverlay_006_ComputeOverlayIntersection,
+    IVROverlay_IVROverlay_006_HandleControllerOverlayInteractionAsMouse,
+    IVROverlay_IVROverlay_006_IsHoverTargetOverlay,
+    IVROverlay_IVROverlay_006_GetGamepadFocusOverlay,
+    IVROverlay_IVROverlay_006_SetGamepadFocusOverlay,
+    IVROverlay_IVROverlay_006_SetOverlayNeighbor,
+    IVROverlay_IVROverlay_006_MoveGamepadFocusToNeighbor,
+    IVROverlay_IVROverlay_006_SetOverlayTexture,
+    IVROverlay_IVROverlay_006_ClearOverlayTexture,
+    IVROverlay_IVROverlay_006_SetOverlayRaw,
+    IVROverlay_IVROverlay_006_SetOverlayFromFile,
+    IVROverlay_IVROverlay_006_CreateDashboardOverlay,
+    IVROverlay_IVROverlay_006_IsDashboardVisible,
+    IVROverlay_IVROverlay_006_IsActiveDashboardOverlay,
+    IVROverlay_IVROverlay_006_SetDashboardOverlaySceneProcess,
+    IVROverlay_IVROverlay_006_GetDashboardOverlaySceneProcess,
+    IVROverlay_IVROverlay_006_ShowDashboard,
+    IVROverlay_IVROverlay_006_ShowKeyboard,
+    IVROverlay_IVROverlay_006_ShowKeyboardForOverlay,
+    IVROverlay_IVROverlay_006_GetKeyboardText,
+    IVROverlay_IVROverlay_006_HideKeyboard,
     IVROverlay_IVROverlay_007_FindOverlay,
     IVROverlay_IVROverlay_007_CreateOverlay,
     IVROverlay_IVROverlay_007_DestroyOverlay,
@@ -2830,10 +3007,97 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVROverlay_IVROverlay_027_SetKeyboardPositionForOverlay,
     IVROverlay_IVROverlay_027_ShowMessageOverlay,
     IVROverlay_IVROverlay_027_CloseMessageOverlay,
+    IVROverlay_IVROverlay_028_FindOverlay,
+    IVROverlay_IVROverlay_028_CreateOverlay,
+    IVROverlay_IVROverlay_028_CreateSubviewOverlay,
+    IVROverlay_IVROverlay_028_DestroyOverlay,
+    IVROverlay_IVROverlay_028_GetOverlayKey,
+    IVROverlay_IVROverlay_028_GetOverlayName,
+    IVROverlay_IVROverlay_028_SetOverlayName,
+    IVROverlay_IVROverlay_028_GetOverlayImageData,
+    IVROverlay_IVROverlay_028_GetOverlayErrorNameFromEnum,
+    IVROverlay_IVROverlay_028_SetOverlayRenderingPid,
+    IVROverlay_IVROverlay_028_GetOverlayRenderingPid,
+    IVROverlay_IVROverlay_028_SetOverlayFlag,
+    IVROverlay_IVROverlay_028_GetOverlayFlag,
+    IVROverlay_IVROverlay_028_GetOverlayFlags,
+    IVROverlay_IVROverlay_028_SetOverlayColor,
+    IVROverlay_IVROverlay_028_GetOverlayColor,
+    IVROverlay_IVROverlay_028_SetOverlayAlpha,
+    IVROverlay_IVROverlay_028_GetOverlayAlpha,
+    IVROverlay_IVROverlay_028_SetOverlayTexelAspect,
+    IVROverlay_IVROverlay_028_GetOverlayTexelAspect,
+    IVROverlay_IVROverlay_028_SetOverlaySortOrder,
+    IVROverlay_IVROverlay_028_GetOverlaySortOrder,
+    IVROverlay_IVROverlay_028_SetOverlayWidthInMeters,
+    IVROverlay_IVROverlay_028_GetOverlayWidthInMeters,
+    IVROverlay_IVROverlay_028_SetOverlayCurvature,
+    IVROverlay_IVROverlay_028_GetOverlayCurvature,
+    IVROverlay_IVROverlay_028_SetOverlayPreCurvePitch,
+    IVROverlay_IVROverlay_028_GetOverlayPreCurvePitch,
+    IVROverlay_IVROverlay_028_SetOverlayTextureColorSpace,
+    IVROverlay_IVROverlay_028_GetOverlayTextureColorSpace,
+    IVROverlay_IVROverlay_028_SetOverlayTextureBounds,
+    IVROverlay_IVROverlay_028_GetOverlayTextureBounds,
+    IVROverlay_IVROverlay_028_GetOverlayTransformType,
+    IVROverlay_IVROverlay_028_SetOverlayTransformAbsolute,
+    IVROverlay_IVROverlay_028_GetOverlayTransformAbsolute,
+    IVROverlay_IVROverlay_028_SetOverlayTransformTrackedDeviceRelative,
+    IVROverlay_IVROverlay_028_GetOverlayTransformTrackedDeviceRelative,
+    IVROverlay_IVROverlay_028_SetOverlayTransformTrackedDeviceComponent,
+    IVROverlay_IVROverlay_028_GetOverlayTransformTrackedDeviceComponent,
+    IVROverlay_IVROverlay_028_SetOverlayTransformCursor,
+    IVROverlay_IVROverlay_028_GetOverlayTransformCursor,
+    IVROverlay_IVROverlay_028_SetOverlayTransformProjection,
+    IVROverlay_IVROverlay_028_SetSubviewPosition,
+    IVROverlay_IVROverlay_028_ShowOverlay,
+    IVROverlay_IVROverlay_028_HideOverlay,
+    IVROverlay_IVROverlay_028_IsOverlayVisible,
+    IVROverlay_IVROverlay_028_GetTransformForOverlayCoordinates,
+    IVROverlay_IVROverlay_028_WaitFrameSync,
+    IVROverlay_IVROverlay_028_PollNextOverlayEvent,
+    IVROverlay_IVROverlay_028_GetOverlayInputMethod,
+    IVROverlay_IVROverlay_028_SetOverlayInputMethod,
+    IVROverlay_IVROverlay_028_GetOverlayMouseScale,
+    IVROverlay_IVROverlay_028_SetOverlayMouseScale,
+    IVROverlay_IVROverlay_028_ComputeOverlayIntersection,
+    IVROverlay_IVROverlay_028_IsHoverTargetOverlay,
+    IVROverlay_IVROverlay_028_SetOverlayIntersectionMask,
+    IVROverlay_IVROverlay_028_TriggerLaserMouseHapticVibration,
+    IVROverlay_IVROverlay_028_SetOverlayCursor,
+    IVROverlay_IVROverlay_028_SetOverlayCursorPositionOverride,
+    IVROverlay_IVROverlay_028_ClearOverlayCursorPositionOverride,
+    IVROverlay_IVROverlay_028_SetOverlayTexture,
+    IVROverlay_IVROverlay_028_ClearOverlayTexture,
+    IVROverlay_IVROverlay_028_SetOverlayRaw,
+    IVROverlay_IVROverlay_028_SetOverlayFromFile,
+    IVROverlay_IVROverlay_028_GetOverlayTexture,
+    IVROverlay_IVROverlay_028_ReleaseNativeOverlayHandle,
+    IVROverlay_IVROverlay_028_GetOverlayTextureSize,
+    IVROverlay_IVROverlay_028_CreateDashboardOverlay,
+    IVROverlay_IVROverlay_028_IsDashboardVisible,
+    IVROverlay_IVROverlay_028_IsActiveDashboardOverlay,
+    IVROverlay_IVROverlay_028_SetDashboardOverlaySceneProcess,
+    IVROverlay_IVROverlay_028_GetDashboardOverlaySceneProcess,
+    IVROverlay_IVROverlay_028_ShowDashboard,
+    IVROverlay_IVROverlay_028_GetPrimaryDashboardDevice,
+    IVROverlay_IVROverlay_028_ShowKeyboard,
+    IVROverlay_IVROverlay_028_ShowKeyboardForOverlay,
+    IVROverlay_IVROverlay_028_GetKeyboardText,
+    IVROverlay_IVROverlay_028_HideKeyboard,
+    IVROverlay_IVROverlay_028_SetKeyboardTransformAbsolute,
+    IVROverlay_IVROverlay_028_SetKeyboardPositionForOverlay,
+    IVROverlay_IVROverlay_028_ShowMessageOverlay,
+    IVROverlay_IVROverlay_028_CloseMessageOverlay,
     IVRRenderModels_IVRRenderModels_001_LoadRenderModel,
     IVRRenderModels_IVRRenderModels_001_FreeRenderModel,
     IVRRenderModels_IVRRenderModels_001_GetRenderModelName,
     IVRRenderModels_IVRRenderModels_001_GetRenderModelCount,
+    IVRRenderModels_IVRRenderModels_001_GetComponentCount,
+    IVRRenderModels_IVRRenderModels_001_GetComponentName,
+    IVRRenderModels_IVRRenderModels_001_GetComponentButtonMask,
+    IVRRenderModels_IVRRenderModels_001_GetComponentRenderModelName,
+    IVRRenderModels_IVRRenderModels_001_GetComponentState,
     IVRRenderModels_IVRRenderModels_002_LoadRenderModel,
     IVRRenderModels_IVRRenderModels_002_FreeRenderModel,
     IVRRenderModels_IVRRenderModels_002_LoadTexture,
@@ -3094,6 +3358,49 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVRSystem_IVRSystem_006_PerformFirmwareUpdate,
     IVRSystem_IVRSystem_006_IsDisplayOnDesktop,
     IVRSystem_IVRSystem_006_SetDisplayVisibility,
+    IVRSystem_IVRSystem_007_GetWindowBounds,
+    IVRSystem_IVRSystem_007_GetRecommendedRenderTargetSize,
+    IVRSystem_IVRSystem_007_GetEyeOutputViewport,
+    IVRSystem_IVRSystem_007_GetProjectionMatrix,
+    IVRSystem_IVRSystem_007_GetProjectionRaw,
+    IVRSystem_IVRSystem_007_ComputeDistortion,
+    IVRSystem_IVRSystem_007_GetEyeToHeadTransform,
+    IVRSystem_IVRSystem_007_GetTimeSinceLastVsync,
+    IVRSystem_IVRSystem_007_GetD3D9AdapterIndex,
+    IVRSystem_IVRSystem_007_GetDXGIOutputInfo,
+    IVRSystem_IVRSystem_007_AttachToWindow,
+    IVRSystem_IVRSystem_007_GetDeviceToAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_007_ResetSeatedZeroPose,
+    IVRSystem_IVRSystem_007_GetSeatedZeroPoseToStandingAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_007_GetRawZeroPoseToStandingAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_007_GetSortedTrackedDeviceIndicesOfClass,
+    IVRSystem_IVRSystem_007_GetTrackedDeviceActivityLevel,
+    IVRSystem_IVRSystem_007_ApplyTransform,
+    IVRSystem_IVRSystem_007_GetTrackedDeviceClass,
+    IVRSystem_IVRSystem_007_IsTrackedDeviceConnected,
+    IVRSystem_IVRSystem_007_GetBoolTrackedDeviceProperty,
+    IVRSystem_IVRSystem_007_GetFloatTrackedDeviceProperty,
+    IVRSystem_IVRSystem_007_GetInt32TrackedDeviceProperty,
+    IVRSystem_IVRSystem_007_GetUint64TrackedDeviceProperty,
+    IVRSystem_IVRSystem_007_GetMatrix34TrackedDeviceProperty,
+    IVRSystem_IVRSystem_007_GetStringTrackedDeviceProperty,
+    IVRSystem_IVRSystem_007_GetPropErrorNameFromEnum,
+    IVRSystem_IVRSystem_007_PollNextEvent,
+    IVRSystem_IVRSystem_007_PollNextEventWithPose,
+    IVRSystem_IVRSystem_007_GetEventTypeNameFromEnum,
+    IVRSystem_IVRSystem_007_GetHiddenAreaMesh,
+    IVRSystem_IVRSystem_007_GetControllerState,
+    IVRSystem_IVRSystem_007_GetControllerStateWithPose,
+    IVRSystem_IVRSystem_007_TriggerHapticPulse,
+    IVRSystem_IVRSystem_007_GetButtonIdNameFromEnum,
+    IVRSystem_IVRSystem_007_GetControllerAxisTypeNameFromEnum,
+    IVRSystem_IVRSystem_007_CaptureInputFocus,
+    IVRSystem_IVRSystem_007_ReleaseInputFocus,
+    IVRSystem_IVRSystem_007_IsInputFocusCapturedByAnotherProcess,
+    IVRSystem_IVRSystem_007_DriverDebugRequest,
+    IVRSystem_IVRSystem_007_PerformFirmwareUpdate,
+    IVRSystem_IVRSystem_007_IsDisplayOnDesktop,
+    IVRSystem_IVRSystem_007_SetDisplayVisibility,
     IVRSystem_IVRSystem_009_GetRecommendedRenderTargetSize,
     IVRSystem_IVRSystem_009_GetProjectionMatrix,
     IVRSystem_IVRSystem_009_GetProjectionRaw,
@@ -3638,6 +3945,104 @@ extern "C" const unixlib_entry_t __wine_unix_call_funcs[] =
     IVRSystem_IVRSystem_022_AcknowledgeQuit_Exiting,
     IVRSystem_IVRSystem_022_GetAppContainerFilePaths,
     IVRSystem_IVRSystem_022_GetRuntimeVersion,
+    IVRSystem_IVRSystem_023_GetRecommendedRenderTargetSize,
+    IVRSystem_IVRSystem_023_GetProjectionMatrix,
+    IVRSystem_IVRSystem_023_GetProjectionRaw,
+    IVRSystem_IVRSystem_023_ComputeDistortion,
+    IVRSystem_IVRSystem_023_GetEyeToHeadTransform,
+    IVRSystem_IVRSystem_023_GetTimeSinceLastVsync,
+    IVRSystem_IVRSystem_023_GetD3D9AdapterIndex,
+    IVRSystem_IVRSystem_023_GetDXGIOutputInfo,
+    IVRSystem_IVRSystem_023_GetOutputDevice,
+    IVRSystem_IVRSystem_023_IsDisplayOnDesktop,
+    IVRSystem_IVRSystem_023_SetDisplayVisibility,
+    IVRSystem_IVRSystem_023_GetDeviceToAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_023_GetSeatedZeroPoseToStandingAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_023_GetRawZeroPoseToStandingAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_023_GetSortedTrackedDeviceIndicesOfClass,
+    IVRSystem_IVRSystem_023_GetTrackedDeviceActivityLevel,
+    IVRSystem_IVRSystem_023_ApplyTransform,
+    IVRSystem_IVRSystem_023_GetTrackedDeviceIndexForControllerRole,
+    IVRSystem_IVRSystem_023_GetControllerRoleForTrackedDeviceIndex,
+    IVRSystem_IVRSystem_023_GetTrackedDeviceClass,
+    IVRSystem_IVRSystem_023_IsTrackedDeviceConnected,
+    IVRSystem_IVRSystem_023_GetBoolTrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetFloatTrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetInt32TrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetUint64TrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetMatrix34TrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetArrayTrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetStringTrackedDeviceProperty,
+    IVRSystem_IVRSystem_023_GetPropErrorNameFromEnum,
+    IVRSystem_IVRSystem_023_PollNextEvent,
+    IVRSystem_IVRSystem_023_PollNextEventWithPose,
+    IVRSystem_IVRSystem_023_PollNextEventWithPoseAndOverlays,
+    IVRSystem_IVRSystem_023_GetEventTypeNameFromEnum,
+    IVRSystem_IVRSystem_023_GetHiddenAreaMesh,
+    IVRSystem_IVRSystem_023_GetControllerState,
+    IVRSystem_IVRSystem_023_GetControllerStateWithPose,
+    IVRSystem_IVRSystem_023_TriggerHapticPulse,
+    IVRSystem_IVRSystem_023_GetButtonIdNameFromEnum,
+    IVRSystem_IVRSystem_023_GetControllerAxisTypeNameFromEnum,
+    IVRSystem_IVRSystem_023_IsInputAvailable,
+    IVRSystem_IVRSystem_023_IsSteamVRDrawingControllers,
+    IVRSystem_IVRSystem_023_ShouldApplicationPause,
+    IVRSystem_IVRSystem_023_ShouldApplicationReduceRenderingWork,
+    IVRSystem_IVRSystem_023_PerformFirmwareUpdate,
+    IVRSystem_IVRSystem_023_AcknowledgeQuit_Exiting,
+    IVRSystem_IVRSystem_023_GetAppContainerFilePaths,
+    IVRSystem_IVRSystem_023_GetRuntimeVersion,
+    IVRSystem_IVRSystem_026_GetRecommendedRenderTargetSize,
+    IVRSystem_IVRSystem_026_GetProjectionMatrix,
+    IVRSystem_IVRSystem_026_GetProjectionRaw,
+    IVRSystem_IVRSystem_026_ComputeDistortion,
+    IVRSystem_IVRSystem_026_ComputeDistortionSet,
+    IVRSystem_IVRSystem_026_GetEyeToHeadTransform,
+    IVRSystem_IVRSystem_026_GetTimeSinceLastVsync,
+    IVRSystem_IVRSystem_026_GetD3D9AdapterIndex,
+    IVRSystem_IVRSystem_026_GetDXGIOutputInfo,
+    IVRSystem_IVRSystem_026_GetOutputDevice,
+    IVRSystem_IVRSystem_026_IsDisplayOnDesktop,
+    IVRSystem_IVRSystem_026_SetDisplayVisibility,
+    IVRSystem_IVRSystem_026_GetDeviceToAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_026_GetSeatedZeroPoseToStandingAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_026_GetRawZeroPoseToStandingAbsoluteTrackingPose,
+    IVRSystem_IVRSystem_026_GetSortedTrackedDeviceIndicesOfClass,
+    IVRSystem_IVRSystem_026_GetTrackedDeviceActivityLevel,
+    IVRSystem_IVRSystem_026_ApplyTransform,
+    IVRSystem_IVRSystem_026_GetTrackedDeviceIndexForControllerRole,
+    IVRSystem_IVRSystem_026_GetControllerRoleForTrackedDeviceIndex,
+    IVRSystem_IVRSystem_026_GetTrackedDeviceClass,
+    IVRSystem_IVRSystem_026_IsTrackedDeviceConnected,
+    IVRSystem_IVRSystem_026_GetBoolTrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetFloatTrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetInt32TrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetUint64TrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetMatrix34TrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetArrayTrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetStringTrackedDeviceProperty,
+    IVRSystem_IVRSystem_026_GetPropErrorNameFromEnum,
+    IVRSystem_IVRSystem_026_PollNextEvent,
+    IVRSystem_IVRSystem_026_PollNextEventWithPose,
+    IVRSystem_IVRSystem_026_PollNextEventWithPoseAndOverlays,
+    IVRSystem_IVRSystem_026_GetEventTypeNameFromEnum,
+    IVRSystem_IVRSystem_026_GetHiddenAreaMesh,
+    IVRSystem_IVRSystem_026_GetEyeTrackedFoveationCenter,
+    IVRSystem_IVRSystem_026_GetEyeTrackedFoveationCenterForProjection,
+    IVRSystem_IVRSystem_026_GetControllerState,
+    IVRSystem_IVRSystem_026_GetControllerStateWithPose,
+    IVRSystem_IVRSystem_026_TriggerHapticPulse,
+    IVRSystem_IVRSystem_026_GetButtonIdNameFromEnum,
+    IVRSystem_IVRSystem_026_GetControllerAxisTypeNameFromEnum,
+    IVRSystem_IVRSystem_026_IsInputAvailable,
+    IVRSystem_IVRSystem_026_IsSteamVRDrawingControllers,
+    IVRSystem_IVRSystem_026_ShouldApplicationPause,
+    IVRSystem_IVRSystem_026_ShouldApplicationReduceRenderingWork,
+    IVRSystem_IVRSystem_026_PerformFirmwareUpdate,
+    IVRSystem_IVRSystem_026_AcknowledgeQuit_Exiting,
+    IVRSystem_IVRSystem_026_GetAppContainerFilePaths,
+    IVRSystem_IVRSystem_026_GetRuntimeVersion,
+    IVRSystem_IVRSystem_026_SetSDKVersion,
     IVRTrackedCamera_IVRTrackedCamera_001_HasCamera,
     IVRTrackedCamera_IVRTrackedCamera_001_GetCameraFirmwareDescription,
     IVRTrackedCamera_IVRTrackedCamera_001_GetCameraFrameDimensions,
@@ -3895,6 +4300,37 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVRApplications_IVRApplications_007_GetSceneApplicationStateNameFromEnum,
     wow64_IVRApplications_IVRApplications_007_LaunchInternalProcess,
     wow64_IVRApplications_IVRApplications_007_GetCurrentSceneProcessId,
+    wow64_IVRApplications_IVRApplications_008_AddApplicationManifest,
+    wow64_IVRApplications_IVRApplications_008_RemoveApplicationManifest,
+    wow64_IVRApplications_IVRApplications_008_IsApplicationInstalled,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationCount,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationKeyByIndex,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationKeyByProcessId,
+    wow64_IVRApplications_IVRApplications_008_LaunchApplication,
+    wow64_IVRApplications_IVRApplications_008_LaunchTemplateApplication,
+    wow64_IVRApplications_IVRApplications_008_LaunchApplicationFromMimeType,
+    wow64_IVRApplications_IVRApplications_008_LaunchDashboardOverlay,
+    wow64_IVRApplications_IVRApplications_008_CancelApplicationLaunch,
+    wow64_IVRApplications_IVRApplications_008_IdentifyApplication,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationProcessId,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationsErrorNameFromEnum,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationPropertyString,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationPropertyBool,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationPropertyUint64,
+    wow64_IVRApplications_IVRApplications_008_SetApplicationAutoLaunch,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationAutoLaunch,
+    wow64_IVRApplications_IVRApplications_008_SetDefaultApplicationForMimeType,
+    wow64_IVRApplications_IVRApplications_008_GetDefaultApplicationForMimeType,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationSupportedMimeTypes,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationsThatSupportMimeType,
+    wow64_IVRApplications_IVRApplications_008_GetApplicationLaunchArguments,
+    wow64_IVRApplications_IVRApplications_008_GetStartingApplication,
+    wow64_IVRApplications_IVRApplications_008_GetSceneApplicationState,
+    wow64_IVRApplications_IVRApplications_008_PerformApplicationPrelaunchCheck,
+    wow64_IVRApplications_IVRApplications_008_GetSceneApplicationStateNameFromEnum,
+    wow64_IVRApplications_IVRApplications_008_LaunchInternalProcess,
+    wow64_IVRApplications_IVRApplications_008_RegisterSubprocess,
+    wow64_IVRApplications_IVRApplications_008_GetCurrentSceneProcessId,
     wow64_IVRChaperoneSetup_IVRChaperoneSetup_004_CommitWorkingCopy,
     wow64_IVRChaperoneSetup_IVRChaperoneSetup_004_RevertWorkingCopy,
     wow64_IVRChaperoneSetup_IVRChaperoneSetup_004_GetWorkingPlayAreaSize,
@@ -4080,6 +4516,8 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVRCompositor_IVRCompositor_008_CompositorDumpImages,
     wow64_IVRCompositor_IVRCompositor_008_GetFrameTimeRemaining,
     wow64_IVRCompositor_IVRCompositor_008_GetLastFrameRenderer,
+    wow64_IVRCompositor_IVRCompositor_008_GetLastPoses,
+    wow64_IVRCompositor_IVRCompositor_008_PostPresentHandoff,
     wow64_IVRCompositor_IVRCompositor_009_SetTrackingSpace,
     wow64_IVRCompositor_IVRCompositor_009_GetTrackingSpace,
     wow64_IVRCompositor_IVRCompositor_009_WaitGetPoses,
@@ -4752,6 +5190,59 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVRCompositor_IVRCompositor_028_GetCompositorBenchmarkResults,
     wow64_IVRCompositor_IVRCompositor_028_GetLastPosePredictionIDs,
     wow64_IVRCompositor_IVRCompositor_028_GetPosesForFrame,
+    wow64_IVRCompositor_IVRCompositor_029_SetTrackingSpace,
+    wow64_IVRCompositor_IVRCompositor_029_GetTrackingSpace,
+    wow64_IVRCompositor_IVRCompositor_029_WaitGetPoses,
+    wow64_IVRCompositor_IVRCompositor_029_GetLastPoses,
+    wow64_IVRCompositor_IVRCompositor_029_GetLastPoseForTrackedDeviceIndex,
+    wow64_IVRCompositor_IVRCompositor_029_GetSubmitTexture,
+    wow64_IVRCompositor_IVRCompositor_029_Submit,
+    wow64_IVRCompositor_IVRCompositor_029_SubmitWithArrayIndex,
+    wow64_IVRCompositor_IVRCompositor_029_ClearLastSubmittedFrame,
+    wow64_IVRCompositor_IVRCompositor_029_PostPresentHandoff,
+    wow64_IVRCompositor_IVRCompositor_029_GetFrameTiming,
+    wow64_IVRCompositor_IVRCompositor_029_GetFrameTimings,
+    wow64_IVRCompositor_IVRCompositor_029_GetFrameTimeRemaining,
+    wow64_IVRCompositor_IVRCompositor_029_GetCumulativeStats,
+    wow64_IVRCompositor_IVRCompositor_029_FadeToColor,
+    wow64_IVRCompositor_IVRCompositor_029_GetCurrentFadeColor,
+    wow64_IVRCompositor_IVRCompositor_029_FadeGrid,
+    wow64_IVRCompositor_IVRCompositor_029_GetCurrentGridAlpha,
+    wow64_IVRCompositor_IVRCompositor_029_SetSkyboxOverride,
+    wow64_IVRCompositor_IVRCompositor_029_ClearSkyboxOverride,
+    wow64_IVRCompositor_IVRCompositor_029_CompositorBringToFront,
+    wow64_IVRCompositor_IVRCompositor_029_CompositorGoToBack,
+    wow64_IVRCompositor_IVRCompositor_029_CompositorQuit,
+    wow64_IVRCompositor_IVRCompositor_029_IsFullscreen,
+    wow64_IVRCompositor_IVRCompositor_029_GetCurrentSceneFocusProcess,
+    wow64_IVRCompositor_IVRCompositor_029_GetLastFrameRenderer,
+    wow64_IVRCompositor_IVRCompositor_029_CanRenderScene,
+    wow64_IVRCompositor_IVRCompositor_029_ShowMirrorWindow,
+    wow64_IVRCompositor_IVRCompositor_029_HideMirrorWindow,
+    wow64_IVRCompositor_IVRCompositor_029_IsMirrorWindowVisible,
+    wow64_IVRCompositor_IVRCompositor_029_CompositorDumpImages,
+    wow64_IVRCompositor_IVRCompositor_029_ShouldAppRenderWithLowResources,
+    wow64_IVRCompositor_IVRCompositor_029_ForceInterleavedReprojectionOn,
+    wow64_IVRCompositor_IVRCompositor_029_ForceReconnectProcess,
+    wow64_IVRCompositor_IVRCompositor_029_SuspendRendering,
+    wow64_IVRCompositor_IVRCompositor_029_GetMirrorTextureD3D11,
+    wow64_IVRCompositor_IVRCompositor_029_ReleaseMirrorTextureD3D11,
+    wow64_IVRCompositor_IVRCompositor_029_GetMirrorTextureGL,
+    wow64_IVRCompositor_IVRCompositor_029_ReleaseSharedGLTexture,
+    wow64_IVRCompositor_IVRCompositor_029_LockGLSharedTextureForAccess,
+    wow64_IVRCompositor_IVRCompositor_029_UnlockGLSharedTextureForAccess,
+    wow64_IVRCompositor_IVRCompositor_029_GetVulkanInstanceExtensionsRequired,
+    wow64_IVRCompositor_IVRCompositor_029_GetVulkanDeviceExtensionsRequired,
+    wow64_IVRCompositor_IVRCompositor_029_SetExplicitTimingMode,
+    wow64_IVRCompositor_IVRCompositor_029_SubmitExplicitTimingData,
+    wow64_IVRCompositor_IVRCompositor_029_IsMotionSmoothingEnabled,
+    wow64_IVRCompositor_IVRCompositor_029_IsMotionSmoothingSupported,
+    wow64_IVRCompositor_IVRCompositor_029_IsCurrentSceneFocusAppLoading,
+    wow64_IVRCompositor_IVRCompositor_029_SetStageOverride_Async,
+    wow64_IVRCompositor_IVRCompositor_029_ClearStageOverride,
+    wow64_IVRCompositor_IVRCompositor_029_GetCompositorBenchmarkResults,
+    wow64_IVRCompositor_IVRCompositor_029_GetLastPosePredictionIDs,
+    wow64_IVRCompositor_IVRCompositor_029_GetPosesForFrame,
     wow64_IVRControlPanel_IVRControlPanel_006_undoc1,
     wow64_IVRControlPanel_IVRControlPanel_006_undoc2,
     wow64_IVRControlPanel_IVRControlPanel_006_undoc3,
@@ -4953,6 +5444,40 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVRInput_IVRInput_010_IsUsingLegacyInput,
     wow64_IVRInput_IVRInput_010_OpenBindingUI,
     wow64_IVRInput_IVRInput_010_GetBindingVariant,
+    wow64_IVRInput_IVRInput_011_SetActionManifestPath,
+    wow64_IVRInput_IVRInput_011_GetActionSetHandle,
+    wow64_IVRInput_IVRInput_011_GetActionHandle,
+    wow64_IVRInput_IVRInput_011_GetInputSourceHandle,
+    wow64_IVRInput_IVRInput_011_UpdateActionState,
+    wow64_IVRInput_IVRInput_011_GetDigitalActionData,
+    wow64_IVRInput_IVRInput_011_GetAnalogActionData,
+    wow64_IVRInput_IVRInput_011_GetPoseActionDataRelativeToNow,
+    wow64_IVRInput_IVRInput_011_GetPoseActionDataForNextFrame,
+    wow64_IVRInput_IVRInput_011_GetSkeletalActionData,
+    wow64_IVRInput_IVRInput_011_GetDominantHand,
+    wow64_IVRInput_IVRInput_011_SetDominantHand,
+    wow64_IVRInput_IVRInput_011_GetEyeTrackingDataRelativeToNow,
+    wow64_IVRInput_IVRInput_011_GetEyeTrackingDataForNextFrame,
+    wow64_IVRInput_IVRInput_011_GetBoneCount,
+    wow64_IVRInput_IVRInput_011_GetBoneHierarchy,
+    wow64_IVRInput_IVRInput_011_GetBoneName,
+    wow64_IVRInput_IVRInput_011_GetSkeletalReferenceTransforms,
+    wow64_IVRInput_IVRInput_011_GetSkeletalTrackingLevel,
+    wow64_IVRInput_IVRInput_011_GetSkeletalBoneData,
+    wow64_IVRInput_IVRInput_011_GetSkeletalSummaryData,
+    wow64_IVRInput_IVRInput_011_GetSkeletalBoneDataCompressed,
+    wow64_IVRInput_IVRInput_011_DecompressSkeletalBoneData,
+    wow64_IVRInput_IVRInput_011_TriggerHapticVibrationAction,
+    wow64_IVRInput_IVRInput_011_GetActionOrigins,
+    wow64_IVRInput_IVRInput_011_GetOriginLocalizedName,
+    wow64_IVRInput_IVRInput_011_GetOriginTrackedDeviceInfo,
+    wow64_IVRInput_IVRInput_011_GetActionBindingInfo,
+    wow64_IVRInput_IVRInput_011_ShowActionOrigins,
+    wow64_IVRInput_IVRInput_011_ShowBindingsForActionSet,
+    wow64_IVRInput_IVRInput_011_GetComponentStateForBinding,
+    wow64_IVRInput_IVRInput_011_IsUsingLegacyInput,
+    wow64_IVRInput_IVRInput_011_OpenBindingUI,
+    wow64_IVRInput_IVRInput_011_GetBindingVariant,
     wow64_IVRMailbox_IVRMailbox_001_undoc1,
     wow64_IVRMailbox_IVRMailbox_001_undoc2,
     wow64_IVRMailbox_IVRMailbox_001_undoc3,
@@ -5194,6 +5719,63 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVROverlay_IVROverlay_005_ShowKeyboard,
     wow64_IVROverlay_IVROverlay_005_GetKeyboardText,
     wow64_IVROverlay_IVROverlay_005_HideKeyboard,
+    wow64_IVROverlay_IVROverlay_006_FindOverlay,
+    wow64_IVROverlay_IVROverlay_006_CreateOverlay,
+    wow64_IVROverlay_IVROverlay_006_DestroyOverlay,
+    wow64_IVROverlay_IVROverlay_006_SetHighQualityOverlay,
+    wow64_IVROverlay_IVROverlay_006_GetHighQualityOverlay,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayKey,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayName,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayImageData,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayErrorNameFromEnum,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayFlag,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayFlag,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayColor,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayColor,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayAlpha,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayAlpha,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayGamma,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayGamma,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayWidthInMeters,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayWidthInMeters,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayAutoCurveDistanceRangeInMeters,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayAutoCurveDistanceRangeInMeters,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayTextureBounds,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayTextureBounds,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayTransformType,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayTransformAbsolute,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayTransformAbsolute,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayTransformTrackedDeviceRelative,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayTransformTrackedDeviceRelative,
+    wow64_IVROverlay_IVROverlay_006_ShowOverlay,
+    wow64_IVROverlay_IVROverlay_006_HideOverlay,
+    wow64_IVROverlay_IVROverlay_006_IsOverlayVisible,
+    wow64_IVROverlay_IVROverlay_006_PollNextOverlayEvent,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayInputMethod,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayInputMethod,
+    wow64_IVROverlay_IVROverlay_006_GetOverlayMouseScale,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayMouseScale,
+    wow64_IVROverlay_IVROverlay_006_ComputeOverlayIntersection,
+    wow64_IVROverlay_IVROverlay_006_HandleControllerOverlayInteractionAsMouse,
+    wow64_IVROverlay_IVROverlay_006_IsHoverTargetOverlay,
+    wow64_IVROverlay_IVROverlay_006_GetGamepadFocusOverlay,
+    wow64_IVROverlay_IVROverlay_006_SetGamepadFocusOverlay,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayNeighbor,
+    wow64_IVROverlay_IVROverlay_006_MoveGamepadFocusToNeighbor,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayTexture,
+    wow64_IVROverlay_IVROverlay_006_ClearOverlayTexture,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayRaw,
+    wow64_IVROverlay_IVROverlay_006_SetOverlayFromFile,
+    wow64_IVROverlay_IVROverlay_006_CreateDashboardOverlay,
+    wow64_IVROverlay_IVROverlay_006_IsDashboardVisible,
+    wow64_IVROverlay_IVROverlay_006_IsActiveDashboardOverlay,
+    wow64_IVROverlay_IVROverlay_006_SetDashboardOverlaySceneProcess,
+    wow64_IVROverlay_IVROverlay_006_GetDashboardOverlaySceneProcess,
+    wow64_IVROverlay_IVROverlay_006_ShowDashboard,
+    wow64_IVROverlay_IVROverlay_006_ShowKeyboard,
+    wow64_IVROverlay_IVROverlay_006_ShowKeyboardForOverlay,
+    wow64_IVROverlay_IVROverlay_006_GetKeyboardText,
+    wow64_IVROverlay_IVROverlay_006_HideKeyboard,
     wow64_IVROverlay_IVROverlay_007_FindOverlay,
     wow64_IVROverlay_IVROverlay_007_CreateOverlay,
     wow64_IVROverlay_IVROverlay_007_DestroyOverlay,
@@ -6542,10 +7124,97 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVROverlay_IVROverlay_027_SetKeyboardPositionForOverlay,
     wow64_IVROverlay_IVROverlay_027_ShowMessageOverlay,
     wow64_IVROverlay_IVROverlay_027_CloseMessageOverlay,
+    wow64_IVROverlay_IVROverlay_028_FindOverlay,
+    wow64_IVROverlay_IVROverlay_028_CreateOverlay,
+    wow64_IVROverlay_IVROverlay_028_CreateSubviewOverlay,
+    wow64_IVROverlay_IVROverlay_028_DestroyOverlay,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayKey,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayName,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayName,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayImageData,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayErrorNameFromEnum,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayRenderingPid,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayRenderingPid,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayFlag,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayFlag,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayFlags,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayColor,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayColor,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayAlpha,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayAlpha,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTexelAspect,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTexelAspect,
+    wow64_IVROverlay_IVROverlay_028_SetOverlaySortOrder,
+    wow64_IVROverlay_IVROverlay_028_GetOverlaySortOrder,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayWidthInMeters,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayWidthInMeters,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayCurvature,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayCurvature,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayPreCurvePitch,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayPreCurvePitch,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTextureColorSpace,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTextureColorSpace,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTextureBounds,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTextureBounds,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTransformType,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTransformAbsolute,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTransformAbsolute,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTransformTrackedDeviceRelative,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTransformTrackedDeviceRelative,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTransformTrackedDeviceComponent,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTransformTrackedDeviceComponent,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTransformCursor,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTransformCursor,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTransformProjection,
+    wow64_IVROverlay_IVROverlay_028_SetSubviewPosition,
+    wow64_IVROverlay_IVROverlay_028_ShowOverlay,
+    wow64_IVROverlay_IVROverlay_028_HideOverlay,
+    wow64_IVROverlay_IVROverlay_028_IsOverlayVisible,
+    wow64_IVROverlay_IVROverlay_028_GetTransformForOverlayCoordinates,
+    wow64_IVROverlay_IVROverlay_028_WaitFrameSync,
+    wow64_IVROverlay_IVROverlay_028_PollNextOverlayEvent,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayInputMethod,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayInputMethod,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayMouseScale,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayMouseScale,
+    wow64_IVROverlay_IVROverlay_028_ComputeOverlayIntersection,
+    wow64_IVROverlay_IVROverlay_028_IsHoverTargetOverlay,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayIntersectionMask,
+    wow64_IVROverlay_IVROverlay_028_TriggerLaserMouseHapticVibration,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayCursor,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayCursorPositionOverride,
+    wow64_IVROverlay_IVROverlay_028_ClearOverlayCursorPositionOverride,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayTexture,
+    wow64_IVROverlay_IVROverlay_028_ClearOverlayTexture,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayRaw,
+    wow64_IVROverlay_IVROverlay_028_SetOverlayFromFile,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTexture,
+    wow64_IVROverlay_IVROverlay_028_ReleaseNativeOverlayHandle,
+    wow64_IVROverlay_IVROverlay_028_GetOverlayTextureSize,
+    wow64_IVROverlay_IVROverlay_028_CreateDashboardOverlay,
+    wow64_IVROverlay_IVROverlay_028_IsDashboardVisible,
+    wow64_IVROverlay_IVROverlay_028_IsActiveDashboardOverlay,
+    wow64_IVROverlay_IVROverlay_028_SetDashboardOverlaySceneProcess,
+    wow64_IVROverlay_IVROverlay_028_GetDashboardOverlaySceneProcess,
+    wow64_IVROverlay_IVROverlay_028_ShowDashboard,
+    wow64_IVROverlay_IVROverlay_028_GetPrimaryDashboardDevice,
+    wow64_IVROverlay_IVROverlay_028_ShowKeyboard,
+    wow64_IVROverlay_IVROverlay_028_ShowKeyboardForOverlay,
+    wow64_IVROverlay_IVROverlay_028_GetKeyboardText,
+    wow64_IVROverlay_IVROverlay_028_HideKeyboard,
+    wow64_IVROverlay_IVROverlay_028_SetKeyboardTransformAbsolute,
+    wow64_IVROverlay_IVROverlay_028_SetKeyboardPositionForOverlay,
+    wow64_IVROverlay_IVROverlay_028_ShowMessageOverlay,
+    wow64_IVROverlay_IVROverlay_028_CloseMessageOverlay,
     wow64_IVRRenderModels_IVRRenderModels_001_LoadRenderModel,
     wow64_IVRRenderModels_IVRRenderModels_001_FreeRenderModel,
     wow64_IVRRenderModels_IVRRenderModels_001_GetRenderModelName,
     wow64_IVRRenderModels_IVRRenderModels_001_GetRenderModelCount,
+    wow64_IVRRenderModels_IVRRenderModels_001_GetComponentCount,
+    wow64_IVRRenderModels_IVRRenderModels_001_GetComponentName,
+    wow64_IVRRenderModels_IVRRenderModels_001_GetComponentButtonMask,
+    wow64_IVRRenderModels_IVRRenderModels_001_GetComponentRenderModelName,
+    wow64_IVRRenderModels_IVRRenderModels_001_GetComponentState,
     wow64_IVRRenderModels_IVRRenderModels_002_LoadRenderModel,
     wow64_IVRRenderModels_IVRRenderModels_002_FreeRenderModel,
     wow64_IVRRenderModels_IVRRenderModels_002_LoadTexture,
@@ -6806,6 +7475,49 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVRSystem_IVRSystem_006_PerformFirmwareUpdate,
     wow64_IVRSystem_IVRSystem_006_IsDisplayOnDesktop,
     wow64_IVRSystem_IVRSystem_006_SetDisplayVisibility,
+    wow64_IVRSystem_IVRSystem_007_GetWindowBounds,
+    wow64_IVRSystem_IVRSystem_007_GetRecommendedRenderTargetSize,
+    wow64_IVRSystem_IVRSystem_007_GetEyeOutputViewport,
+    wow64_IVRSystem_IVRSystem_007_GetProjectionMatrix,
+    wow64_IVRSystem_IVRSystem_007_GetProjectionRaw,
+    wow64_IVRSystem_IVRSystem_007_ComputeDistortion,
+    wow64_IVRSystem_IVRSystem_007_GetEyeToHeadTransform,
+    wow64_IVRSystem_IVRSystem_007_GetTimeSinceLastVsync,
+    wow64_IVRSystem_IVRSystem_007_GetD3D9AdapterIndex,
+    wow64_IVRSystem_IVRSystem_007_GetDXGIOutputInfo,
+    wow64_IVRSystem_IVRSystem_007_AttachToWindow,
+    wow64_IVRSystem_IVRSystem_007_GetDeviceToAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_007_ResetSeatedZeroPose,
+    wow64_IVRSystem_IVRSystem_007_GetSeatedZeroPoseToStandingAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_007_GetRawZeroPoseToStandingAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_007_GetSortedTrackedDeviceIndicesOfClass,
+    wow64_IVRSystem_IVRSystem_007_GetTrackedDeviceActivityLevel,
+    wow64_IVRSystem_IVRSystem_007_ApplyTransform,
+    wow64_IVRSystem_IVRSystem_007_GetTrackedDeviceClass,
+    wow64_IVRSystem_IVRSystem_007_IsTrackedDeviceConnected,
+    wow64_IVRSystem_IVRSystem_007_GetBoolTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_007_GetFloatTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_007_GetInt32TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_007_GetUint64TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_007_GetMatrix34TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_007_GetStringTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_007_GetPropErrorNameFromEnum,
+    wow64_IVRSystem_IVRSystem_007_PollNextEvent,
+    wow64_IVRSystem_IVRSystem_007_PollNextEventWithPose,
+    wow64_IVRSystem_IVRSystem_007_GetEventTypeNameFromEnum,
+    wow64_IVRSystem_IVRSystem_007_GetHiddenAreaMesh,
+    wow64_IVRSystem_IVRSystem_007_GetControllerState,
+    wow64_IVRSystem_IVRSystem_007_GetControllerStateWithPose,
+    wow64_IVRSystem_IVRSystem_007_TriggerHapticPulse,
+    wow64_IVRSystem_IVRSystem_007_GetButtonIdNameFromEnum,
+    wow64_IVRSystem_IVRSystem_007_GetControllerAxisTypeNameFromEnum,
+    wow64_IVRSystem_IVRSystem_007_CaptureInputFocus,
+    wow64_IVRSystem_IVRSystem_007_ReleaseInputFocus,
+    wow64_IVRSystem_IVRSystem_007_IsInputFocusCapturedByAnotherProcess,
+    wow64_IVRSystem_IVRSystem_007_DriverDebugRequest,
+    wow64_IVRSystem_IVRSystem_007_PerformFirmwareUpdate,
+    wow64_IVRSystem_IVRSystem_007_IsDisplayOnDesktop,
+    wow64_IVRSystem_IVRSystem_007_SetDisplayVisibility,
     wow64_IVRSystem_IVRSystem_009_GetRecommendedRenderTargetSize,
     wow64_IVRSystem_IVRSystem_009_GetProjectionMatrix,
     wow64_IVRSystem_IVRSystem_009_GetProjectionRaw,
@@ -7350,6 +8062,104 @@ extern "C" const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
     wow64_IVRSystem_IVRSystem_022_AcknowledgeQuit_Exiting,
     wow64_IVRSystem_IVRSystem_022_GetAppContainerFilePaths,
     wow64_IVRSystem_IVRSystem_022_GetRuntimeVersion,
+    wow64_IVRSystem_IVRSystem_023_GetRecommendedRenderTargetSize,
+    wow64_IVRSystem_IVRSystem_023_GetProjectionMatrix,
+    wow64_IVRSystem_IVRSystem_023_GetProjectionRaw,
+    wow64_IVRSystem_IVRSystem_023_ComputeDistortion,
+    wow64_IVRSystem_IVRSystem_023_GetEyeToHeadTransform,
+    wow64_IVRSystem_IVRSystem_023_GetTimeSinceLastVsync,
+    wow64_IVRSystem_IVRSystem_023_GetD3D9AdapterIndex,
+    wow64_IVRSystem_IVRSystem_023_GetDXGIOutputInfo,
+    wow64_IVRSystem_IVRSystem_023_GetOutputDevice,
+    wow64_IVRSystem_IVRSystem_023_IsDisplayOnDesktop,
+    wow64_IVRSystem_IVRSystem_023_SetDisplayVisibility,
+    wow64_IVRSystem_IVRSystem_023_GetDeviceToAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_023_GetSeatedZeroPoseToStandingAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_023_GetRawZeroPoseToStandingAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_023_GetSortedTrackedDeviceIndicesOfClass,
+    wow64_IVRSystem_IVRSystem_023_GetTrackedDeviceActivityLevel,
+    wow64_IVRSystem_IVRSystem_023_ApplyTransform,
+    wow64_IVRSystem_IVRSystem_023_GetTrackedDeviceIndexForControllerRole,
+    wow64_IVRSystem_IVRSystem_023_GetControllerRoleForTrackedDeviceIndex,
+    wow64_IVRSystem_IVRSystem_023_GetTrackedDeviceClass,
+    wow64_IVRSystem_IVRSystem_023_IsTrackedDeviceConnected,
+    wow64_IVRSystem_IVRSystem_023_GetBoolTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetFloatTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetInt32TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetUint64TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetMatrix34TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetArrayTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetStringTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_023_GetPropErrorNameFromEnum,
+    wow64_IVRSystem_IVRSystem_023_PollNextEvent,
+    wow64_IVRSystem_IVRSystem_023_PollNextEventWithPose,
+    wow64_IVRSystem_IVRSystem_023_PollNextEventWithPoseAndOverlays,
+    wow64_IVRSystem_IVRSystem_023_GetEventTypeNameFromEnum,
+    wow64_IVRSystem_IVRSystem_023_GetHiddenAreaMesh,
+    wow64_IVRSystem_IVRSystem_023_GetControllerState,
+    wow64_IVRSystem_IVRSystem_023_GetControllerStateWithPose,
+    wow64_IVRSystem_IVRSystem_023_TriggerHapticPulse,
+    wow64_IVRSystem_IVRSystem_023_GetButtonIdNameFromEnum,
+    wow64_IVRSystem_IVRSystem_023_GetControllerAxisTypeNameFromEnum,
+    wow64_IVRSystem_IVRSystem_023_IsInputAvailable,
+    wow64_IVRSystem_IVRSystem_023_IsSteamVRDrawingControllers,
+    wow64_IVRSystem_IVRSystem_023_ShouldApplicationPause,
+    wow64_IVRSystem_IVRSystem_023_ShouldApplicationReduceRenderingWork,
+    wow64_IVRSystem_IVRSystem_023_PerformFirmwareUpdate,
+    wow64_IVRSystem_IVRSystem_023_AcknowledgeQuit_Exiting,
+    wow64_IVRSystem_IVRSystem_023_GetAppContainerFilePaths,
+    wow64_IVRSystem_IVRSystem_023_GetRuntimeVersion,
+    wow64_IVRSystem_IVRSystem_026_GetRecommendedRenderTargetSize,
+    wow64_IVRSystem_IVRSystem_026_GetProjectionMatrix,
+    wow64_IVRSystem_IVRSystem_026_GetProjectionRaw,
+    wow64_IVRSystem_IVRSystem_026_ComputeDistortion,
+    wow64_IVRSystem_IVRSystem_026_ComputeDistortionSet,
+    wow64_IVRSystem_IVRSystem_026_GetEyeToHeadTransform,
+    wow64_IVRSystem_IVRSystem_026_GetTimeSinceLastVsync,
+    wow64_IVRSystem_IVRSystem_026_GetD3D9AdapterIndex,
+    wow64_IVRSystem_IVRSystem_026_GetDXGIOutputInfo,
+    wow64_IVRSystem_IVRSystem_026_GetOutputDevice,
+    wow64_IVRSystem_IVRSystem_026_IsDisplayOnDesktop,
+    wow64_IVRSystem_IVRSystem_026_SetDisplayVisibility,
+    wow64_IVRSystem_IVRSystem_026_GetDeviceToAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_026_GetSeatedZeroPoseToStandingAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_026_GetRawZeroPoseToStandingAbsoluteTrackingPose,
+    wow64_IVRSystem_IVRSystem_026_GetSortedTrackedDeviceIndicesOfClass,
+    wow64_IVRSystem_IVRSystem_026_GetTrackedDeviceActivityLevel,
+    wow64_IVRSystem_IVRSystem_026_ApplyTransform,
+    wow64_IVRSystem_IVRSystem_026_GetTrackedDeviceIndexForControllerRole,
+    wow64_IVRSystem_IVRSystem_026_GetControllerRoleForTrackedDeviceIndex,
+    wow64_IVRSystem_IVRSystem_026_GetTrackedDeviceClass,
+    wow64_IVRSystem_IVRSystem_026_IsTrackedDeviceConnected,
+    wow64_IVRSystem_IVRSystem_026_GetBoolTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetFloatTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetInt32TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetUint64TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetMatrix34TrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetArrayTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetStringTrackedDeviceProperty,
+    wow64_IVRSystem_IVRSystem_026_GetPropErrorNameFromEnum,
+    wow64_IVRSystem_IVRSystem_026_PollNextEvent,
+    wow64_IVRSystem_IVRSystem_026_PollNextEventWithPose,
+    wow64_IVRSystem_IVRSystem_026_PollNextEventWithPoseAndOverlays,
+    wow64_IVRSystem_IVRSystem_026_GetEventTypeNameFromEnum,
+    wow64_IVRSystem_IVRSystem_026_GetHiddenAreaMesh,
+    wow64_IVRSystem_IVRSystem_026_GetEyeTrackedFoveationCenter,
+    wow64_IVRSystem_IVRSystem_026_GetEyeTrackedFoveationCenterForProjection,
+    wow64_IVRSystem_IVRSystem_026_GetControllerState,
+    wow64_IVRSystem_IVRSystem_026_GetControllerStateWithPose,
+    wow64_IVRSystem_IVRSystem_026_TriggerHapticPulse,
+    wow64_IVRSystem_IVRSystem_026_GetButtonIdNameFromEnum,
+    wow64_IVRSystem_IVRSystem_026_GetControllerAxisTypeNameFromEnum,
+    wow64_IVRSystem_IVRSystem_026_IsInputAvailable,
+    wow64_IVRSystem_IVRSystem_026_IsSteamVRDrawingControllers,
+    wow64_IVRSystem_IVRSystem_026_ShouldApplicationPause,
+    wow64_IVRSystem_IVRSystem_026_ShouldApplicationReduceRenderingWork,
+    wow64_IVRSystem_IVRSystem_026_PerformFirmwareUpdate,
+    wow64_IVRSystem_IVRSystem_026_AcknowledgeQuit_Exiting,
+    wow64_IVRSystem_IVRSystem_026_GetAppContainerFilePaths,
+    wow64_IVRSystem_IVRSystem_026_GetRuntimeVersion,
+    wow64_IVRSystem_IVRSystem_026_SetSDKVersion,
     wow64_IVRTrackedCamera_IVRTrackedCamera_001_HasCamera,
     wow64_IVRTrackedCamera_IVRTrackedCamera_001_GetCameraFirmwareDescription,
     wow64_IVRTrackedCamera_IVRTrackedCamera_001_GetCameraFrameDimensions,
@@ -7443,8 +8253,8 @@ C_ASSERT( offsetof(VREvent_AudioVolumeControl_t, fVolumeLevel) == 0 );
 C_ASSERT( sizeof(VREvent_AudioVolumeControl_t().fVolumeLevel) >= 4 );
 
 C_ASSERT( sizeof(VREvent_Chaperone_t) >= 16 );
-C_ASSERT( offsetof(VREvent_Chaperone_t, m_nPreviousUniverse) == 0 );
-C_ASSERT( sizeof(VREvent_Chaperone_t().m_nPreviousUniverse) >= 8 );
+C_ASSERT( offsetof(VREvent_Chaperone_t, m_nPreviousUniverse_deprecated) == 0 );
+C_ASSERT( sizeof(VREvent_Chaperone_t().m_nPreviousUniverse_deprecated) >= 8 );
 C_ASSERT( offsetof(VREvent_Chaperone_t, m_nCurrentUniverse) == 8 );
 C_ASSERT( sizeof(VREvent_Chaperone_t().m_nCurrentUniverse) >= 8 );
 
@@ -7526,11 +8336,11 @@ C_ASSERT( sizeof(VREvent_Keyboard_t_2010().uUserValue) >= 8 );
 C_ASSERT( offsetof(VREvent_Keyboard_t_2010, overlayHandle) == 16 );
 C_ASSERT( sizeof(VREvent_Keyboard_t_2010().overlayHandle) >= 8 );
 
-C_ASSERT( sizeof(VREvent_Keyboard_t_0912) >= 16 );
-C_ASSERT( offsetof(VREvent_Keyboard_t_0912, cNewInput) == 0 );
-C_ASSERT( sizeof(VREvent_Keyboard_t_0912().cNewInput) >= 8 );
-C_ASSERT( offsetof(VREvent_Keyboard_t_0912, uUserValue) == 8 );
-C_ASSERT( sizeof(VREvent_Keyboard_t_0912().uUserValue) >= 8 );
+C_ASSERT( sizeof(VREvent_Keyboard_t_0911) >= 16 );
+C_ASSERT( offsetof(VREvent_Keyboard_t_0911, cNewInput) == 0 );
+C_ASSERT( sizeof(VREvent_Keyboard_t_0911().cNewInput) >= 8 );
+C_ASSERT( offsetof(VREvent_Keyboard_t_0911, uUserValue) == 8 );
+C_ASSERT( sizeof(VREvent_Keyboard_t_0911().uUserValue) >= 8 );
 
 C_ASSERT( sizeof(VREvent_Keyboard_t_0910) >= 16 );
 C_ASSERT( offsetof(VREvent_Keyboard_t_0910, cNewInput) == 0 );
@@ -8774,6 +9584,24 @@ C_ASSERT( sizeof(VREvent_Data_t_0912().ipd) >= 4 );
 C_ASSERT( offsetof(VREvent_Data_t_0912, chaperone) == 0 );
 C_ASSERT( sizeof(VREvent_Data_t_0912().chaperone) >= 16 );
 
+C_ASSERT( sizeof(VREvent_Data_t_0911) >= 16 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, reserved) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().reserved) >= 16 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, controller) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().controller) >= 4 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, mouse) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().mouse) >= 12 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, process) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().process) >= 8 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, notification) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().notification) >= 16 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, overlay) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().overlay) >= 8 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, status) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().status) >= 4 );
+C_ASSERT( offsetof(VREvent_Data_t_0911, keyboard) == 0 );
+C_ASSERT( sizeof(VREvent_Data_t_0911().keyboard) >= 16 );
+
 C_ASSERT( sizeof(VREvent_Data_t_0910) >= 16 );
 C_ASSERT( offsetof(VREvent_Data_t_0910, reserved) == 0 );
 C_ASSERT( sizeof(VREvent_Data_t_0910().reserved) >= 16 );
@@ -8871,6 +9699,16 @@ C_ASSERT( sizeof(ChaperoneSeatedBoundsInfo_t().vDeskEdgePositions) >= 24 );
 C_ASSERT( sizeof(ChaperoneSoftBoundsInfo_t) >= 48 );
 C_ASSERT( offsetof(ChaperoneSoftBoundsInfo_t, quadCorners) == 0 );
 C_ASSERT( sizeof(ChaperoneSoftBoundsInfo_t().quadCorners) >= 48 );
+
+C_ASSERT( sizeof(ComponentState_t) >= 100 );
+C_ASSERT( offsetof(ComponentState_t, mTrackingToComponentRenderModel) == 0 );
+C_ASSERT( sizeof(ComponentState_t().mTrackingToComponentRenderModel) >= 48 );
+C_ASSERT( offsetof(ComponentState_t, mTrackingToComponentLocal) == 48 );
+C_ASSERT( sizeof(ComponentState_t().mTrackingToComponentLocal) >= 48 );
+C_ASSERT( offsetof(ComponentState_t, bIsStatic) == 96 );
+C_ASSERT( sizeof(ComponentState_t().bIsStatic) >= 1 );
+C_ASSERT( offsetof(ComponentState_t, bIsVisible) == 97 );
+C_ASSERT( sizeof(ComponentState_t().bIsVisible) >= 1 );
 
 C_ASSERT( sizeof(Compositor_BenchmarkResults) >= 8 );
 C_ASSERT( offsetof(Compositor_BenchmarkResults, m_flMegaPixelsPerSecond) == 0 );
@@ -9014,6 +9852,12 @@ C_ASSERT( sizeof(Compositor_TextureBounds().uMax) >= 4 );
 C_ASSERT( offsetof(Compositor_TextureBounds, vMax) == 12 );
 C_ASSERT( sizeof(Compositor_TextureBounds().vMax) >= 4 );
 
+C_ASSERT( sizeof(DistortionCoordinate_t) >= 8 );
+C_ASSERT( offsetof(DistortionCoordinate_t, u) == 0 );
+C_ASSERT( sizeof(DistortionCoordinate_t().u) >= 4 );
+C_ASSERT( offsetof(DistortionCoordinate_t, v) == 4 );
+C_ASSERT( sizeof(DistortionCoordinate_t().v) >= 4 );
+
 C_ASSERT( sizeof(DistortionCoordinates_t) >= 24 );
 C_ASSERT( offsetof(DistortionCoordinates_t, rfRed) == 0 );
 C_ASSERT( sizeof(DistortionCoordinates_t().rfRed) >= 8 );
@@ -9021,6 +9865,14 @@ C_ASSERT( offsetof(DistortionCoordinates_t, rfGreen) == 8 );
 C_ASSERT( sizeof(DistortionCoordinates_t().rfGreen) >= 8 );
 C_ASSERT( offsetof(DistortionCoordinates_t, rfBlue) == 16 );
 C_ASSERT( sizeof(DistortionCoordinates_t().rfBlue) >= 8 );
+
+C_ASSERT( sizeof(DmabufPlane_t) >= 12 );
+C_ASSERT( offsetof(DmabufPlane_t, unOffset) == 0 );
+C_ASSERT( sizeof(DmabufPlane_t().unOffset) >= 4 );
+C_ASSERT( offsetof(DmabufPlane_t, unStride) == 4 );
+C_ASSERT( sizeof(DmabufPlane_t().unStride) >= 4 );
+C_ASSERT( offsetof(DmabufPlane_t, nFd) == 8 );
+C_ASSERT( sizeof(DmabufPlane_t().nFd) >= 4 );
 
 C_ASSERT( sizeof(DriverDirectMode_FrameTiming) >= 20 );
 C_ASSERT( offsetof(DriverDirectMode_FrameTiming, m_nSize) == 0 );
@@ -9100,6 +9952,26 @@ C_ASSERT( sizeof(SpatialAnchorPose_t) >= 48 );
 C_ASSERT( offsetof(SpatialAnchorPose_t, mAnchorToAbsoluteTracking) == 0 );
 C_ASSERT( sizeof(SpatialAnchorPose_t().mAnchorToAbsoluteTracking) >= 48 );
 
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t) >= 72 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsFX) == 0 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsFX) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsFY) == 8 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsFY) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsCX) == 16 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsCX) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsCY) == 24 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsCY) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsK1) == 32 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsK1) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsK2) == 40 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsK2) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsP1) == 48 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsP1) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsP2) == 56 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsP2) >= 8 );
+C_ASSERT( offsetof(TrackedCameraCalibrationDevOnly_t, m_flIntrinsicsK3) == 64 );
+C_ASSERT( sizeof(TrackedCameraCalibrationDevOnly_t().m_flIntrinsicsK3) >= 8 );
+
 C_ASSERT( sizeof(VRActiveActionSet_t_1016) >= 32 );
 C_ASSERT( offsetof(VRActiveActionSet_t_1016, ulActionSet) == 0 );
 C_ASSERT( sizeof(VRActiveActionSet_t_1016().ulActionSet) >= 8 );
@@ -9131,6 +10003,18 @@ C_ASSERT( offsetof(VRControllerAxis_t, x) == 0 );
 C_ASSERT( sizeof(VRControllerAxis_t().x) >= 4 );
 C_ASSERT( offsetof(VRControllerAxis_t, y) == 4 );
 C_ASSERT( sizeof(VRControllerAxis_t().y) >= 4 );
+
+C_ASSERT( sizeof(VREyeTrackingData_t) >= 28 );
+C_ASSERT( offsetof(VREyeTrackingData_t, bActive) == 0 );
+C_ASSERT( sizeof(VREyeTrackingData_t().bActive) >= 1 );
+C_ASSERT( offsetof(VREyeTrackingData_t, bValid) == 1 );
+C_ASSERT( sizeof(VREyeTrackingData_t().bValid) >= 1 );
+C_ASSERT( offsetof(VREyeTrackingData_t, bTracked) == 2 );
+C_ASSERT( sizeof(VREyeTrackingData_t().bTracked) >= 1 );
+C_ASSERT( offsetof(VREyeTrackingData_t, vGazeOrigin) == 4 );
+C_ASSERT( sizeof(VREyeTrackingData_t().vGazeOrigin) >= 12 );
+C_ASSERT( offsetof(VREyeTrackingData_t, vGazeTarget) == 16 );
+C_ASSERT( sizeof(VREyeTrackingData_t().vGazeTarget) >= 12 );
 
 C_ASSERT( sizeof(VROverlayIntersectionMaskPrimitive_t) >= 20 );
 C_ASSERT( offsetof(VROverlayIntersectionMaskPrimitive_t, m_nPrimitiveType) == 0 );
@@ -9319,32 +10203,6 @@ u64_RenderModel_TextureMap_t_1237::operator w64_RenderModel_TextureMap_t_1237() 
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-w32_RenderModel_TextureMap_t_1237::operator u64_RenderModel_TextureMap_t_1237() const
-{
-    u64_RenderModel_TextureMap_t_1237 ret;
-    ret.unWidth = this->unWidth;
-    ret.unHeight = this->unHeight;
-    ret.rubTextureMapData = this->rubTextureMapData;
-    ret.format = this->format;
-    ret.unMipLevels = this->unMipLevels;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-u64_RenderModel_TextureMap_t_1237::operator w32_RenderModel_TextureMap_t_1237() const
-{
-    w32_RenderModel_TextureMap_t_1237 ret;
-    ret.unWidth = this->unWidth;
-    ret.unHeight = this->unHeight;
-    ret.rubTextureMapData = this->rubTextureMapData;
-    ret.format = this->format;
-    ret.unMipLevels = this->unMipLevels;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
 w64_RenderModel_TextureMap_t_11111::operator u64_RenderModel_TextureMap_t_11111() const
 {
     u64_RenderModel_TextureMap_t_11111 ret;
@@ -9369,30 +10227,6 @@ u64_RenderModel_TextureMap_t_11111::operator w64_RenderModel_TextureMap_t_11111(
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-w32_RenderModel_TextureMap_t_11111::operator u64_RenderModel_TextureMap_t_11111() const
-{
-    u64_RenderModel_TextureMap_t_11111 ret;
-    ret.unWidth = this->unWidth;
-    ret.unHeight = this->unHeight;
-    ret.rubTextureMapData = this->rubTextureMapData;
-    ret.format = this->format;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-u64_RenderModel_TextureMap_t_11111::operator w32_RenderModel_TextureMap_t_11111() const
-{
-    w32_RenderModel_TextureMap_t_11111 ret;
-    ret.unWidth = this->unWidth;
-    ret.unHeight = this->unHeight;
-    ret.rubTextureMapData = this->rubTextureMapData;
-    ret.format = this->format;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
 w64_RenderModel_TextureMap_t_090::operator u64_RenderModel_TextureMap_t_090() const
 {
     u64_RenderModel_TextureMap_t_090 ret;
@@ -9407,28 +10241,6 @@ w64_RenderModel_TextureMap_t_090::operator u64_RenderModel_TextureMap_t_090() co
 u64_RenderModel_TextureMap_t_090::operator w64_RenderModel_TextureMap_t_090() const
 {
     w64_RenderModel_TextureMap_t_090 ret;
-    ret.unWidth = this->unWidth;
-    ret.unHeight = this->unHeight;
-    ret.rubTextureMapData = this->rubTextureMapData;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-w32_RenderModel_TextureMap_t_090::operator u64_RenderModel_TextureMap_t_090() const
-{
-    u64_RenderModel_TextureMap_t_090 ret;
-    ret.unWidth = this->unWidth;
-    ret.unHeight = this->unHeight;
-    ret.rubTextureMapData = this->rubTextureMapData;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-u64_RenderModel_TextureMap_t_090::operator w32_RenderModel_TextureMap_t_090() const
-{
-    w32_RenderModel_TextureMap_t_090 ret;
     ret.unWidth = this->unWidth;
     ret.unHeight = this->unHeight;
     ret.rubTextureMapData = this->rubTextureMapData;
@@ -9544,6 +10356,50 @@ u64_VRTextureDepthInfo_t::operator w32_VRTextureDepthInfo_t() const
 }
 #endif
 
+C_ASSERT( sizeof(w64_VRTextureMotionInfo_t) >= 72 );
+C_ASSERT( offsetof(w64_VRTextureMotionInfo_t, handle) == 0 );
+C_ASSERT( sizeof(w64_VRTextureMotionInfo_t().handle) >= 8 );
+C_ASSERT( offsetof(w64_VRTextureMotionInfo_t, mDeltaPose) == 8 );
+C_ASSERT( sizeof(w64_VRTextureMotionInfo_t().mDeltaPose) >= 64 );
+
+C_ASSERT( sizeof(u64_VRTextureMotionInfo_t) >= 72 );
+C_ASSERT( offsetof(u64_VRTextureMotionInfo_t, handle) == 0 );
+C_ASSERT( sizeof(u64_VRTextureMotionInfo_t().handle) >= 8 );
+C_ASSERT( offsetof(u64_VRTextureMotionInfo_t, mDeltaPose) == 8 );
+C_ASSERT( sizeof(u64_VRTextureMotionInfo_t().mDeltaPose) >= 64 );
+
+C_ASSERT( sizeof(w32_VRTextureMotionInfo_t) >= 68 );
+C_ASSERT( offsetof(w32_VRTextureMotionInfo_t, handle) == 0 );
+C_ASSERT( sizeof(w32_VRTextureMotionInfo_t().handle) >= 4 );
+C_ASSERT( offsetof(w32_VRTextureMotionInfo_t, mDeltaPose) == 4 );
+C_ASSERT( sizeof(w32_VRTextureMotionInfo_t().mDeltaPose) >= 64 );
+
+C_ASSERT( sizeof(u32_VRTextureMotionInfo_t) >= 68 );
+C_ASSERT( offsetof(u32_VRTextureMotionInfo_t, handle) == 0 );
+C_ASSERT( sizeof(u32_VRTextureMotionInfo_t().handle) >= 4 );
+C_ASSERT( offsetof(u32_VRTextureMotionInfo_t, mDeltaPose) == 4 );
+C_ASSERT( sizeof(u32_VRTextureMotionInfo_t().mDeltaPose) >= 64 );
+
+#if defined(__x86_64__) || defined(__aarch64__)
+w32_VRTextureMotionInfo_t::operator u64_VRTextureMotionInfo_t() const
+{
+    u64_VRTextureMotionInfo_t ret;
+    ret.handle = this->handle;
+    ret.mDeltaPose = this->mDeltaPose;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_VRTextureMotionInfo_t::operator w32_VRTextureMotionInfo_t() const
+{
+    w32_VRTextureMotionInfo_t ret;
+    ret.handle = this->handle;
+    ret.mDeltaPose = this->mDeltaPose;
+    return ret;
+}
+#endif
+
 C_ASSERT( sizeof(w64_AppOverrideKeys_t) >= 16 );
 C_ASSERT( offsetof(w64_AppOverrideKeys_t, pchKey) == 0 );
 C_ASSERT( sizeof(w64_AppOverrideKeys_t().pchKey) >= 8 );
@@ -9587,6 +10443,182 @@ u64_AppOverrideKeys_t::operator w32_AppOverrideKeys_t() const
     return ret;
 }
 #endif
+
+C_ASSERT( sizeof(w64_COpenVRContext_271) >= 168 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRSystem) == 0 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRSystem) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRChaperone) == 8 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRChaperone) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRChaperoneSetup) == 16 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRChaperoneSetup) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRCompositor) == 24 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRCompositor) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRHeadsetView) == 32 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRHeadsetView) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVROverlay) == 40 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVROverlay) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVROverlayView) == 48 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVROverlayView) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRResources) == 56 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRResources) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRRenderModels) == 64 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRRenderModels) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRExtendedDisplay) == 72 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRExtendedDisplay) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRSettings) == 80 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRSettings) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRApplications) == 88 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRApplications) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRTrackedCamera) == 96 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRTrackedCamera) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRScreenshots) == 104 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRScreenshots) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRDriverManager) == 112 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRDriverManager) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRInput) == 120 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRInput) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRIOBuffer) == 128 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRIOBuffer) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRSpatialAnchors) == 136 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRSpatialAnchors) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRDebug) == 144 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRDebug) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRNotifications) == 152 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRNotifications) >= 8 );
+C_ASSERT( offsetof(w64_COpenVRContext_271, m_pVRIPCResourceManagerClient) == 160 );
+C_ASSERT( sizeof(w64_COpenVRContext_271().m_pVRIPCResourceManagerClient) >= 8 );
+
+C_ASSERT( sizeof(u64_COpenVRContext_271) >= 168 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRSystem) == 0 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRSystem) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRChaperone) == 8 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRChaperone) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRChaperoneSetup) == 16 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRChaperoneSetup) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRCompositor) == 24 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRCompositor) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRHeadsetView) == 32 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRHeadsetView) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVROverlay) == 40 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVROverlay) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVROverlayView) == 48 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVROverlayView) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRResources) == 56 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRResources) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRRenderModels) == 64 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRRenderModels) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRExtendedDisplay) == 72 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRExtendedDisplay) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRSettings) == 80 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRSettings) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRApplications) == 88 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRApplications) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRTrackedCamera) == 96 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRTrackedCamera) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRScreenshots) == 104 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRScreenshots) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRDriverManager) == 112 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRDriverManager) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRInput) == 120 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRInput) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRIOBuffer) == 128 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRIOBuffer) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRSpatialAnchors) == 136 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRSpatialAnchors) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRDebug) == 144 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRDebug) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRNotifications) == 152 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRNotifications) >= 8 );
+C_ASSERT( offsetof(u64_COpenVRContext_271, m_pVRIPCResourceManagerClient) == 160 );
+C_ASSERT( sizeof(u64_COpenVRContext_271().m_pVRIPCResourceManagerClient) >= 8 );
+
+C_ASSERT( sizeof(w32_COpenVRContext_271) >= 84 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRSystem) == 0 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRSystem) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRChaperone) == 4 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRChaperone) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRChaperoneSetup) == 8 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRChaperoneSetup) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRCompositor) == 12 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRCompositor) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRHeadsetView) == 16 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRHeadsetView) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVROverlay) == 20 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVROverlay) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVROverlayView) == 24 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVROverlayView) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRResources) == 28 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRResources) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRRenderModels) == 32 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRRenderModels) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRExtendedDisplay) == 36 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRExtendedDisplay) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRSettings) == 40 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRSettings) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRApplications) == 44 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRApplications) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRTrackedCamera) == 48 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRTrackedCamera) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRScreenshots) == 52 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRScreenshots) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRDriverManager) == 56 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRDriverManager) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRInput) == 60 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRInput) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRIOBuffer) == 64 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRIOBuffer) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRSpatialAnchors) == 68 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRSpatialAnchors) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRDebug) == 72 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRDebug) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRNotifications) == 76 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRNotifications) >= 4 );
+C_ASSERT( offsetof(w32_COpenVRContext_271, m_pVRIPCResourceManagerClient) == 80 );
+C_ASSERT( sizeof(w32_COpenVRContext_271().m_pVRIPCResourceManagerClient) >= 4 );
+
+C_ASSERT( sizeof(u32_COpenVRContext_271) >= 84 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRSystem) == 0 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRSystem) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRChaperone) == 4 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRChaperone) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRChaperoneSetup) == 8 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRChaperoneSetup) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRCompositor) == 12 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRCompositor) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRHeadsetView) == 16 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRHeadsetView) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVROverlay) == 20 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVROverlay) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVROverlayView) == 24 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVROverlayView) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRResources) == 28 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRResources) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRRenderModels) == 32 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRRenderModels) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRExtendedDisplay) == 36 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRExtendedDisplay) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRSettings) == 40 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRSettings) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRApplications) == 44 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRApplications) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRTrackedCamera) == 48 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRTrackedCamera) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRScreenshots) == 52 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRScreenshots) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRDriverManager) == 56 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRDriverManager) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRInput) == 60 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRInput) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRIOBuffer) == 64 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRIOBuffer) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRSpatialAnchors) == 68 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRSpatialAnchors) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRDebug) == 72 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRDebug) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRNotifications) == 76 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRNotifications) >= 4 );
+C_ASSERT( offsetof(u32_COpenVRContext_271, m_pVRIPCResourceManagerClient) == 80 );
+C_ASSERT( sizeof(u32_COpenVRContext_271().m_pVRIPCResourceManagerClient) >= 4 );
 
 C_ASSERT( sizeof(w64_COpenVRContext_11030) >= 160 );
 C_ASSERT( offsetof(w64_COpenVRContext_11030, m_pVRSystem) == 0 );
@@ -11276,6 +12308,110 @@ C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0912().m_Pad) >= 16 );
 C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0912, m_pImageData) == 116 );
 C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0912().m_pImageData) >= 4 );
 
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911) >= 120 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nStreamFormat) == 0 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nStreamFormat) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nWidth) == 4 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nWidth) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nHeight) == 8 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nHeight) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nFrameSequence) == 12 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nFrameSequence) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nTimeStamp) == 16 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nTimeStamp) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nBufferIndex) == 20 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nBufferIndex) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nBufferCount) == 24 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nBufferCount) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_nImageDataSize) == 28 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_nImageDataSize) >= 4 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_flFrameTime) == 32 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_flFrameTime) >= 8 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_bPoseValid) == 40 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_bPoseValid) >= 1 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_HMDPoseMatrix) == 44 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_HMDPoseMatrix) >= 64 );
+C_ASSERT( offsetof(w64_CameraVideoStreamFrame_t_0911, m_pImageData) == 112 );
+C_ASSERT( sizeof(w64_CameraVideoStreamFrame_t_0911().m_pImageData) >= 8 );
+
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911) >= 116 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nStreamFormat) == 0 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nStreamFormat) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nWidth) == 4 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nWidth) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nHeight) == 8 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nHeight) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nFrameSequence) == 12 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nFrameSequence) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nTimeStamp) == 16 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nTimeStamp) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nBufferIndex) == 20 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nBufferIndex) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nBufferCount) == 24 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nBufferCount) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_nImageDataSize) == 28 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_nImageDataSize) >= 4 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_flFrameTime) == 32 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_flFrameTime) >= 8 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_bPoseValid) == 40 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_bPoseValid) >= 1 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_HMDPoseMatrix) == 44 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_HMDPoseMatrix) >= 64 );
+C_ASSERT( offsetof(u64_CameraVideoStreamFrame_t_0911, m_pImageData) == 108 );
+C_ASSERT( sizeof(u64_CameraVideoStreamFrame_t_0911().m_pImageData) >= 8 );
+
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911) >= 112 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nStreamFormat) == 0 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nStreamFormat) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nWidth) == 4 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nWidth) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nHeight) == 8 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nHeight) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nFrameSequence) == 12 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nFrameSequence) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nTimeStamp) == 16 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nTimeStamp) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nBufferIndex) == 20 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nBufferIndex) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nBufferCount) == 24 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nBufferCount) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_nImageDataSize) == 28 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_nImageDataSize) >= 4 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_flFrameTime) == 32 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_flFrameTime) >= 8 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_bPoseValid) == 40 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_bPoseValid) >= 1 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_HMDPoseMatrix) == 44 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_HMDPoseMatrix) >= 64 );
+C_ASSERT( offsetof(w32_CameraVideoStreamFrame_t_0911, m_pImageData) == 108 );
+C_ASSERT( sizeof(w32_CameraVideoStreamFrame_t_0911().m_pImageData) >= 4 );
+
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911) >= 112 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nStreamFormat) == 0 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nStreamFormat) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nWidth) == 4 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nWidth) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nHeight) == 8 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nHeight) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nFrameSequence) == 12 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nFrameSequence) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nTimeStamp) == 16 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nTimeStamp) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nBufferIndex) == 20 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nBufferIndex) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nBufferCount) == 24 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nBufferCount) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_nImageDataSize) == 28 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_nImageDataSize) >= 4 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_flFrameTime) == 32 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_flFrameTime) >= 8 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_bPoseValid) == 40 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_bPoseValid) >= 1 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_HMDPoseMatrix) == 44 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_HMDPoseMatrix) >= 64 );
+C_ASSERT( offsetof(u32_CameraVideoStreamFrame_t_0911, m_pImageData) == 108 );
+C_ASSERT( sizeof(u32_CameraVideoStreamFrame_t_0911().m_pImageData) >= 4 );
+
 #if defined(__x86_64__) || defined(__aarch64__)
 w64_CameraVideoStreamFrame_t_0914::operator u64_CameraVideoStreamFrame_t_0914() const
 {
@@ -11515,6 +12651,86 @@ u64_CameraVideoStreamFrame_t_0912::operator w32_CameraVideoStreamFrame_t_0912() 
     ret.m_bPoseIsValid = this->m_bPoseIsValid;
     ret.m_matDeviceToAbsoluteTracking = this->m_matDeviceToAbsoluteTracking;
     ret.m_Pad = this->m_Pad;
+    ret.m_pImageData = this->m_pImageData;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+w64_CameraVideoStreamFrame_t_0911::operator u64_CameraVideoStreamFrame_t_0911() const
+{
+    u64_CameraVideoStreamFrame_t_0911 ret;
+    ret.m_nStreamFormat = this->m_nStreamFormat;
+    ret.m_nWidth = this->m_nWidth;
+    ret.m_nHeight = this->m_nHeight;
+    ret.m_nFrameSequence = this->m_nFrameSequence;
+    ret.m_nTimeStamp = this->m_nTimeStamp;
+    ret.m_nBufferIndex = this->m_nBufferIndex;
+    ret.m_nBufferCount = this->m_nBufferCount;
+    ret.m_nImageDataSize = this->m_nImageDataSize;
+    ret.m_flFrameTime = this->m_flFrameTime;
+    ret.m_bPoseValid = this->m_bPoseValid;
+    ret.m_HMDPoseMatrix = this->m_HMDPoseMatrix;
+    ret.m_pImageData = this->m_pImageData;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_CameraVideoStreamFrame_t_0911::operator w64_CameraVideoStreamFrame_t_0911() const
+{
+    w64_CameraVideoStreamFrame_t_0911 ret;
+    ret.m_nStreamFormat = this->m_nStreamFormat;
+    ret.m_nWidth = this->m_nWidth;
+    ret.m_nHeight = this->m_nHeight;
+    ret.m_nFrameSequence = this->m_nFrameSequence;
+    ret.m_nTimeStamp = this->m_nTimeStamp;
+    ret.m_nBufferIndex = this->m_nBufferIndex;
+    ret.m_nBufferCount = this->m_nBufferCount;
+    ret.m_nImageDataSize = this->m_nImageDataSize;
+    ret.m_flFrameTime = this->m_flFrameTime;
+    ret.m_bPoseValid = this->m_bPoseValid;
+    ret.m_HMDPoseMatrix = this->m_HMDPoseMatrix;
+    ret.m_pImageData = this->m_pImageData;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+w32_CameraVideoStreamFrame_t_0911::operator u64_CameraVideoStreamFrame_t_0911() const
+{
+    u64_CameraVideoStreamFrame_t_0911 ret;
+    ret.m_nStreamFormat = this->m_nStreamFormat;
+    ret.m_nWidth = this->m_nWidth;
+    ret.m_nHeight = this->m_nHeight;
+    ret.m_nFrameSequence = this->m_nFrameSequence;
+    ret.m_nTimeStamp = this->m_nTimeStamp;
+    ret.m_nBufferIndex = this->m_nBufferIndex;
+    ret.m_nBufferCount = this->m_nBufferCount;
+    ret.m_nImageDataSize = this->m_nImageDataSize;
+    ret.m_flFrameTime = this->m_flFrameTime;
+    ret.m_bPoseValid = this->m_bPoseValid;
+    ret.m_HMDPoseMatrix = this->m_HMDPoseMatrix;
+    ret.m_pImageData = this->m_pImageData;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_CameraVideoStreamFrame_t_0911::operator w32_CameraVideoStreamFrame_t_0911() const
+{
+    w32_CameraVideoStreamFrame_t_0911 ret;
+    ret.m_nStreamFormat = this->m_nStreamFormat;
+    ret.m_nWidth = this->m_nWidth;
+    ret.m_nHeight = this->m_nHeight;
+    ret.m_nFrameSequence = this->m_nFrameSequence;
+    ret.m_nTimeStamp = this->m_nTimeStamp;
+    ret.m_nBufferIndex = this->m_nBufferIndex;
+    ret.m_nBufferCount = this->m_nBufferCount;
+    ret.m_nImageDataSize = this->m_nImageDataSize;
+    ret.m_flFrameTime = this->m_flFrameTime;
+    ret.m_bPoseValid = this->m_bPoseValid;
+    ret.m_HMDPoseMatrix = this->m_HMDPoseMatrix;
     ret.m_pImageData = this->m_pImageData;
     return ret;
 }
@@ -13024,141 +14240,141 @@ C_ASSERT( sizeof(u32_Compositor_FrameTiming_0913().m_flHandoffEndMs) >= 4 );
 C_ASSERT( offsetof(u32_Compositor_FrameTiming_0913, m_flCompositorUpdateCpuMs) == 144 );
 C_ASSERT( sizeof(u32_Compositor_FrameTiming_0913().m_flCompositorUpdateCpuMs) >= 4 );
 
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912) >= 152 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, size) == 0 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().size) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, frameStart) == 8 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().frameStart) >= 8 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, frameVSync) == 16 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().frameVSync) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, droppedFrames) == 20 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().droppedFrames) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, frameIndex) == 24 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().frameIndex) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, pose) == 28 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().pose) >= 80 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, prediction) == 108 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().prediction) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flFrameIntervalMs) == 112 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flFrameIntervalMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flSceneRenderCpuMs) == 116 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flSceneRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flSceneRenderGpuMs) == 120 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flSceneRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flCompositorRenderCpuMs) == 124 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flCompositorRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flCompositorRenderGpuMs) == 128 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flCompositorRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flPresentCallCpuMs) == 132 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flPresentCallCpuMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flRunningStartMs) == 136 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flRunningStartMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flHandoffStartMs) == 140 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flHandoffStartMs) >= 4 );
-C_ASSERT( offsetof(w64_Compositor_FrameTiming_0912, m_flHandoffEndMs) == 144 );
-C_ASSERT( sizeof(w64_Compositor_FrameTiming_0912().m_flHandoffEndMs) >= 4 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911) >= 152 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, size) == 0 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().size) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, frameStart) == 8 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().frameStart) >= 8 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, frameVSync) == 16 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().frameVSync) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, droppedFrames) == 20 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().droppedFrames) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, frameIndex) == 24 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().frameIndex) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, pose) == 28 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().pose) >= 80 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, prediction) == 108 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().prediction) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flFrameIntervalMs) == 112 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flFrameIntervalMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flSceneRenderCpuMs) == 116 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flSceneRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flSceneRenderGpuMs) == 120 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flSceneRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flCompositorRenderCpuMs) == 124 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flCompositorRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flCompositorRenderGpuMs) == 128 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flCompositorRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flPresentCallCpuMs) == 132 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flPresentCallCpuMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flRunningStartMs) == 136 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flRunningStartMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flHandoffStartMs) == 140 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flHandoffStartMs) >= 4 );
+C_ASSERT( offsetof(w64_Compositor_FrameTiming_0911, m_flHandoffEndMs) == 144 );
+C_ASSERT( sizeof(w64_Compositor_FrameTiming_0911().m_flHandoffEndMs) >= 4 );
 
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912) >= 144 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, size) == 0 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().size) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, frameStart) == 4 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().frameStart) >= 8 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, frameVSync) == 12 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().frameVSync) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, droppedFrames) == 16 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().droppedFrames) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, frameIndex) == 20 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().frameIndex) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, pose) == 24 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().pose) >= 80 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, prediction) == 104 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().prediction) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flFrameIntervalMs) == 108 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flFrameIntervalMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flSceneRenderCpuMs) == 112 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flSceneRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flSceneRenderGpuMs) == 116 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flSceneRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flCompositorRenderCpuMs) == 120 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flCompositorRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flCompositorRenderGpuMs) == 124 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flCompositorRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flPresentCallCpuMs) == 128 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flPresentCallCpuMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flRunningStartMs) == 132 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flRunningStartMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flHandoffStartMs) == 136 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flHandoffStartMs) >= 4 );
-C_ASSERT( offsetof(u64_Compositor_FrameTiming_0912, m_flHandoffEndMs) == 140 );
-C_ASSERT( sizeof(u64_Compositor_FrameTiming_0912().m_flHandoffEndMs) >= 4 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911) >= 144 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, size) == 0 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().size) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, frameStart) == 4 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().frameStart) >= 8 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, frameVSync) == 12 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().frameVSync) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, droppedFrames) == 16 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().droppedFrames) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, frameIndex) == 20 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().frameIndex) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, pose) == 24 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().pose) >= 80 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, prediction) == 104 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().prediction) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flFrameIntervalMs) == 108 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flFrameIntervalMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flSceneRenderCpuMs) == 112 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flSceneRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flSceneRenderGpuMs) == 116 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flSceneRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flCompositorRenderCpuMs) == 120 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flCompositorRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flCompositorRenderGpuMs) == 124 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flCompositorRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flPresentCallCpuMs) == 128 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flPresentCallCpuMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flRunningStartMs) == 132 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flRunningStartMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flHandoffStartMs) == 136 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flHandoffStartMs) >= 4 );
+C_ASSERT( offsetof(u64_Compositor_FrameTiming_0911, m_flHandoffEndMs) == 140 );
+C_ASSERT( sizeof(u64_Compositor_FrameTiming_0911().m_flHandoffEndMs) >= 4 );
 
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912) >= 152 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, size) == 0 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().size) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, frameStart) == 8 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().frameStart) >= 8 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, frameVSync) == 16 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().frameVSync) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, droppedFrames) == 20 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().droppedFrames) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, frameIndex) == 24 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().frameIndex) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, pose) == 28 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().pose) >= 80 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, prediction) == 108 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().prediction) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flFrameIntervalMs) == 112 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flFrameIntervalMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flSceneRenderCpuMs) == 116 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flSceneRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flSceneRenderGpuMs) == 120 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flSceneRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flCompositorRenderCpuMs) == 124 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flCompositorRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flCompositorRenderGpuMs) == 128 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flCompositorRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flPresentCallCpuMs) == 132 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flPresentCallCpuMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flRunningStartMs) == 136 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flRunningStartMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flHandoffStartMs) == 140 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flHandoffStartMs) >= 4 );
-C_ASSERT( offsetof(w32_Compositor_FrameTiming_0912, m_flHandoffEndMs) == 144 );
-C_ASSERT( sizeof(w32_Compositor_FrameTiming_0912().m_flHandoffEndMs) >= 4 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911) >= 152 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, size) == 0 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().size) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, frameStart) == 8 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().frameStart) >= 8 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, frameVSync) == 16 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().frameVSync) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, droppedFrames) == 20 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().droppedFrames) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, frameIndex) == 24 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().frameIndex) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, pose) == 28 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().pose) >= 80 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, prediction) == 108 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().prediction) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flFrameIntervalMs) == 112 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flFrameIntervalMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flSceneRenderCpuMs) == 116 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flSceneRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flSceneRenderGpuMs) == 120 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flSceneRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flCompositorRenderCpuMs) == 124 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flCompositorRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flCompositorRenderGpuMs) == 128 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flCompositorRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flPresentCallCpuMs) == 132 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flPresentCallCpuMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flRunningStartMs) == 136 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flRunningStartMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flHandoffStartMs) == 140 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flHandoffStartMs) >= 4 );
+C_ASSERT( offsetof(w32_Compositor_FrameTiming_0911, m_flHandoffEndMs) == 144 );
+C_ASSERT( sizeof(w32_Compositor_FrameTiming_0911().m_flHandoffEndMs) >= 4 );
 
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912) >= 144 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, size) == 0 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().size) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, frameStart) == 4 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().frameStart) >= 8 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, frameVSync) == 12 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().frameVSync) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, droppedFrames) == 16 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().droppedFrames) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, frameIndex) == 20 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().frameIndex) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, pose) == 24 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().pose) >= 80 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, prediction) == 104 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().prediction) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flFrameIntervalMs) == 108 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flFrameIntervalMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flSceneRenderCpuMs) == 112 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flSceneRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flSceneRenderGpuMs) == 116 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flSceneRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flCompositorRenderCpuMs) == 120 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flCompositorRenderCpuMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flCompositorRenderGpuMs) == 124 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flCompositorRenderGpuMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flPresentCallCpuMs) == 128 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flPresentCallCpuMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flRunningStartMs) == 132 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flRunningStartMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flHandoffStartMs) == 136 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flHandoffStartMs) >= 4 );
-C_ASSERT( offsetof(u32_Compositor_FrameTiming_0912, m_flHandoffEndMs) == 140 );
-C_ASSERT( sizeof(u32_Compositor_FrameTiming_0912().m_flHandoffEndMs) >= 4 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911) >= 144 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, size) == 0 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().size) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, frameStart) == 4 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().frameStart) >= 8 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, frameVSync) == 12 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().frameVSync) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, droppedFrames) == 16 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().droppedFrames) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, frameIndex) == 20 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().frameIndex) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, pose) == 24 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().pose) >= 80 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, prediction) == 104 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().prediction) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flFrameIntervalMs) == 108 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flFrameIntervalMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flSceneRenderCpuMs) == 112 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flSceneRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flSceneRenderGpuMs) == 116 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flSceneRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flCompositorRenderCpuMs) == 120 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flCompositorRenderCpuMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flCompositorRenderGpuMs) == 124 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flCompositorRenderGpuMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flPresentCallCpuMs) == 128 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flPresentCallCpuMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flRunningStartMs) == 132 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flRunningStartMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flHandoffStartMs) == 136 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flHandoffStartMs) >= 4 );
+C_ASSERT( offsetof(u32_Compositor_FrameTiming_0911, m_flHandoffEndMs) == 140 );
+C_ASSERT( sizeof(u32_Compositor_FrameTiming_0911().m_flHandoffEndMs) >= 4 );
 
 C_ASSERT( sizeof(w64_Compositor_FrameTiming_093) >= 144 );
 C_ASSERT( offsetof(w64_Compositor_FrameTiming_093, size) == 0 );
@@ -14153,9 +15369,9 @@ u64_Compositor_FrameTiming_0913::operator w32_Compositor_FrameTiming_0913() cons
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-w64_Compositor_FrameTiming_0912::operator u64_Compositor_FrameTiming_0912() const
+w64_Compositor_FrameTiming_0911::operator u64_Compositor_FrameTiming_0911() const
 {
-    u64_Compositor_FrameTiming_0912 ret;
+    u64_Compositor_FrameTiming_0911 ret;
     ret.size = this->size;
     ret.frameStart = this->frameStart;
     ret.frameVSync = this->frameVSync;
@@ -14177,9 +15393,9 @@ w64_Compositor_FrameTiming_0912::operator u64_Compositor_FrameTiming_0912() cons
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-u64_Compositor_FrameTiming_0912::operator w64_Compositor_FrameTiming_0912() const
+u64_Compositor_FrameTiming_0911::operator w64_Compositor_FrameTiming_0911() const
 {
-    w64_Compositor_FrameTiming_0912 ret;
+    w64_Compositor_FrameTiming_0911 ret;
     ret.size = this->size;
     ret.frameStart = this->frameStart;
     ret.frameVSync = this->frameVSync;
@@ -14201,9 +15417,9 @@ u64_Compositor_FrameTiming_0912::operator w64_Compositor_FrameTiming_0912() cons
 #endif
 
 #ifdef __i386__
-w32_Compositor_FrameTiming_0912::operator u32_Compositor_FrameTiming_0912() const
+w32_Compositor_FrameTiming_0911::operator u32_Compositor_FrameTiming_0911() const
 {
-    u32_Compositor_FrameTiming_0912 ret;
+    u32_Compositor_FrameTiming_0911 ret;
     ret.size = this->size;
     ret.frameStart = this->frameStart;
     ret.frameVSync = this->frameVSync;
@@ -14225,9 +15441,9 @@ w32_Compositor_FrameTiming_0912::operator u32_Compositor_FrameTiming_0912() cons
 #endif
 
 #ifdef __i386__
-u32_Compositor_FrameTiming_0912::operator w32_Compositor_FrameTiming_0912() const
+u32_Compositor_FrameTiming_0911::operator w32_Compositor_FrameTiming_0911() const
 {
-    w32_Compositor_FrameTiming_0912 ret;
+    w32_Compositor_FrameTiming_0911 ret;
     ret.size = this->size;
     ret.frameStart = this->frameStart;
     ret.frameVSync = this->frameVSync;
@@ -14249,9 +15465,9 @@ u32_Compositor_FrameTiming_0912::operator w32_Compositor_FrameTiming_0912() cons
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-w32_Compositor_FrameTiming_0912::operator u64_Compositor_FrameTiming_0912() const
+w32_Compositor_FrameTiming_0911::operator u64_Compositor_FrameTiming_0911() const
 {
-    u64_Compositor_FrameTiming_0912 ret;
+    u64_Compositor_FrameTiming_0911 ret;
     ret.size = this->size;
     ret.frameStart = this->frameStart;
     ret.frameVSync = this->frameVSync;
@@ -14273,9 +15489,9 @@ w32_Compositor_FrameTiming_0912::operator u64_Compositor_FrameTiming_0912() cons
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-u64_Compositor_FrameTiming_0912::operator w32_Compositor_FrameTiming_0912() const
+u64_Compositor_FrameTiming_0911::operator w32_Compositor_FrameTiming_0911() const
 {
-    w32_Compositor_FrameTiming_0912 ret;
+    w32_Compositor_FrameTiming_0911 ret;
     ret.size = this->size;
     ret.frameStart = this->frameStart;
     ret.frameVSync = this->frameVSync;
@@ -14566,6 +15782,140 @@ u64_D3D12TextureData_t::operator w32_D3D12TextureData_t() const
 }
 #endif
 
+C_ASSERT( sizeof(w64_DmabufAttributes_t) >= 104 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, pNext) == 0 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().pNext) >= 8 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unWidth) == 8 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unWidth) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unHeight) == 12 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unHeight) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unDepth) == 16 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unDepth) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unMipLevels) == 20 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unMipLevels) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unArrayLayers) == 24 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unArrayLayers) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unSampleCount) == 28 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unSampleCount) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unFormat) == 32 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unFormat) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, ulModifier) == 40 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().ulModifier) >= 8 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, unPlaneCount) == 48 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().unPlaneCount) >= 4 );
+C_ASSERT( offsetof(w64_DmabufAttributes_t, plane) == 52 );
+C_ASSERT( sizeof(w64_DmabufAttributes_t().plane) >= 48 );
+
+C_ASSERT( sizeof(u64_DmabufAttributes_t) >= 104 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, pNext) == 0 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().pNext) >= 8 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unWidth) == 8 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unWidth) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unHeight) == 12 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unHeight) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unDepth) == 16 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unDepth) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unMipLevels) == 20 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unMipLevels) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unArrayLayers) == 24 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unArrayLayers) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unSampleCount) == 28 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unSampleCount) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unFormat) == 32 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unFormat) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, ulModifier) == 40 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().ulModifier) >= 8 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, unPlaneCount) == 48 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().unPlaneCount) >= 4 );
+C_ASSERT( offsetof(u64_DmabufAttributes_t, plane) == 52 );
+C_ASSERT( sizeof(u64_DmabufAttributes_t().plane) >= 48 );
+
+C_ASSERT( sizeof(w32_DmabufAttributes_t) >= 96 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, pNext) == 0 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().pNext) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unWidth) == 4 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unWidth) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unHeight) == 8 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unHeight) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unDepth) == 12 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unDepth) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unMipLevels) == 16 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unMipLevels) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unArrayLayers) == 20 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unArrayLayers) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unSampleCount) == 24 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unSampleCount) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unFormat) == 28 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unFormat) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, ulModifier) == 32 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().ulModifier) >= 8 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, unPlaneCount) == 40 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().unPlaneCount) >= 4 );
+C_ASSERT( offsetof(w32_DmabufAttributes_t, plane) == 44 );
+C_ASSERT( sizeof(w32_DmabufAttributes_t().plane) >= 48 );
+
+C_ASSERT( sizeof(u32_DmabufAttributes_t) >= 92 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, pNext) == 0 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().pNext) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unWidth) == 4 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unWidth) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unHeight) == 8 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unHeight) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unDepth) == 12 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unDepth) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unMipLevels) == 16 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unMipLevels) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unArrayLayers) == 20 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unArrayLayers) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unSampleCount) == 24 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unSampleCount) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unFormat) == 28 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unFormat) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, ulModifier) == 32 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().ulModifier) >= 8 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, unPlaneCount) == 40 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().unPlaneCount) >= 4 );
+C_ASSERT( offsetof(u32_DmabufAttributes_t, plane) == 44 );
+C_ASSERT( sizeof(u32_DmabufAttributes_t().plane) >= 48 );
+
+#if defined(__x86_64__) || defined(__aarch64__)
+w32_DmabufAttributes_t::operator u64_DmabufAttributes_t() const
+{
+    u64_DmabufAttributes_t ret;
+    ret.pNext = this->pNext;
+    ret.unWidth = this->unWidth;
+    ret.unHeight = this->unHeight;
+    ret.unDepth = this->unDepth;
+    ret.unMipLevels = this->unMipLevels;
+    ret.unArrayLayers = this->unArrayLayers;
+    ret.unSampleCount = this->unSampleCount;
+    ret.unFormat = this->unFormat;
+    ret.ulModifier = this->ulModifier;
+    ret.unPlaneCount = this->unPlaneCount;
+    ret.plane = this->plane;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_DmabufAttributes_t::operator w32_DmabufAttributes_t() const
+{
+    w32_DmabufAttributes_t ret;
+    ret.pNext = this->pNext;
+    ret.unWidth = this->unWidth;
+    ret.unHeight = this->unHeight;
+    ret.unDepth = this->unDepth;
+    ret.unMipLevels = this->unMipLevels;
+    ret.unArrayLayers = this->unArrayLayers;
+    ret.unSampleCount = this->unSampleCount;
+    ret.unFormat = this->unFormat;
+    ret.ulModifier = this->ulModifier;
+    ret.unPlaneCount = this->unPlaneCount;
+    ret.plane = this->plane;
+    return ret;
+}
+#endif
+
 C_ASSERT( sizeof(w64_HiddenAreaMesh_t) >= 16 );
 C_ASSERT( offsetof(w64_HiddenAreaMesh_t, pVertexData) == 0 );
 C_ASSERT( sizeof(w64_HiddenAreaMesh_t().pVertexData) >= 8 );
@@ -14589,26 +15939,6 @@ C_ASSERT( offsetof(u32_HiddenAreaMesh_t, pVertexData) == 0 );
 C_ASSERT( sizeof(u32_HiddenAreaMesh_t().pVertexData) >= 4 );
 C_ASSERT( offsetof(u32_HiddenAreaMesh_t, unTriangleCount) == 4 );
 C_ASSERT( sizeof(u32_HiddenAreaMesh_t().unTriangleCount) >= 4 );
-
-#if defined(__x86_64__) || defined(__aarch64__)
-w32_HiddenAreaMesh_t::operator u64_HiddenAreaMesh_t() const
-{
-    u64_HiddenAreaMesh_t ret;
-    ret.pVertexData = this->pVertexData;
-    ret.unTriangleCount = this->unTriangleCount;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-u64_HiddenAreaMesh_t::operator w32_HiddenAreaMesh_t() const
-{
-    w32_HiddenAreaMesh_t ret;
-    ret.pVertexData = this->pVertexData;
-    ret.unTriangleCount = this->unTriangleCount;
-    return ret;
-}
-#endif
 
 C_ASSERT( sizeof(w64_InputAnalogActionData_t) >= 48 );
 C_ASSERT( offsetof(w64_InputAnalogActionData_t, bActive) == 0 );
@@ -15473,32 +16803,6 @@ u64_RenderModel_t_0912::operator w64_RenderModel_t_0912() const
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-w32_RenderModel_t_0912::operator u64_RenderModel_t_0912() const
-{
-    u64_RenderModel_t_0912 ret;
-    ret.rVertexData = this->rVertexData;
-    ret.unVertexCount = this->unVertexCount;
-    ret.rIndexData = this->rIndexData;
-    ret.unTriangleCount = this->unTriangleCount;
-    ret.diffuseTextureId = this->diffuseTextureId;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-u64_RenderModel_t_0912::operator w32_RenderModel_t_0912() const
-{
-    w32_RenderModel_t_0912 ret;
-    ret.rVertexData = this->rVertexData;
-    ret.unVertexCount = this->unVertexCount;
-    ret.rIndexData = this->rIndexData;
-    ret.unTriangleCount = this->unTriangleCount;
-    ret.diffuseTextureId = this->diffuseTextureId;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
 w64_RenderModel_t_090::operator u64_RenderModel_t_090() const
 {
     u64_RenderModel_t_090 ret;
@@ -15516,34 +16820,6 @@ w64_RenderModel_t_090::operator u64_RenderModel_t_090() const
 u64_RenderModel_t_090::operator w64_RenderModel_t_090() const
 {
     w64_RenderModel_t_090 ret;
-    ret.ulInternalHandle = this->ulInternalHandle;
-    ret.rVertexData = this->rVertexData;
-    ret.unVertexCount = this->unVertexCount;
-    ret.rIndexData = this->rIndexData;
-    ret.unTriangleCount = this->unTriangleCount;
-    ret.diffuseTexture = this->diffuseTexture;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-w32_RenderModel_t_090::operator u64_RenderModel_t_090() const
-{
-    u64_RenderModel_t_090 ret;
-    ret.ulInternalHandle = this->ulInternalHandle;
-    ret.rVertexData = this->rVertexData;
-    ret.unVertexCount = this->unVertexCount;
-    ret.rIndexData = this->rIndexData;
-    ret.unTriangleCount = this->unTriangleCount;
-    ret.diffuseTexture = this->diffuseTexture;
-    return ret;
-}
-#endif
-
-#if defined(__x86_64__) || defined(__aarch64__)
-u64_RenderModel_t_090::operator w32_RenderModel_t_090() const
-{
-    w32_RenderModel_t_090 ret;
     ret.ulInternalHandle = this->ulInternalHandle;
     ret.rVertexData = this->rVertexData;
     ret.unVertexCount = this->unVertexCount;
@@ -16545,6 +17821,46 @@ C_ASSERT( offsetof(u32_VREvent_t_0912, data) == 8 );
 C_ASSERT( sizeof(u32_VREvent_t_0912().data) >= 16 );
 C_ASSERT( offsetof(u32_VREvent_t_0912, eventAgeSeconds) == 24 );
 C_ASSERT( sizeof(u32_VREvent_t_0912().eventAgeSeconds) >= 4 );
+
+C_ASSERT( sizeof(w64_VREvent_t_0911) >= 32 );
+C_ASSERT( offsetof(w64_VREvent_t_0911, eventType) == 0 );
+C_ASSERT( sizeof(w64_VREvent_t_0911().eventType) >= 4 );
+C_ASSERT( offsetof(w64_VREvent_t_0911, trackedDeviceIndex) == 4 );
+C_ASSERT( sizeof(w64_VREvent_t_0911().trackedDeviceIndex) >= 4 );
+C_ASSERT( offsetof(w64_VREvent_t_0911, data) == 8 );
+C_ASSERT( sizeof(w64_VREvent_t_0911().data) >= 16 );
+C_ASSERT( offsetof(w64_VREvent_t_0911, eventAgeSeconds) == 24 );
+C_ASSERT( sizeof(w64_VREvent_t_0911().eventAgeSeconds) >= 4 );
+
+C_ASSERT( sizeof(u64_VREvent_t_0911) >= 28 );
+C_ASSERT( offsetof(u64_VREvent_t_0911, eventType) == 0 );
+C_ASSERT( sizeof(u64_VREvent_t_0911().eventType) >= 4 );
+C_ASSERT( offsetof(u64_VREvent_t_0911, trackedDeviceIndex) == 4 );
+C_ASSERT( sizeof(u64_VREvent_t_0911().trackedDeviceIndex) >= 4 );
+C_ASSERT( offsetof(u64_VREvent_t_0911, data) == 8 );
+C_ASSERT( sizeof(u64_VREvent_t_0911().data) >= 16 );
+C_ASSERT( offsetof(u64_VREvent_t_0911, eventAgeSeconds) == 24 );
+C_ASSERT( sizeof(u64_VREvent_t_0911().eventAgeSeconds) >= 4 );
+
+C_ASSERT( sizeof(w32_VREvent_t_0911) >= 32 );
+C_ASSERT( offsetof(w32_VREvent_t_0911, eventType) == 0 );
+C_ASSERT( sizeof(w32_VREvent_t_0911().eventType) >= 4 );
+C_ASSERT( offsetof(w32_VREvent_t_0911, trackedDeviceIndex) == 4 );
+C_ASSERT( sizeof(w32_VREvent_t_0911().trackedDeviceIndex) >= 4 );
+C_ASSERT( offsetof(w32_VREvent_t_0911, data) == 8 );
+C_ASSERT( sizeof(w32_VREvent_t_0911().data) >= 16 );
+C_ASSERT( offsetof(w32_VREvent_t_0911, eventAgeSeconds) == 24 );
+C_ASSERT( sizeof(w32_VREvent_t_0911().eventAgeSeconds) >= 4 );
+
+C_ASSERT( sizeof(u32_VREvent_t_0911) >= 28 );
+C_ASSERT( offsetof(u32_VREvent_t_0911, eventType) == 0 );
+C_ASSERT( sizeof(u32_VREvent_t_0911().eventType) >= 4 );
+C_ASSERT( offsetof(u32_VREvent_t_0911, trackedDeviceIndex) == 4 );
+C_ASSERT( sizeof(u32_VREvent_t_0911().trackedDeviceIndex) >= 4 );
+C_ASSERT( offsetof(u32_VREvent_t_0911, data) == 8 );
+C_ASSERT( sizeof(u32_VREvent_t_0911().data) >= 16 );
+C_ASSERT( offsetof(u32_VREvent_t_0911, eventAgeSeconds) == 24 );
+C_ASSERT( sizeof(u32_VREvent_t_0911().eventAgeSeconds) >= 4 );
 
 C_ASSERT( sizeof(w64_VREvent_t_0910) >= 32 );
 C_ASSERT( offsetof(w64_VREvent_t_0910, eventType) == 0 );
@@ -18331,6 +19647,78 @@ u64_VREvent_t_0912::operator w32_VREvent_t_0912() const
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
+w64_VREvent_t_0911::operator u64_VREvent_t_0911() const
+{
+    u64_VREvent_t_0911 ret;
+    ret.eventType = this->eventType;
+    ret.trackedDeviceIndex = this->trackedDeviceIndex;
+    ret.data = this->data;
+    ret.eventAgeSeconds = this->eventAgeSeconds;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_VREvent_t_0911::operator w64_VREvent_t_0911() const
+{
+    w64_VREvent_t_0911 ret;
+    ret.eventType = this->eventType;
+    ret.trackedDeviceIndex = this->trackedDeviceIndex;
+    ret.data = this->data;
+    ret.eventAgeSeconds = this->eventAgeSeconds;
+    return ret;
+}
+#endif
+
+#ifdef __i386__
+w32_VREvent_t_0911::operator u32_VREvent_t_0911() const
+{
+    u32_VREvent_t_0911 ret;
+    ret.eventType = this->eventType;
+    ret.trackedDeviceIndex = this->trackedDeviceIndex;
+    ret.data = this->data;
+    ret.eventAgeSeconds = this->eventAgeSeconds;
+    return ret;
+}
+#endif
+
+#ifdef __i386__
+u32_VREvent_t_0911::operator w32_VREvent_t_0911() const
+{
+    w32_VREvent_t_0911 ret;
+    ret.eventType = this->eventType;
+    ret.trackedDeviceIndex = this->trackedDeviceIndex;
+    ret.data = this->data;
+    ret.eventAgeSeconds = this->eventAgeSeconds;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+w32_VREvent_t_0911::operator u64_VREvent_t_0911() const
+{
+    u64_VREvent_t_0911 ret;
+    ret.eventType = this->eventType;
+    ret.trackedDeviceIndex = this->trackedDeviceIndex;
+    ret.data = this->data;
+    ret.eventAgeSeconds = this->eventAgeSeconds;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_VREvent_t_0911::operator w32_VREvent_t_0911() const
+{
+    w32_VREvent_t_0911 ret;
+    ret.eventType = this->eventType;
+    ret.trackedDeviceIndex = this->trackedDeviceIndex;
+    ret.data = this->data;
+    ret.eventAgeSeconds = this->eventAgeSeconds;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
 w64_VREvent_t_0910::operator u64_VREvent_t_0910() const
 {
     u64_VREvent_t_0910 ret;
@@ -18870,6 +20258,90 @@ u64_VRTextureWithDepth_t::operator w32_VRTextureWithDepth_t() const
     ret.eType = this->eType;
     ret.eColorSpace = this->eColorSpace;
     ret.depth = this->depth;
+    return ret;
+}
+#endif
+
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t) >= 216 );
+C_ASSERT( offsetof(w64_VRTextureWithMotion_t, handle) == 0 );
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t().handle) >= 8 );
+C_ASSERT( offsetof(w64_VRTextureWithMotion_t, eType) == 8 );
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t().eType) >= 4 );
+C_ASSERT( offsetof(w64_VRTextureWithMotion_t, eColorSpace) == 12 );
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t().eColorSpace) >= 4 );
+C_ASSERT( offsetof(w64_VRTextureWithMotion_t, mDeviceToAbsoluteTracking) == 16 );
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t().mDeviceToAbsoluteTracking) >= 48 );
+C_ASSERT( offsetof(w64_VRTextureWithMotion_t, depth) == 64 );
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t().depth) >= 80 );
+C_ASSERT( offsetof(w64_VRTextureWithMotion_t, motion) == 144 );
+C_ASSERT( sizeof(w64_VRTextureWithMotion_t().motion) >= 72 );
+
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t) >= 216 );
+C_ASSERT( offsetof(u64_VRTextureWithMotion_t, handle) == 0 );
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t().handle) >= 8 );
+C_ASSERT( offsetof(u64_VRTextureWithMotion_t, eType) == 8 );
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t().eType) >= 4 );
+C_ASSERT( offsetof(u64_VRTextureWithMotion_t, eColorSpace) == 12 );
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t().eColorSpace) >= 4 );
+C_ASSERT( offsetof(u64_VRTextureWithMotion_t, mDeviceToAbsoluteTracking) == 16 );
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t().mDeviceToAbsoluteTracking) >= 48 );
+C_ASSERT( offsetof(u64_VRTextureWithMotion_t, depth) == 64 );
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t().depth) >= 80 );
+C_ASSERT( offsetof(u64_VRTextureWithMotion_t, motion) == 144 );
+C_ASSERT( sizeof(u64_VRTextureWithMotion_t().motion) >= 72 );
+
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t) >= 204 );
+C_ASSERT( offsetof(w32_VRTextureWithMotion_t, handle) == 0 );
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t().handle) >= 4 );
+C_ASSERT( offsetof(w32_VRTextureWithMotion_t, eType) == 4 );
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t().eType) >= 4 );
+C_ASSERT( offsetof(w32_VRTextureWithMotion_t, eColorSpace) == 8 );
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t().eColorSpace) >= 4 );
+C_ASSERT( offsetof(w32_VRTextureWithMotion_t, mDeviceToAbsoluteTracking) == 12 );
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t().mDeviceToAbsoluteTracking) >= 48 );
+C_ASSERT( offsetof(w32_VRTextureWithMotion_t, depth) == 60 );
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t().depth) >= 76 );
+C_ASSERT( offsetof(w32_VRTextureWithMotion_t, motion) == 136 );
+C_ASSERT( sizeof(w32_VRTextureWithMotion_t().motion) >= 68 );
+
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t) >= 204 );
+C_ASSERT( offsetof(u32_VRTextureWithMotion_t, handle) == 0 );
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t().handle) >= 4 );
+C_ASSERT( offsetof(u32_VRTextureWithMotion_t, eType) == 4 );
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t().eType) >= 4 );
+C_ASSERT( offsetof(u32_VRTextureWithMotion_t, eColorSpace) == 8 );
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t().eColorSpace) >= 4 );
+C_ASSERT( offsetof(u32_VRTextureWithMotion_t, mDeviceToAbsoluteTracking) == 12 );
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t().mDeviceToAbsoluteTracking) >= 48 );
+C_ASSERT( offsetof(u32_VRTextureWithMotion_t, depth) == 60 );
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t().depth) >= 76 );
+C_ASSERT( offsetof(u32_VRTextureWithMotion_t, motion) == 136 );
+C_ASSERT( sizeof(u32_VRTextureWithMotion_t().motion) >= 68 );
+
+#if defined(__x86_64__) || defined(__aarch64__)
+w32_VRTextureWithMotion_t::operator u64_VRTextureWithMotion_t() const
+{
+    u64_VRTextureWithMotion_t ret;
+    ret.handle = this->handle;
+    ret.eType = this->eType;
+    ret.eColorSpace = this->eColorSpace;
+    ret.mDeviceToAbsoluteTracking = this->mDeviceToAbsoluteTracking;
+    ret.depth = this->depth;
+    ret.motion = this->motion;
+    return ret;
+}
+#endif
+
+#if defined(__x86_64__) || defined(__aarch64__)
+u64_VRTextureWithMotion_t::operator w32_VRTextureWithMotion_t() const
+{
+    w32_VRTextureWithMotion_t ret;
+    ret.handle = this->handle;
+    ret.eType = this->eType;
+    ret.eColorSpace = this->eColorSpace;
+    ret.mDeviceToAbsoluteTracking = this->mDeviceToAbsoluteTracking;
+    ret.depth = this->depth;
+    ret.motion = this->motion;
     return ret;
 }
 #endif

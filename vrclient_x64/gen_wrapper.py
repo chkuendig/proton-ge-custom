@@ -11,6 +11,9 @@ import os
 import re
 
 SDK_VERSIONS = [
+    "v2.15.6",
+    "v2.12.14",
+    "v2.7.1",
     "v2.5.1",
     "v2.2.3",
     "v2.0.10",
@@ -59,7 +62,9 @@ SDK_VERSIONS = [
     "v0.9.14",
     "v0.9.13",
     "v0.9.12",
-#    "v0.9.11", problematic GetComponentState, may cause crash since we don't implement it
+    "v0.9.11",
+    #Interfaces below are not really supported, need handling of texture conversions similar to v0.9.11. But nothing
+    #is known to use those so far.
     "v0.9.10",
     "v0.9.9",
     "v0.9.8",
@@ -143,6 +148,7 @@ SIZED_STRUCTS = {
     "VRBoneTransform_t",
     "VRControllerState001_t",
     "VREvent_t",
+    "VREyeTrackingData_t",
     "VROverlayIntersectionMaskPrimitive_t",
     "VROverlayView_t",
 }
@@ -224,6 +230,9 @@ MANUAL_STRUCTS = [
     "COpenVRContext", # not actually used
 ]
 MANUAL_WOW64_STRUCTS = [
+    "HiddenAreaMesh_t",
+    "RenderModel_t",
+    "RenderModel_TextureMap_t",
 ]
 
 UNIX_FUNCS = [
@@ -236,18 +245,23 @@ UNIX_FUNCS = [
 ]
 
 MANUAL_METHODS = {
+    "IVRApplications_LaunchInternalProcess": True,
+    "IVRApplications_RegisterSubprocess": lambda ver, abi: abi == 'u',
     "IVRClientCore_BIsHmdPresent": lambda ver, abi: abi == 'w',
     "IVRClientCore_Init": lambda ver, abi: True,
     "IVRClientCore_GetGenericInterface": lambda ver, abi: abi == 'w',
     "IVRClientCore_Cleanup": lambda ver, abi: abi == 'w',
     "IVRSystem_GetDXGIOutputInfo": lambda ver, abi: abi == 'w',
     "IVRSystem_GetOutputDevice": lambda ver, abi: ver > 16,
-    "IVRCompositor_Submit": lambda ver, abi: ver > 8,
+    "IVRCompositor_Submit": lambda ver, abi: ver > 7,
     "IVRCompositor_SubmitWithArrayIndex": lambda ver, abi: ver > 8,
-    "IVRCompositor_SetSkyboxOverride": lambda ver, abi: ver > 8,
+    "IVRCompositor_SetSkyboxOverride": lambda ver, abi: ver > 7,
+    "IVRCompositor_SetExplicitTimingMode": lambda ver, abi: abi == 'w',
+    "IVRCompositor_SubmitExplicitTimingData": lambda ver, abi: abi == 'w',
     "IVRCompositor_PostPresentHandoff": lambda ver, abi: abi == 'w',
-    "IVRCompositor_WaitGetPoses": lambda ver, abi: abi == 'w' and ver > 15,
+    "IVRCompositor_WaitGetPoses": lambda ver, abi: abi == 'w',
     "IVRCompositor_GetVulkanDeviceExtensionsRequired": lambda ver, abi: abi == 'u',
+    "IVRCompositor_GetSubmitTexture": lambda ver, abi: abi == 'u',
     "IVRRenderModels_LoadTextureD3D11_Async": lambda ver, abi: abi == 'w',
     "IVRRenderModels_FreeTextureD3D11": lambda ver, abi: abi == 'w',
     "IVRRenderModels_LoadIntoTextureD3D11_Async": lambda ver, abi: abi == 'w',
@@ -841,10 +855,13 @@ def handle_method_cpp(method, classname, out, wow64):
         out(u'    params->_ret = ')
 
     def param_call(name, param):
-        pfx = '&' if param.type.kind == TypeKind.POINTER else ''
         if name in size_fixup: return f"u_{name}"
         if name in path_conv_wtou: return f"u_{name}"
-        if name in need_convert: return f"params->{name} ? {pfx}u_{name} : nullptr"
+        if name in need_convert:
+            if param.type.kind == TypeKind.POINTER:
+                return f"params->{name} ? &u_{name} : nullptr"
+            else:
+                return f"u_{name}"
         if name == OUTSTR_PARAMS.get(method.name, None):
             return f'params->{name} ? ({declspec(param, "", "u_")})&u_str : nullptr'
         return f'params->{name}'

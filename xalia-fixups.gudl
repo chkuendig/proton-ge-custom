@@ -1,15 +1,5 @@
 // Fixes applied to Xalia's main.gudl for Proton. Update these in xalia-fixups.gudl.
 
-if (is_hwnd_syslink) {
-    supported: true;
-}
-
-if (win32_class_name == "Rockstar Games Launcher Installer") {
-    application_supports_gamepad: true;
-}
-
-if (win32_class_name >= "WindowsForms10." and win32_class_name < "WindowsForms10/") {
-    // Controls that delegate IEnumVariant in winforms can crash in Wine Mono when queried, don't touch them for now.
-    recurse: false;
-    interactable: false;
+if (class_name == "BmLauncher.FormControls") {
+    supported: not child_matches(not supported);
 }

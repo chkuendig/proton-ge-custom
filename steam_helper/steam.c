@@ -69,6 +69,26 @@ static void set_active_process_pid(void)
                      REG_DWORD, &pid, sizeof(pid) );
 }
 
+/* XBox Game Studios titles run GamingRepair.exe unless it has previously succeeded and set a registry value
+ * to flag success. The program uses unimplemented AppInstallManager and therefore will not return success.
+ * It causes a delay of around 20 seconds, so we set the registry key here to prevent it from running. */
+static void set_gamingrepair_succeeded(const char *sgi)
+{
+    DWORD succeeded = 1;
+    HKEY appkey, idkey;
+
+    if (RegOpenKeyExW( HKEY_LOCAL_MACHINE, L"SOFTWARE\\Valve\\Steam\\Apps", 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &appkey ))
+        return;
+
+    if (!RegOpenKeyExA( appkey, sgi, 0, KEY_ALL_ACCESS, &idkey ))
+    {
+        RegSetValueExW( idkey, L"GamingRepair", 0, REG_DWORD, (BYTE *)&succeeded, sizeof(succeeded) );
+        RegCloseKey(idkey);
+    }
+
+    RegCloseKey(appkey);
+}
+
 static DWORD WINAPI create_steam_windows(void *arg)
 {
     static WNDCLASSEXW wndclass = { sizeof(WNDCLASSEXW) };
@@ -300,6 +320,100 @@ static BOOL should_use_shell_execute(WCHAR *cmdline)
     return use_shell_execute;
 }
 
+static BOOL try_recover_eadesktop_symlink(void)
+{
+    WIN32_FIND_DATAA ff;
+    HANDLE handle, file;
+    char path[MAX_PATH];
+
+    handle = CreateFileA( "C:\\Program Files\\Electronic Arts\\EA Desktop\\EA Desktop", GENERIC_READ,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0 );
+    if (handle != INVALID_HANDLE_VALUE || GetLastError() != ERROR_FILE_NOT_FOUND)
+    {
+        TRACE( "directory handle %p, err %ld.\n", handle, GetLastError() );
+        if (handle != INVALID_HANDLE_VALUE) CloseHandle( handle );
+        return FALSE;
+    }
+
+    if ((handle = FindFirstFileA( "C:\\Program Files\\Electronic Arts\\EA Desktop\\*.*", &ff )) == INVALID_HANDLE_VALUE)
+        return FALSE;
+
+    do
+    {
+        if (!(ff.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
+        if (!strcmp( ff.cFileName, "." ) || !strcmp( ff.cFileName, ".." )) continue;
+        sprintf( path, "C:\\Program Files\\Electronic Arts\\EA Desktop\\%s\\EA Desktop\\Link2EA.exe", ff.cFileName );
+        file = CreateFileA( path, GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, 0 );
+        if (file == INVALID_HANDLE_VALUE) continue;
+        CloseHandle( file );
+        sprintf( path, "%s\\EA Desktop", ff.cFileName );
+        if (CreateSymbolicLinkA( "C:\\Program Files\\Electronic Arts\\EA Desktop\\EA Desktop", path,
+                                 SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE ))
+        {
+            TRACE( "linked to %s.\n", debugstr_a(path) );
+            FindClose( handle );
+            return TRUE;
+        }
+        else TRACE( "CreateSymbolicLinkA to %s failed, err %ld.\n", debugstr_a(path), GetLastError() );
+    } while (FindNextFileA( handle, &ff ));
+    FindClose( handle );
+    return FALSE;
+}
+
+static WCHAR *fixup_cmdline_paths( WCHAR *cmdline )
+{
+    const WCHAR argname[] = L"-game";
+    WCHAR *p, *next, *dos_path, *ret;
+    unsigned int i, len, path_len;
+    char *unix_path;
+
+    if (!wcsstr( cmdline, L"\\Source SDK Base" )) return cmdline;
+    p = cmdline;
+    if (*p != '\"') return cmdline;
+    ++p;
+    while (*p && *p != '\"') ++p;
+    if (!*p) return cmdline;
+    ++p;
+    while (*p)
+    {
+        while (iswspace(*p)) ++p;
+        if (!wcsncmp( p, argname, ARRAY_SIZE(argname) - 1 ) && iswspace(p[ARRAY_SIZE(argname) - 1]))
+        {
+            p += ARRAY_SIZE(argname) - 1;
+            while (iswspace(*p)) ++p;
+            if (*p != '/') continue;
+
+            TRACE( "found path %s.\n", debugstr_w(p) );
+            next = p + 1;
+            while (*next && !iswspace(*next)) ++next;
+            unix_path = malloc( next - p + 1 );
+            for (i = 0; p + i != next; ++i)
+                unix_path[i] = p[i];
+            unix_path[i] = 0;
+            dos_path = wine_get_dos_file_name( unix_path );
+            free( unix_path );
+            if (!dos_path)
+            {
+                TRACE( "Failed to convert unix path to NT.\n" );
+                p = next;
+                continue;
+            }
+            TRACE( "dos path %s.\n", debugstr_w(dos_path) );
+            path_len = wcslen( dos_path );
+            len = wcslen( cmdline ) + 1;
+            ret = malloc( (len + path_len - (next - p)) * sizeof(*ret) );
+            memcpy( ret, cmdline, (p - cmdline) * sizeof(*ret) );
+            memcpy( ret + (p - cmdline), dos_path, path_len * sizeof(*ret) );
+            memcpy( ret + (p - cmdline) + path_len, next, (len - (next - cmdline)) * sizeof(*ret) );
+            HeapFree( GetProcessHeap(), 0, dos_path );
+            return ret;
+        }
+        while (*p && !iswspace(*p)) ++p;
+    }
+    return cmdline;
+}
+
 static HANDLE run_process(BOOL *should_await, BOOL game_process)
 {
     WCHAR *cmdline = GetCommandLineW();
@@ -412,7 +526,8 @@ run:
     SetConsoleCtrlHandler( console_ctrl_handler, TRUE );
 
     use_shell_execute = should_use_shell_execute(cmdline);
-    if (use_shell_execute && wcslen( cmdline ) > 10 && !memcmp( cmdline, L"link2ea://", 10 * sizeof(WCHAR) ))
+    if (use_shell_execute && wcslen( cmdline ) > 10
+        && (!memcmp( cmdline, L"link2ea://", 10 * sizeof(WCHAR) ) || !memcmp( cmdline, L"steam2ea://", 11 * sizeof(WCHAR) )))
     {
         HDESK desktop = GetThreadDesktop(GetCurrentThreadId());
         DWORD is_unavailable, type, size;
@@ -422,6 +537,7 @@ run:
         HKEY eakey;
         BOOL ret;
 
+        TRACE("applying EA launcher workarounds.\n");
         link2ea = TRUE;
         if (!SetUserObjectInformationA(desktop, 1000, &timeout, sizeof(timeout)))
             WINE_ERR("Failed to set desktop timeout, err %lu.\n", GetLastError());
@@ -476,6 +592,7 @@ run:
         WCHAR *param = NULL;
         WCHAR *executable_name_end = get_end_of_excutable_name(cmdline);
         static const WCHAR verb[] = { 'o', 'p', 'e', 'n', 0 };
+        unsigned int retry_count = 0;
         INT_PTR ret;
 
         if (*executable_name_end != '\0')
@@ -484,9 +601,15 @@ run:
             param = executable_name_end+1;
         }
 
-        if ((ret = (INT_PTR)ShellExecuteW(NULL, verb, cmdline, param, NULL, hide_window ? SW_HIDE : SW_SHOWNORMAL)) < 32)
+        while ((ret = (INT_PTR)ShellExecuteW(NULL, verb, cmdline, param, NULL, hide_window ? SW_HIDE : SW_SHOWNORMAL)) < 32)
         {
             WINE_ERR("Failed to execute %s, ret %Iu.\n", wine_dbgstr_w(cmdline), ret);
+            if (game_process && ret == SE_ERR_FNF && link2ea)
+            {
+                if (!try_recover_eadesktop_symlink()) break;
+                if (retry_count++) break;
+                continue;
+            }
             if (game_process && ret == SE_ERR_NOASSOC && link2ea)
             {
                 /* Try to uninstall EA desktop so it is set up from prerequisites on the next run. */
@@ -499,23 +622,26 @@ run:
                 RegDeleteTreeW( HKEY_LOCAL_MACHINE, L"Software\\Electronic Arts\\EA Desktop" );
                 RegDeleteTreeW( HKEY_LOCAL_MACHINE, L"Software\\Electronic Arts\\EA Core" );
             }
+            break;
         }
         return INVALID_HANDLE_VALUE;
     }
     else
     {
+        WCHAR *new_cmdline = fixup_cmdline_paths(cmdline);
+
         if (hide_window)
         {
             si.dwFlags |= STARTF_USESHOWWINDOW;
             si.wShowWindow = SW_HIDE;
         }
 
-        if (!CreateProcessW(NULL, cmdline, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi))
+        if (!CreateProcessW(NULL, new_cmdline, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi))
         {
             WINE_ERR("Failed to create process %s: %lu\n", wine_dbgstr_w(cmdline), GetLastError());
             return INVALID_HANDLE_VALUE;
         }
-
+        if (new_cmdline != cmdline) free(new_cmdline);
         CloseHandle(pi.hThread);
 
         return pi.hProcess;
@@ -652,6 +778,7 @@ static void setup_steam_files(void)
         else
         {
             pos += strappend( &buf, &buf_size, pos, "\t\"%u\"\n\t{\n\t\t\"path\"\t\t\"%s\"\n\t}\n", index, str );
+            ++index;
             free( str );
         }
     }
@@ -675,6 +802,7 @@ static void setup_steam_files(void)
         else
         {
             pos += strappend( &buf, &buf_size, pos, "\t\"%u\"\n\t{\n\t\t\"path\"\t\t\"%s\"\n\t}\n", index, str );
+            ++index;
             free( str );
         }
         free( path );
@@ -717,7 +845,7 @@ static HANDLE find_ack_event(void)
         if (!strncmpW( di->ObjectName.Buffer, L"STEAM_START_ACK_EVENT", 21 ))
         {
             WINE_TRACE("Found event %s.\n", wine_dbgstr_w(di->ObjectName.Buffer));
-            ret = OpenEventW(SYNCHRONIZE, FALSE, di->ObjectName.Buffer);
+            ret = OpenEventW(SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, di->ObjectName.Buffer);
             if (!ret)
                 WINE_WARN("Failed to create event, err %lu.\n", GetLastError());
             break;
@@ -792,6 +920,7 @@ int main(int argc, char *argv[])
     HANDLE event = INVALID_HANDLE_VALUE;
     HANDLE child = INVALID_HANDLE_VALUE;
     BOOL game_process = FALSE;
+    const char *sgi;
     DWORD rc = 0;
 
     WINE_TRACE("\n");
@@ -799,17 +928,34 @@ int main(int argc, char *argv[])
     if (steam_command_handler(argc, argv))
         return 0;
 
-    if (getenv("SteamGameId"))
+    if ((sgi = getenv("SteamGameId")))
     {
+        WCHAR path[MAX_PATH], *p;
+
         /* do setup only for game process */
         event = CreateEventW( NULL, FALSE, FALSE, L"Steam3Master_SharedMemLock" );
 
         /* For 2K Launcher. */
         event2 = CreateEventW( NULL, FALSE, FALSE, L"Global\\Valve_SteamIPC_Class" );
 
+        /* Create desktop window in main thread to prevent race with background thread. */
+        GetDesktopWindow();
+
         CreateThread(NULL, 0, create_steam_windows, NULL, 0, NULL);
 
         set_active_process_pid();
+        set_gamingrepair_succeeded(sgi);
+
+        SetEnvironmentVariableW(L"SteamPath", L"C:\\Program Files (x86)\\Steam");
+        *path = 0;
+        GetModuleFileNameW(NULL, path, ARRAY_SIZE(path));
+        p = path;
+        while (*p)
+        {
+            if (*p == '\\') *p = '/';
+            ++p;
+        }
+        SetEnvironmentVariableW(L"ValvePlatformMutex", path);
 
         setup_steam_registry();
         setup_steam_files();

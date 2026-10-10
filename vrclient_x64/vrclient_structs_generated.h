@@ -27,7 +27,7 @@ typedef struct VREvent_Chaperone_t VREvent_Chaperone_t;
 #pragma pack( push, 8 )
 struct VREvent_Chaperone_t
 {
-    uint64_t m_nPreviousUniverse;
+    uint64_t m_nPreviousUniverse_deprecated;
     uint64_t m_nCurrentUniverse;
 };
 #pragma pack( pop )
@@ -133,9 +133,9 @@ struct VREvent_Keyboard_t_2010
 };
 #pragma pack( pop )
 
-typedef struct VREvent_Keyboard_t_0912 VREvent_Keyboard_t_0912;
+typedef struct VREvent_Keyboard_t_0911 VREvent_Keyboard_t_0911;
 #pragma pack( push, 8 )
-struct VREvent_Keyboard_t_0912
+struct VREvent_Keyboard_t_0911
 {
     char (cNewInput)[8];
     uint64_t uUserValue;
@@ -548,7 +548,7 @@ union VREvent_Data_t_1168
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1168 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -584,7 +584,7 @@ union VREvent_Data_t_11030
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -620,7 +620,7 @@ union VREvent_Data_t_1322
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -657,7 +657,7 @@ union VREvent_Data_t_1210
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -692,7 +692,7 @@ union VREvent_Data_t_113b
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -727,7 +727,7 @@ union VREvent_Data_t_1016
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -760,7 +760,7 @@ union VREvent_Data_t_1015
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -791,7 +791,7 @@ union VREvent_Data_t_1014
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_1014 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -821,7 +821,7 @@ union VREvent_Data_t_1013
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -850,7 +850,7 @@ union VREvent_Data_t_1012
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -879,7 +879,7 @@ union VREvent_Data_t_1011
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -907,7 +907,7 @@ union VREvent_Data_t_106
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -934,7 +934,7 @@ union VREvent_Data_t_105
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -960,7 +960,7 @@ union VREvent_Data_t_103
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -985,7 +985,7 @@ union VREvent_Data_t_102
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -1009,7 +1009,7 @@ union VREvent_Data_t_101
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -1031,7 +1031,7 @@ union VREvent_Data_t_0918
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -1052,7 +1052,7 @@ union VREvent_Data_t_0915
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -1071,7 +1071,7 @@ union VREvent_Data_t_0914
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
     VREvent_PerformanceTest_t performanceTest;
@@ -1089,9 +1089,24 @@ union VREvent_Data_t_0912
     VREvent_Notification_t_093 notification;
     VREvent_Overlay_t_092 overlay;
     VREvent_Status_t status;
-    VREvent_Keyboard_t_0912 keyboard;
+    VREvent_Keyboard_t_0911 keyboard;
     VREvent_Ipd_t ipd;
     VREvent_Chaperone_t chaperone;
+};
+#pragma pack( pop )
+
+typedef union VREvent_Data_t_0911 VREvent_Data_t_0911;
+#pragma pack( push, 8 )
+union VREvent_Data_t_0911
+{
+    VREvent_Reserved_t_090 reserved;
+    VREvent_Controller_t controller;
+    VREvent_Mouse_t_090 mouse;
+    VREvent_Process_t_090 process;
+    VREvent_Notification_t_093 notification;
+    VREvent_Overlay_t_092 overlay;
+    VREvent_Status_t status;
+    VREvent_Keyboard_t_0911 keyboard;
 };
 #pragma pack( pop )
 
@@ -1195,6 +1210,18 @@ typedef struct ChaperoneSoftBoundsInfo_t ChaperoneSoftBoundsInfo_t;
 struct ChaperoneSoftBoundsInfo_t
 {
     HmdQuad_t quadCorners;
+};
+#pragma pack( pop )
+
+typedef struct ComponentState_t ComponentState_t;
+#pragma pack( push, 4 )
+struct ComponentState_t
+{
+    HmdMatrix34_t mTrackingToComponentRenderModel;
+    HmdMatrix34_t mTrackingToComponentLocal;
+    int8_t bIsStatic;
+    int8_t bIsVisible;
+    uint8_t __pad_98[2];
 };
 #pragma pack( pop )
 
@@ -1308,6 +1335,15 @@ struct Compositor_TextureBounds
 };
 #pragma pack( pop )
 
+typedef struct DistortionCoordinate_t DistortionCoordinate_t;
+#pragma pack( push, 4 )
+struct DistortionCoordinate_t
+{
+    float u;
+    float v;
+};
+#pragma pack( pop )
+
 typedef struct DistortionCoordinates_t DistortionCoordinates_t;
 #pragma pack( push, 4 )
 struct DistortionCoordinates_t
@@ -1315,6 +1351,16 @@ struct DistortionCoordinates_t
     float (rfRed)[2];
     float (rfGreen)[2];
     float (rfBlue)[2];
+};
+#pragma pack( pop )
+
+typedef struct DmabufPlane_t DmabufPlane_t;
+#pragma pack( push, 4 )
+struct DmabufPlane_t
+{
+    uint32_t unOffset;
+    uint32_t unStride;
+    int32_t nFd;
 };
 #pragma pack( pop )
 
@@ -1418,6 +1464,22 @@ struct SpatialAnchorPose_t
 };
 #pragma pack( pop )
 
+typedef struct TrackedCameraCalibrationDevOnly_t TrackedCameraCalibrationDevOnly_t;
+#pragma pack( push, 8 )
+struct TrackedCameraCalibrationDevOnly_t
+{
+    double m_flIntrinsicsFX;
+    double m_flIntrinsicsFY;
+    double m_flIntrinsicsCX;
+    double m_flIntrinsicsCY;
+    double m_flIntrinsicsK1;
+    double m_flIntrinsicsK2;
+    double m_flIntrinsicsP1;
+    double m_flIntrinsicsP2;
+    double m_flIntrinsicsK3;
+};
+#pragma pack( pop )
+
 typedef struct VRActiveActionSet_t_1016 VRActiveActionSet_t_1016;
 #pragma pack( push, 8 )
 struct VRActiveActionSet_t_1016
@@ -1455,6 +1517,19 @@ struct VRControllerAxis_t
 {
     float x;
     float y;
+};
+#pragma pack( pop )
+
+typedef struct VREyeTrackingData_t VREyeTrackingData_t;
+#pragma pack( push, 4 )
+struct VREyeTrackingData_t
+{
+    int8_t bActive;
+    int8_t bValid;
+    int8_t bTracked;
+    uint8_t __pad_3[1];
+    HmdVector3_t vGazeOrigin;
+    HmdVector3_t vGazeTarget;
 };
 #pragma pack( pop )
 
@@ -1528,10 +1603,18 @@ typedef struct w64_VRTextureDepthInfo_t u64_VRTextureDepthInfo_t;
 typedef struct w64_VRTextureDepthInfo_t w64_VRTextureDepthInfo_t;
 typedef struct w32_VRTextureDepthInfo_t u32_VRTextureDepthInfo_t;
 typedef struct w32_VRTextureDepthInfo_t w32_VRTextureDepthInfo_t;
+typedef struct w64_VRTextureMotionInfo_t u64_VRTextureMotionInfo_t;
+typedef struct w64_VRTextureMotionInfo_t w64_VRTextureMotionInfo_t;
+typedef struct w32_VRTextureMotionInfo_t u32_VRTextureMotionInfo_t;
+typedef struct w32_VRTextureMotionInfo_t w32_VRTextureMotionInfo_t;
 typedef struct w64_AppOverrideKeys_t u64_AppOverrideKeys_t;
 typedef struct w64_AppOverrideKeys_t w64_AppOverrideKeys_t;
 typedef struct w32_AppOverrideKeys_t u32_AppOverrideKeys_t;
 typedef struct w32_AppOverrideKeys_t w32_AppOverrideKeys_t;
+typedef struct w64_COpenVRContext_271 u64_COpenVRContext_271;
+typedef struct w64_COpenVRContext_271 w64_COpenVRContext_271;
+typedef struct w32_COpenVRContext_271 u32_COpenVRContext_271;
+typedef struct w32_COpenVRContext_271 w32_COpenVRContext_271;
 typedef struct w64_COpenVRContext_11030 u64_COpenVRContext_11030;
 typedef struct w64_COpenVRContext_11030 w64_COpenVRContext_11030;
 typedef struct w32_COpenVRContext_11030 u32_COpenVRContext_11030;
@@ -1588,6 +1671,10 @@ typedef struct u64_CameraVideoStreamFrame_t_0912 u64_CameraVideoStreamFrame_t_09
 typedef struct w64_CameraVideoStreamFrame_t_0912 w64_CameraVideoStreamFrame_t_0912;
 typedef struct w32_CameraVideoStreamFrame_t_0912 u32_CameraVideoStreamFrame_t_0912;
 typedef struct w32_CameraVideoStreamFrame_t_0912 w32_CameraVideoStreamFrame_t_0912;
+typedef struct u64_CameraVideoStreamFrame_t_0911 u64_CameraVideoStreamFrame_t_0911;
+typedef struct w64_CameraVideoStreamFrame_t_0911 w64_CameraVideoStreamFrame_t_0911;
+typedef struct w32_CameraVideoStreamFrame_t_0911 u32_CameraVideoStreamFrame_t_0911;
+typedef struct w32_CameraVideoStreamFrame_t_0911 w32_CameraVideoStreamFrame_t_0911;
 typedef struct w64_Compositor_FrameTiming_251 u64_Compositor_FrameTiming_251;
 typedef struct w64_Compositor_FrameTiming_251 w64_Compositor_FrameTiming_251;
 typedef struct w32_Compositor_FrameTiming_251 u32_Compositor_FrameTiming_251;
@@ -1620,10 +1707,10 @@ typedef struct u64_Compositor_FrameTiming_0913 u64_Compositor_FrameTiming_0913;
 typedef struct w64_Compositor_FrameTiming_0913 w64_Compositor_FrameTiming_0913;
 typedef struct u32_Compositor_FrameTiming_0913 u32_Compositor_FrameTiming_0913;
 typedef struct w32_Compositor_FrameTiming_0913 w32_Compositor_FrameTiming_0913;
-typedef struct u64_Compositor_FrameTiming_0912 u64_Compositor_FrameTiming_0912;
-typedef struct w64_Compositor_FrameTiming_0912 w64_Compositor_FrameTiming_0912;
-typedef struct u32_Compositor_FrameTiming_0912 u32_Compositor_FrameTiming_0912;
-typedef struct w32_Compositor_FrameTiming_0912 w32_Compositor_FrameTiming_0912;
+typedef struct u64_Compositor_FrameTiming_0911 u64_Compositor_FrameTiming_0911;
+typedef struct w64_Compositor_FrameTiming_0911 w64_Compositor_FrameTiming_0911;
+typedef struct u32_Compositor_FrameTiming_0911 u32_Compositor_FrameTiming_0911;
+typedef struct w32_Compositor_FrameTiming_0911 w32_Compositor_FrameTiming_0911;
 typedef struct u64_Compositor_FrameTiming_093 u64_Compositor_FrameTiming_093;
 typedef struct w64_Compositor_FrameTiming_093 w64_Compositor_FrameTiming_093;
 typedef struct u32_Compositor_FrameTiming_093 u32_Compositor_FrameTiming_093;
@@ -1636,6 +1723,10 @@ typedef struct w64_D3D12TextureData_t u64_D3D12TextureData_t;
 typedef struct w64_D3D12TextureData_t w64_D3D12TextureData_t;
 typedef struct w32_D3D12TextureData_t u32_D3D12TextureData_t;
 typedef struct w32_D3D12TextureData_t w32_D3D12TextureData_t;
+typedef struct w64_DmabufAttributes_t u64_DmabufAttributes_t;
+typedef struct w64_DmabufAttributes_t w64_DmabufAttributes_t;
+typedef struct w32_DmabufAttributes_t u32_DmabufAttributes_t;
+typedef struct w32_DmabufAttributes_t w32_DmabufAttributes_t;
 typedef struct w64_HiddenAreaMesh_t u64_HiddenAreaMesh_t;
 typedef struct w64_HiddenAreaMesh_t w64_HiddenAreaMesh_t;
 typedef struct w32_HiddenAreaMesh_t u32_HiddenAreaMesh_t;
@@ -1646,6 +1737,12 @@ typedef struct u_IVRDebug u32_IVRDebug;
 typedef struct w_IVRDebug w_IVRDebug;
 typedef struct w_IVRDebug w64_IVRDebug;
 typedef struct w_IVRDebug w32_IVRDebug;
+typedef struct u_IVRIPCResourceManagerClient u_IVRIPCResourceManagerClient;
+typedef struct u_IVRIPCResourceManagerClient u64_IVRIPCResourceManagerClient;
+typedef struct u_IVRIPCResourceManagerClient u32_IVRIPCResourceManagerClient;
+typedef struct w_IVRIPCResourceManagerClient w_IVRIPCResourceManagerClient;
+typedef struct w_IVRIPCResourceManagerClient w64_IVRIPCResourceManagerClient;
+typedef struct w_IVRIPCResourceManagerClient w32_IVRIPCResourceManagerClient;
 typedef struct u_IVRSpatialAnchors u_IVRSpatialAnchors;
 typedef struct u_IVRSpatialAnchors u64_IVRSpatialAnchors;
 typedef struct u_IVRSpatialAnchors u32_IVRSpatialAnchors;
@@ -1788,6 +1885,10 @@ typedef struct u64_VREvent_t_0912 u64_VREvent_t_0912;
 typedef struct w64_VREvent_t_0912 w64_VREvent_t_0912;
 typedef struct u32_VREvent_t_0912 u32_VREvent_t_0912;
 typedef struct w32_VREvent_t_0912 w32_VREvent_t_0912;
+typedef struct u64_VREvent_t_0911 u64_VREvent_t_0911;
+typedef struct w64_VREvent_t_0911 w64_VREvent_t_0911;
+typedef struct u32_VREvent_t_0911 u32_VREvent_t_0911;
+typedef struct w32_VREvent_t_0911 w32_VREvent_t_0911;
 typedef struct u64_VREvent_t_0910 u64_VREvent_t_0910;
 typedef struct w64_VREvent_t_0910 w64_VREvent_t_0910;
 typedef struct u32_VREvent_t_0910 u32_VREvent_t_0910;
@@ -1820,6 +1921,10 @@ typedef struct w64_VRTextureWithDepth_t u64_VRTextureWithDepth_t;
 typedef struct w64_VRTextureWithDepth_t w64_VRTextureWithDepth_t;
 typedef struct w32_VRTextureWithDepth_t u32_VRTextureWithDepth_t;
 typedef struct w32_VRTextureWithDepth_t w32_VRTextureWithDepth_t;
+typedef struct w64_VRTextureWithMotion_t u64_VRTextureWithMotion_t;
+typedef struct w64_VRTextureWithMotion_t w64_VRTextureWithMotion_t;
+typedef struct w32_VRTextureWithMotion_t u32_VRTextureWithMotion_t;
+typedef struct w32_VRTextureWithMotion_t w32_VRTextureWithMotion_t;
 typedef struct w64_VRTextureWithPoseAndDepth_t u64_VRTextureWithPoseAndDepth_t;
 typedef struct w64_VRTextureWithPoseAndDepth_t w64_VRTextureWithPoseAndDepth_t;
 typedef struct w32_VRTextureWithPoseAndDepth_t u32_VRTextureWithPoseAndDepth_t;
@@ -2071,6 +2176,37 @@ typedef u64_VRTextureDepthInfo_t u_VRTextureDepthInfo_t;
 #endif
 
 #pragma pack( push, 8 )
+struct w64_VRTextureMotionInfo_t
+{
+    W64_PTR(void *handle, handle, void *);
+    HmdMatrix44_t mDeltaPose;
+#ifdef __cplusplus
+    operator w32_VRTextureMotionInfo_t() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 4 )
+struct w32_VRTextureMotionInfo_t
+{
+    W32_PTR(void *handle, handle, void *);
+    HmdMatrix44_t mDeltaPose;
+#ifdef __cplusplus
+    operator u64_VRTextureMotionInfo_t() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#ifdef __i386__
+typedef w32_VRTextureMotionInfo_t w_VRTextureMotionInfo_t;
+typedef u32_VRTextureMotionInfo_t u_VRTextureMotionInfo_t;
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
+typedef w64_VRTextureMotionInfo_t w_VRTextureMotionInfo_t;
+typedef u64_VRTextureMotionInfo_t u_VRTextureMotionInfo_t;
+#endif
+
+#pragma pack( push, 8 )
 struct w64_AppOverrideKeys_t
 {
     W64_PTR(const char *pchKey, pchKey, const char *);
@@ -2099,6 +2235,75 @@ typedef u32_AppOverrideKeys_t u_AppOverrideKeys_t;
 #if defined(__x86_64__) || defined(__aarch64__)
 typedef w64_AppOverrideKeys_t w_AppOverrideKeys_t;
 typedef u64_AppOverrideKeys_t u_AppOverrideKeys_t;
+#endif
+
+#pragma pack( push, 8 )
+struct w64_COpenVRContext_271
+{
+    W64_PTR(void /*IVRSystem*/ *m_pVRSystem, m_pVRSystem, void /*IVRSystem*/ *);
+    W64_PTR(void /*IVRChaperone*/ *m_pVRChaperone, m_pVRChaperone, void /*IVRChaperone*/ *);
+    W64_PTR(void /*IVRChaperoneSetup*/ *m_pVRChaperoneSetup, m_pVRChaperoneSetup, void /*IVRChaperoneSetup*/ *);
+    W64_PTR(void /*IVRCompositor*/ *m_pVRCompositor, m_pVRCompositor, void /*IVRCompositor*/ *);
+    W64_PTR(void /*IVRHeadsetView*/ *m_pVRHeadsetView, m_pVRHeadsetView, void /*IVRHeadsetView*/ *);
+    W64_PTR(void /*IVROverlay*/ *m_pVROverlay, m_pVROverlay, void /*IVROverlay*/ *);
+    W64_PTR(void /*IVROverlayView*/ *m_pVROverlayView, m_pVROverlayView, void /*IVROverlayView*/ *);
+    W64_PTR(void /*IVRResources*/ *m_pVRResources, m_pVRResources, void /*IVRResources*/ *);
+    W64_PTR(void /*IVRRenderModels*/ *m_pVRRenderModels, m_pVRRenderModels, void /*IVRRenderModels*/ *);
+    W64_PTR(void /*IVRExtendedDisplay*/ *m_pVRExtendedDisplay, m_pVRExtendedDisplay, void /*IVRExtendedDisplay*/ *);
+    W64_PTR(void /*IVRSettings*/ *m_pVRSettings, m_pVRSettings, void /*IVRSettings*/ *);
+    W64_PTR(void /*IVRApplications*/ *m_pVRApplications, m_pVRApplications, void /*IVRApplications*/ *);
+    W64_PTR(void /*IVRTrackedCamera*/ *m_pVRTrackedCamera, m_pVRTrackedCamera, void /*IVRTrackedCamera*/ *);
+    W64_PTR(void /*IVRScreenshots*/ *m_pVRScreenshots, m_pVRScreenshots, void /*IVRScreenshots*/ *);
+    W64_PTR(void /*IVRDriverManager*/ *m_pVRDriverManager, m_pVRDriverManager, void /*IVRDriverManager*/ *);
+    W64_PTR(void /*IVRInput*/ *m_pVRInput, m_pVRInput, void /*IVRInput*/ *);
+    W64_PTR(void /*IVRIOBuffer*/ *m_pVRIOBuffer, m_pVRIOBuffer, void /*IVRIOBuffer*/ *);
+    W64_PTR(void /*IVRSpatialAnchors*/ *m_pVRSpatialAnchors, m_pVRSpatialAnchors, void /*IVRSpatialAnchors*/ *);
+    W64_PTR(void /*IVRDebug*/ *m_pVRDebug, m_pVRDebug, void /*IVRDebug*/ *);
+    W64_PTR(void /*IVRNotifications*/ *m_pVRNotifications, m_pVRNotifications, void /*IVRNotifications*/ *);
+    W64_PTR(void /*IVRIPCResourceManagerClient*/ *m_pVRIPCResourceManagerClient, m_pVRIPCResourceManagerClient, void /*IVRIPCResourceManagerClient*/ *);
+#ifdef __cplusplus
+    operator w32_COpenVRContext_271() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 4 )
+struct w32_COpenVRContext_271
+{
+    W32_PTR(void /*IVRSystem*/ *m_pVRSystem, m_pVRSystem, void /*IVRSystem*/ *);
+    W32_PTR(void /*IVRChaperone*/ *m_pVRChaperone, m_pVRChaperone, void /*IVRChaperone*/ *);
+    W32_PTR(void /*IVRChaperoneSetup*/ *m_pVRChaperoneSetup, m_pVRChaperoneSetup, void /*IVRChaperoneSetup*/ *);
+    W32_PTR(void /*IVRCompositor*/ *m_pVRCompositor, m_pVRCompositor, void /*IVRCompositor*/ *);
+    W32_PTR(void /*IVRHeadsetView*/ *m_pVRHeadsetView, m_pVRHeadsetView, void /*IVRHeadsetView*/ *);
+    W32_PTR(void /*IVROverlay*/ *m_pVROverlay, m_pVROverlay, void /*IVROverlay*/ *);
+    W32_PTR(void /*IVROverlayView*/ *m_pVROverlayView, m_pVROverlayView, void /*IVROverlayView*/ *);
+    W32_PTR(void /*IVRResources*/ *m_pVRResources, m_pVRResources, void /*IVRResources*/ *);
+    W32_PTR(void /*IVRRenderModels*/ *m_pVRRenderModels, m_pVRRenderModels, void /*IVRRenderModels*/ *);
+    W32_PTR(void /*IVRExtendedDisplay*/ *m_pVRExtendedDisplay, m_pVRExtendedDisplay, void /*IVRExtendedDisplay*/ *);
+    W32_PTR(void /*IVRSettings*/ *m_pVRSettings, m_pVRSettings, void /*IVRSettings*/ *);
+    W32_PTR(void /*IVRApplications*/ *m_pVRApplications, m_pVRApplications, void /*IVRApplications*/ *);
+    W32_PTR(void /*IVRTrackedCamera*/ *m_pVRTrackedCamera, m_pVRTrackedCamera, void /*IVRTrackedCamera*/ *);
+    W32_PTR(void /*IVRScreenshots*/ *m_pVRScreenshots, m_pVRScreenshots, void /*IVRScreenshots*/ *);
+    W32_PTR(void /*IVRDriverManager*/ *m_pVRDriverManager, m_pVRDriverManager, void /*IVRDriverManager*/ *);
+    W32_PTR(void /*IVRInput*/ *m_pVRInput, m_pVRInput, void /*IVRInput*/ *);
+    W32_PTR(void /*IVRIOBuffer*/ *m_pVRIOBuffer, m_pVRIOBuffer, void /*IVRIOBuffer*/ *);
+    W32_PTR(void /*IVRSpatialAnchors*/ *m_pVRSpatialAnchors, m_pVRSpatialAnchors, void /*IVRSpatialAnchors*/ *);
+    W32_PTR(void /*IVRDebug*/ *m_pVRDebug, m_pVRDebug, void /*IVRDebug*/ *);
+    W32_PTR(void /*IVRNotifications*/ *m_pVRNotifications, m_pVRNotifications, void /*IVRNotifications*/ *);
+    W32_PTR(void /*IVRIPCResourceManagerClient*/ *m_pVRIPCResourceManagerClient, m_pVRIPCResourceManagerClient, void /*IVRIPCResourceManagerClient*/ *);
+#ifdef __cplusplus
+    operator u64_COpenVRContext_271() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#ifdef __i386__
+typedef w32_COpenVRContext_271 w_COpenVRContext_271;
+typedef u32_COpenVRContext_271 u_COpenVRContext_271;
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
+typedef w64_COpenVRContext_271 w_COpenVRContext_271;
+typedef u64_COpenVRContext_271 u_COpenVRContext_271;
 #endif
 
 #pragma pack( push, 8 )
@@ -2970,6 +3175,85 @@ typedef u64_CameraVideoStreamFrame_t_0912 u_CameraVideoStreamFrame_t_0912;
 #endif
 
 #pragma pack( push, 8 )
+struct w64_CameraVideoStreamFrame_t_0911
+{
+    uint32_t m_nStreamFormat;
+    uint32_t m_nWidth;
+    uint32_t m_nHeight;
+    uint32_t m_nFrameSequence;
+    uint32_t m_nTimeStamp;
+    uint32_t m_nBufferIndex;
+    uint32_t m_nBufferCount;
+    uint32_t m_nImageDataSize;
+    double m_flFrameTime;
+    int8_t m_bPoseValid;
+    uint8_t __pad_41[3];
+    W64_ARRAY(float, 16, m_HMDPoseMatrix);
+    uint8_t __pad_108[4];
+    W64_PTR(void *m_pImageData, m_pImageData, void *);
+#ifdef __cplusplus
+    operator u64_CameraVideoStreamFrame_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 4 )
+struct u64_CameraVideoStreamFrame_t_0911
+{
+    uint32_t m_nStreamFormat;
+    uint32_t m_nWidth;
+    uint32_t m_nHeight;
+    uint32_t m_nFrameSequence;
+    uint32_t m_nTimeStamp;
+    uint32_t m_nBufferIndex;
+    uint32_t m_nBufferCount;
+    uint32_t m_nImageDataSize;
+    double m_flFrameTime;
+    int8_t m_bPoseValid;
+    uint8_t __pad_41[3];
+    U64_ARRAY(float, 16, m_HMDPoseMatrix);
+    U64_PTR(void *m_pImageData, m_pImageData, void *);
+#ifdef __cplusplus
+    operator w64_CameraVideoStreamFrame_t_0911() const;
+#endif /* __cplusplus */
+#ifdef __cplusplus
+    operator w32_CameraVideoStreamFrame_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 8 )
+struct w32_CameraVideoStreamFrame_t_0911
+{
+    uint32_t m_nStreamFormat;
+    uint32_t m_nWidth;
+    uint32_t m_nHeight;
+    uint32_t m_nFrameSequence;
+    uint32_t m_nTimeStamp;
+    uint32_t m_nBufferIndex;
+    uint32_t m_nBufferCount;
+    uint32_t m_nImageDataSize;
+    double m_flFrameTime;
+    int8_t m_bPoseValid;
+    uint8_t __pad_41[3];
+    W32_ARRAY(float, 16, m_HMDPoseMatrix);
+    W32_PTR(void *m_pImageData, m_pImageData, void *);
+#ifdef __cplusplus
+    operator u64_CameraVideoStreamFrame_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#ifdef __i386__
+typedef w32_CameraVideoStreamFrame_t_0911 w_CameraVideoStreamFrame_t_0911;
+typedef u32_CameraVideoStreamFrame_t_0911 u_CameraVideoStreamFrame_t_0911;
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
+typedef w64_CameraVideoStreamFrame_t_0911 w_CameraVideoStreamFrame_t_0911;
+typedef u64_CameraVideoStreamFrame_t_0911 u_CameraVideoStreamFrame_t_0911;
+#endif
+
+#pragma pack( push, 8 )
 struct w64_Compositor_FrameTiming_251
 {
     uint32_t m_nSize;
@@ -3746,7 +4030,7 @@ typedef u64_Compositor_FrameTiming_0913 u_Compositor_FrameTiming_0913;
 #endif
 
 #pragma pack( push, 8 )
-struct w64_Compositor_FrameTiming_0912
+struct w64_Compositor_FrameTiming_0911
 {
     uint32_t size;
     uint8_t __pad_4[4];
@@ -3767,13 +4051,13 @@ struct w64_Compositor_FrameTiming_0912
     float m_flHandoffEndMs;
     uint8_t __pad_148[4];
 #ifdef __cplusplus
-    operator u64_Compositor_FrameTiming_0912() const;
+    operator u64_Compositor_FrameTiming_0911() const;
 #endif /* __cplusplus */
 };
 #pragma pack( pop )
 
 #pragma pack( push, 4 )
-struct u64_Compositor_FrameTiming_0912
+struct u64_Compositor_FrameTiming_0911
 {
     uint32_t size;
     double frameStart;
@@ -3792,16 +4076,16 @@ struct u64_Compositor_FrameTiming_0912
     float m_flHandoffStartMs;
     float m_flHandoffEndMs;
 #ifdef __cplusplus
-    operator w64_Compositor_FrameTiming_0912() const;
+    operator w64_Compositor_FrameTiming_0911() const;
 #endif /* __cplusplus */
 #ifdef __cplusplus
-    operator w32_Compositor_FrameTiming_0912() const;
+    operator w32_Compositor_FrameTiming_0911() const;
 #endif /* __cplusplus */
 };
 #pragma pack( pop )
 
 #pragma pack( push, 8 )
-struct w32_Compositor_FrameTiming_0912
+struct w32_Compositor_FrameTiming_0911
 {
     uint32_t size;
     uint8_t __pad_4[4];
@@ -3822,16 +4106,16 @@ struct w32_Compositor_FrameTiming_0912
     float m_flHandoffEndMs;
     uint8_t __pad_148[4];
 #ifdef __cplusplus
-    operator u32_Compositor_FrameTiming_0912() const;
+    operator u32_Compositor_FrameTiming_0911() const;
 #endif /* __cplusplus */
 #ifdef __cplusplus
-    operator u64_Compositor_FrameTiming_0912() const;
+    operator u64_Compositor_FrameTiming_0911() const;
 #endif /* __cplusplus */
 };
 #pragma pack( pop )
 
 #pragma pack( push, 4 )
-struct u32_Compositor_FrameTiming_0912
+struct u32_Compositor_FrameTiming_0911
 {
     uint32_t size;
     double frameStart;
@@ -3850,18 +4134,18 @@ struct u32_Compositor_FrameTiming_0912
     float m_flHandoffStartMs;
     float m_flHandoffEndMs;
 #ifdef __cplusplus
-    operator w32_Compositor_FrameTiming_0912() const;
+    operator w32_Compositor_FrameTiming_0911() const;
 #endif /* __cplusplus */
 };
 #pragma pack( pop )
 
 #ifdef __i386__
-typedef w32_Compositor_FrameTiming_0912 w_Compositor_FrameTiming_0912;
-typedef u32_Compositor_FrameTiming_0912 u_Compositor_FrameTiming_0912;
+typedef w32_Compositor_FrameTiming_0911 w_Compositor_FrameTiming_0911;
+typedef u32_Compositor_FrameTiming_0911 u_Compositor_FrameTiming_0911;
 #endif
 #if defined(__x86_64__) || defined(__aarch64__)
-typedef w64_Compositor_FrameTiming_0912 w_Compositor_FrameTiming_0912;
-typedef u64_Compositor_FrameTiming_0912 u_Compositor_FrameTiming_0912;
+typedef w64_Compositor_FrameTiming_0911 w_Compositor_FrameTiming_0911;
+typedef u64_Compositor_FrameTiming_0911 u_Compositor_FrameTiming_0911;
 #endif
 
 #pragma pack( push, 8 )
@@ -4089,6 +4373,58 @@ typedef u64_D3D12TextureData_t u_D3D12TextureData_t;
 #endif
 
 #pragma pack( push, 8 )
+struct w64_DmabufAttributes_t
+{
+    W64_PTR(void *pNext, pNext, void *);
+    uint32_t unWidth;
+    uint32_t unHeight;
+    uint32_t unDepth;
+    uint32_t unMipLevels;
+    uint32_t unArrayLayers;
+    uint32_t unSampleCount;
+    uint32_t unFormat;
+    uint8_t __pad_36[4];
+    uint64_t ulModifier;
+    uint32_t unPlaneCount;
+    W64_ARRAY(DmabufPlane_t, 4, plane);
+    uint8_t __pad_100[4];
+#ifdef __cplusplus
+    operator w32_DmabufAttributes_t() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 8 )
+struct w32_DmabufAttributes_t
+{
+    W32_PTR(void *pNext, pNext, void *);
+    uint32_t unWidth;
+    uint32_t unHeight;
+    uint32_t unDepth;
+    uint32_t unMipLevels;
+    uint32_t unArrayLayers;
+    uint32_t unSampleCount;
+    uint32_t unFormat;
+    uint64_t ulModifier;
+    uint32_t unPlaneCount;
+    W32_ARRAY(DmabufPlane_t, 4, plane);
+    uint8_t __pad_92[4];
+#ifdef __cplusplus
+    operator u64_DmabufAttributes_t() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#ifdef __i386__
+typedef w32_DmabufAttributes_t w_DmabufAttributes_t;
+typedef u32_DmabufAttributes_t u_DmabufAttributes_t;
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
+typedef w64_DmabufAttributes_t w_DmabufAttributes_t;
+typedef u64_DmabufAttributes_t u_DmabufAttributes_t;
+#endif
+
+#pragma pack( push, 8 )
 struct w64_HiddenAreaMesh_t
 {
     W64_PTR(const HmdVector2_t *pVertexData, pVertexData, const HmdVector2_t *);
@@ -4137,6 +4473,38 @@ struct u_IVRDebug_IVRDebug_001
     virtual uint32_t BeginVrProfilerEvent( uint64_t * ) = 0;
     virtual uint32_t FinishVrProfilerEvent( uint64_t, const char * ) = 0;
     virtual uint32_t DriverDebugRequest( uint32_t, const char *, char *, uint32_t ) = 0;
+#endif /* __cplusplus */
+};
+
+struct w_IVRIPCResourceManagerClient_IVRIPCResourceManagerClient_003
+{
+#ifdef __cplusplus
+    virtual int8_t NewSharedVulkanImage( uint32_t, uint32_t, uint32_t, int8_t, int8_t, int8_t, uint32_t, uint32_t, uint32_t, uint32_t, uint64_t * ) = 0;
+    virtual int8_t NewSharedVulkanBuffer( uint32_t, uint32_t, uint64_t * ) = 0;
+    virtual int8_t NewSharedVulkanSemaphore( int8_t, uint64_t * ) = 0;
+    virtual int8_t RefResource( uint64_t, uint64_t * ) = 0;
+    virtual int8_t UnrefResource( uint64_t ) = 0;
+    virtual int8_t GetDmabufFormats( uint32_t *, uint32_t * ) = 0;
+    virtual int8_t GetDmabufModifiers( uint32_t, uint32_t, uint32_t *, uint64_t * ) = 0;
+    virtual int8_t ImportDmabuf( uint32_t, w_DmabufAttributes_t *, uint64_t * ) = 0;
+    virtual int8_t ReceiveSharedFd( uint64_t, int32_t * ) = 0;
+    virtual ~w_IVRIPCResourceManagerClient_IVRIPCResourceManagerClient_003(  ) = 0;
+#endif /* __cplusplus */
+};
+
+struct u_IVRIPCResourceManagerClient_IVRIPCResourceManagerClient_003
+{
+#ifdef __cplusplus
+    virtual int8_t NewSharedVulkanImage( uint32_t, uint32_t, uint32_t, int8_t, int8_t, int8_t, uint32_t, uint32_t, uint32_t, uint32_t, uint64_t * ) = 0;
+    virtual int8_t NewSharedVulkanBuffer( uint32_t, uint32_t, uint64_t * ) = 0;
+    virtual int8_t NewSharedVulkanSemaphore( int8_t, uint64_t * ) = 0;
+    virtual int8_t RefResource( uint64_t, uint64_t * ) = 0;
+    virtual int8_t UnrefResource( uint64_t ) = 0;
+    virtual int8_t GetDmabufFormats( uint32_t *, uint32_t * ) = 0;
+    virtual int8_t GetDmabufModifiers( uint32_t, uint32_t, uint32_t *, uint64_t * ) = 0;
+    virtual int8_t ImportDmabuf( uint32_t, u_DmabufAttributes_t *, uint64_t * ) = 0;
+    virtual int8_t ReceiveSharedFd( uint64_t, int32_t * ) = 0;
+    virtual ~u_IVRIPCResourceManagerClient_IVRIPCResourceManagerClient_003(  ) = 0;
 #endif /* __cplusplus */
 };
 
@@ -6315,6 +6683,75 @@ typedef u64_VREvent_t_0912 u_VREvent_t_0912;
 #endif
 
 #pragma pack( push, 8 )
+struct w64_VREvent_t_0911
+{
+    uint32_t eventType;
+    uint32_t trackedDeviceIndex;
+    VREvent_Data_t_0911 data;
+    float eventAgeSeconds;
+    uint8_t __pad_28[4];
+#ifdef __cplusplus
+    operator u64_VREvent_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 4 )
+struct u64_VREvent_t_0911
+{
+    uint32_t eventType;
+    uint32_t trackedDeviceIndex;
+    VREvent_Data_t_0911 data;
+    float eventAgeSeconds;
+#ifdef __cplusplus
+    operator w64_VREvent_t_0911() const;
+#endif /* __cplusplus */
+#ifdef __cplusplus
+    operator w32_VREvent_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 8 )
+struct w32_VREvent_t_0911
+{
+    uint32_t eventType;
+    uint32_t trackedDeviceIndex;
+    VREvent_Data_t_0911 data;
+    float eventAgeSeconds;
+    uint8_t __pad_28[4];
+#ifdef __cplusplus
+    operator u32_VREvent_t_0911() const;
+#endif /* __cplusplus */
+#ifdef __cplusplus
+    operator u64_VREvent_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 4 )
+struct u32_VREvent_t_0911
+{
+    uint32_t eventType;
+    uint32_t trackedDeviceIndex;
+    VREvent_Data_t_0911 data;
+    float eventAgeSeconds;
+#ifdef __cplusplus
+    operator w32_VREvent_t_0911() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#ifdef __i386__
+typedef w32_VREvent_t_0911 w_VREvent_t_0911;
+typedef u32_VREvent_t_0911 u_VREvent_t_0911;
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
+typedef w64_VREvent_t_0911 w_VREvent_t_0911;
+typedef u64_VREvent_t_0911 u_VREvent_t_0911;
+#endif
+
+#pragma pack( push, 8 )
 struct w64_VREvent_t_0910
 {
     uint32_t eventType;
@@ -6773,6 +7210,45 @@ typedef u32_VRTextureWithDepth_t u_VRTextureWithDepth_t;
 #if defined(__x86_64__) || defined(__aarch64__)
 typedef w64_VRTextureWithDepth_t w_VRTextureWithDepth_t;
 typedef u64_VRTextureWithDepth_t u_VRTextureWithDepth_t;
+#endif
+
+#pragma pack( push, 8 )
+struct w64_VRTextureWithMotion_t
+{
+    W64_PTR(void *handle, handle, void *);
+    uint32_t eType;
+    uint32_t eColorSpace;
+    HmdMatrix34_t mDeviceToAbsoluteTracking;
+    w64_VRTextureDepthInfo_t depth;
+    w64_VRTextureMotionInfo_t motion;
+#ifdef __cplusplus
+    operator w32_VRTextureWithMotion_t() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#pragma pack( push, 4 )
+struct w32_VRTextureWithMotion_t
+{
+    W32_PTR(void *handle, handle, void *);
+    uint32_t eType;
+    uint32_t eColorSpace;
+    HmdMatrix34_t mDeviceToAbsoluteTracking;
+    w32_VRTextureDepthInfo_t depth;
+    w32_VRTextureMotionInfo_t motion;
+#ifdef __cplusplus
+    operator u64_VRTextureWithMotion_t() const;
+#endif /* __cplusplus */
+};
+#pragma pack( pop )
+
+#ifdef __i386__
+typedef w32_VRTextureWithMotion_t w_VRTextureWithMotion_t;
+typedef u32_VRTextureWithMotion_t u_VRTextureWithMotion_t;
+#endif
+#if defined(__x86_64__) || defined(__aarch64__)
+typedef w64_VRTextureWithMotion_t w_VRTextureWithMotion_t;
+typedef u64_VRTextureWithMotion_t u_VRTextureWithMotion_t;
 #endif
 
 #pragma pack( push, 8 )

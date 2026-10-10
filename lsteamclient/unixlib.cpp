@@ -67,7 +67,7 @@ void queue_vtable_callback( struct w_iface *w_iface, enum callback_type type, ui
     pthread_mutex_unlock( &callbacks_lock );
 }
 
-void queue_vtable_callback_0_server_responded( struct w_iface *w_iface, gameserveritem_t_105 *server )
+void queue_vtable_callback_0_server_responded( struct w_iface *w_iface, gameserveritem_t_165 *server )
 {
     uint32_t size = sizeof(*server);
     struct callback_entry *entry;
@@ -124,6 +124,28 @@ void queue_vtable_callback_0_rules_responded( struct w_iface *w_iface, const cha
     entry->callback.rules_responded.iface = w_iface;
     memcpy( (char *)entry->callback.rules_responded.rule_and_value, pchRule, rule_size );
     memcpy( (char *)entry->callback.rules_responded.rule_and_value + rule_size, pchValue, value_size );
+
+    pthread_mutex_lock( &callbacks_lock );
+    list_add_tail( &callbacks, &entry->entry );
+    pthread_mutex_unlock( &callbacks_lock );
+}
+
+void queue_vtable_callback_0_friends_responded( struct w_iface *w_iface, CSteamID steamID, const char *pchName, int8_t bCurrentlyConnected )
+{
+    uint32_t name_size = strlen( pchName ) + 1, size = name_size;
+    struct callback_entry *entry;
+
+    size += sizeof(struct callback_entry);
+    if (!(entry = (struct callback_entry *)calloc( 1, size ))) return;
+
+    entry->callback.type = CALL_IFACE_VTABLE_0_FRIENDS_RESPONDED;
+    size -= offsetof( struct callback_entry, callback );
+    entry->callback.size = size;
+
+    entry->callback.friends_responded.iface = w_iface;
+    entry->callback.friends_responded.steamid = steamID;
+    entry->callback.friends_responded.connected = bCurrentlyConnected;
+    memcpy( (char *)entry->callback.friends_responded.name, pchName, name_size );
 
     pthread_mutex_lock( &callbacks_lock );
     list_add_tail( &callbacks, &entry->entry );
@@ -270,6 +292,7 @@ static NTSTATUS ISteamClient_Set_SteamAPI_CCheckCallbackRegisteredInProcess( Ifa
 
 LSTEAMCLIENT_UNIX_IMPL( ISteamClient, SteamClient020, Set_SteamAPI_CCheckCallbackRegisteredInProcess );
 LSTEAMCLIENT_UNIX_IMPL( ISteamClient, SteamClient021, Set_SteamAPI_CCheckCallbackRegisteredInProcess );
+LSTEAMCLIENT_UNIX_IMPL( ISteamClient, SteamClient023, Set_SteamAPI_CCheckCallbackRegisteredInProcess );
 
 template< typename Params >
 static NTSTATUS steamclient_next_callback( Params *params, bool wow64 )
@@ -340,6 +363,7 @@ static NTSTATUS steamclient_callback_message_receive( Params *params, bool wow64
     if (w_msg->m_iCallback == 703 /* SteamAPICallCompleted_t::k_iCallback */)
     {
         SteamAPICallCompleted_t_137 *c = (SteamAPICallCompleted_t_137 *)u_msg->m_pubParam;
+        SteamAPICallCompleted_t_137 *w = (SteamAPICallCompleted_t_137 *)(uint8_t *)w_msg->m_pubParam;
 
         if (sizeof(SteamAPICallCompleted_t_137) == w_msg->m_cubParam)
         {
@@ -347,7 +371,7 @@ static NTSTATUS steamclient_callback_message_receive( Params *params, bool wow64
 
             len = callback_len_utow( c->m_iCallback, c->m_cubParam, false );
             TRACE( "SteamAPICallCompleted_t id %d, size %d -> %d.\n", c->m_iCallback, c->m_cubParam, len );
-            c->m_cubParam = len;
+            w->m_cubParam = len;
         }
         else
         {
@@ -563,6 +587,12 @@ static void setup_steam_registry( u_ISteamClient_SteamClient017 *client, int pip
 
     /* HACK: Bug 23597 Granado Espada Japan (1219160) launcher needs Japanese locale to display correctly */
     if (appid == 1219160) locale = "ja_JP.UTF-8";
+    /* HACK: Bug 26267 Worms Armageddon (217200) Game Set-Up Does Not Respond to Language Preference on Proton
+     * The game reports only English in ISteamApps::GetCurrentGameLanguage() and ISteamApps::GetAvailableGameLanguages().
+     * So LC_MESSAGES is always set to English. Not setting LC_MESSAGES causes the game to use that from the host.
+     * That allows the game to detect the host language settings for the "Create a new team" settings in game.
+     * The "Create a new team" setting is affected by Settings->Time & Language->Region->Country or Region on Windows 10. */
+    else if (appid == 217200) locale = NULL;
 
     if (locale)
     {
@@ -621,7 +651,7 @@ static void setup_proton_soundfonts( u_ISteamClient_SteamClient017 *client, int 
     static const WCHAR SF2_NAME[] = u"FluidR3_GM.sf2";
     u_ISteamApps_STEAMAPPS_INTERFACE_VERSION008 *apps;
     const unsigned int soundfonts_appid = 3368180;
-    std::vector<WCHAR> dos_path{};
+    WCHAR *dos_path;
     OBJECT_ATTRIBUTES attr;
     ULONG nt_path_len = 0;
     char unix_path[2048];
@@ -636,42 +666,40 @@ static void setup_proton_soundfonts( u_ISteamClient_SteamClient017 *client, int 
 
     WINE_TRACE( "Found Proton Soundfont at %s\n", unix_path );
 
-    if ((status = wine_unix_to_nt_file_name( unix_path, NULL, &nt_path_len )) != STATUS_BUFFER_TOO_SMALL)
-    {
-        WINE_ERR( "Failed to convert unix path to NT: %lx\n", status );
-        return;
-    }
-    nt_path_len += ARRAYSIZE(SF2_NAME);
-    dos_path = std::vector<WCHAR>(nt_path_len);
-    if ((status = wine_unix_to_nt_file_name( unix_path, dos_path.data(), &nt_path_len )))
+    if ((status = ntdll_get_dos_file_name( unix_path, &dos_path, FILE_OPEN )))
     {
         WINE_ERR( "Failed to convert unix path to NT: %x\n", status );
         return;
     }
-    dos_path[nt_path_len - 1] = u'\\';
-    wcscpy( dos_path.data() + nt_path_len, SF2_NAME );
+    nt_path_len = wcslen(dos_path);
+    dos_path = (WCHAR*) realloc(dos_path, (nt_path_len + 2 + ARRAYSIZE(SF2_NAME)) * sizeof(*dos_path));
+    dos_path[nt_path_len] = u'\\';
+    wcscpy( dos_path + nt_path_len + 1, SF2_NAME );
 
-    WINE_TRACE( "GM file path %s\n", wine_dbgstr_w(dos_path.data()) );
+    WINE_TRACE( "GM file path %s\n", wine_dbgstr_w(dos_path) );
 
     init_unicode_string( &name, u"\\Registry\\Machine\\Software\\Microsoft\\DirectMusic" );
     InitializeObjectAttributes( &attr, &name, OBJ_CASE_INSENSITIVE, 0, NULL );
     if ((status = NtCreateKey( &gm_key, KEY_ALL_ACCESS, &attr, 0, NULL, 0, NULL )))
     {
         WINE_ERR( "Failed to open DirectMusic key: %x\n", status );
+        free(dos_path);
         return;
     }
 
-    set_reg_ascii_wstr( gm_key, "GMFilePath", dos_path.data() );
+    set_reg_ascii_wstr( gm_key, "GMFilePath", dos_path );
     NtClose( gm_key );
 
     init_unicode_string( &name, u"\\Registry\\Machine\\Software\\Wow6432Node\\Microsoft\\DirectMusic" );
     if ((status = NtCreateKey( &gm_key, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &attr, 0, NULL, 0, NULL)))
     {
         WINE_ERR( "Failed to open DirectMusic key (32 bit): %x\n", status);
+        free(dos_path);
         return;
     }
-    set_reg_ascii_wstr( gm_key, "GMFilePath", dos_path.data() );
+    set_reg_ascii_wstr( gm_key, "GMFilePath", dos_path );
     NtClose( gm_key );
+    free(dos_path);
 }
 
 template< typename Params >
@@ -698,6 +726,14 @@ static NTSTATUS steamclient_init_registry( Params *params, bool wow64 )
     return 0;
 }
 
+static void sync_env_var( const char *name, bool unset, const char *val )
+{
+    const char *s = getenv( name );
+
+    if (unset && s)                           unsetenv( name );
+    else if (val && (!s || strcmp( s, val ))) setenv( name, val, 1 );
+}
+
 template< typename Params >
 static NTSTATUS steamclient_init( Params *params, bool wow64 )
 {
@@ -706,10 +742,8 @@ static NTSTATUS steamclient_init( Params *params, bool wow64 )
 
     g_tmppath = params->g_tmppath;
 
-    if (params->steam_app_id_unset) unsetenv( "SteamAppId" );
-    else if (params->steam_app_id) setenv( "SteamAppId", params->steam_app_id, TRUE );
-    if (params->ignore_child_processes_unset) unsetenv( "IgnoreChildProcesses" );
-    else if (params->ignore_child_processes) setenv( "IgnoreChildProcesses", params->ignore_child_processes, TRUE );
+    sync_env_var( "SteamAppId", params->steam_app_id_unset, params->steam_app_id );
+    sync_env_var( "IgnoreChildProcesses", params->ignore_child_processes_unset, params->ignore_child_processes );
 
     if (steamclient) return 0;
 
@@ -900,22 +934,12 @@ static void collapse_path( WCHAR *path, UINT mark )
 
 static char *get_unix_file_name( const WCHAR *path )
 {
-    UNICODE_STRING nt_name;
-    OBJECT_ATTRIBUTES attr;
     NTSTATUS status;
     ULONG size = 256;
     char *buffer;
 
-    nt_name.Buffer = (WCHAR *)path;
-    nt_name.MaximumLength = nt_name.Length = lstrlenW( path ) * sizeof(WCHAR);
-    InitializeObjectAttributes( &attr, &nt_name, 0, 0, NULL );
-    for (;;)
-    {
-        if (!(buffer = (char *)malloc( size ))) return NULL;
-        status = wine_nt_to_unix_file_name( &attr, buffer, &size, FILE_OPEN_IF );
-        if (status != STATUS_BUFFER_TOO_SMALL) break;
-        free( buffer );
-    }
+    status = ntdll_get_unix_file_name( path, &buffer, FILE_OPEN_IF );
+
     if (status && status != STATUS_NO_SUCH_FILE)
     {
         free( buffer );
@@ -924,10 +948,40 @@ static char *get_unix_file_name( const WCHAR *path )
     return buffer;
 }
 
+static unsigned char hexdigit( WCHAR c )
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return 0xff;
+}
+
+static void url_unescape( WCHAR *s )
+{
+    unsigned int i, len;
+    unsigned char c, d1, d2;
+
+    len = wcslen( s );
+    if (len < 3) return;
+    for (i = 0; i < len - 3; ++i)
+    {
+        if (s[i] != '%') continue;
+        if ((d1 = hexdigit( s[i + 1] )) == 0xff || (d2 = hexdigit( s[i + 2] )) == 0xff)
+        {
+            ERR( "Invalid escape %s.\n", debugstr_wn( s, 3 ) );
+            continue;
+        }
+        s[i] = d1 * 0x10 + d2;
+        len -= 2;
+        memmove( &s[i + 1], &s[i + 3], (len - i) * sizeof(*s) );
+    }
+}
+
 char *steamclient_dos_to_unix_path( const char *src, int is_url )
 {
     static const char file_prot[] = "file://";
     char buffer[4096], *dst = buffer;
+    int file_part_len;
     uint32_t len;
 
     TRACE( "src %s, is_url %u\n", debugstr_a(src), is_url );
@@ -954,26 +1008,40 @@ char *steamclient_dos_to_unix_path( const char *src, int is_url )
     {
         /* absolute path, use wine conversion */
         WCHAR srcW[PATH_MAX] = {'\\', '?', '?', '\\', 0};
-        char *unix_path;
+        char *unix_path = NULL;
+        const char *p;
         uint32_t r;
 
         if (is_url) while (*src == '/') ++src;
-        r = ntdll_umbstowcs( src, strlen( src ) + 1, srcW + 4, PATH_MAX - 4 );
-        if (r == 0) unix_path = NULL;
-        else
+        if (is_url && (p = strpbrk( src, "#?" ))) file_part_len = p - src;
+        else                                      file_part_len = strlen( src );
+        r = ntdll_umbstowcs( src, file_part_len, srcW + 4, PATH_MAX - 4 - 1 );
+        if (r)
         {
+            srcW[4 + file_part_len] = 0;
+            if (is_url) url_unescape( srcW + 4 );
             collapse_path( srcW, 4 );
             unix_path = get_unix_file_name( srcW );
         }
 
         if (!unix_path)
         {
-            WARN( "Unable to convert DOS filename to unix: %s\n", src );
+            ERR( "Unable to convert DOS filename to unix: %s\n", src );
             goto done;
         }
 
-        lstrcpynA( dst, unix_path, PATH_MAX );
+        lstrcpynA( dst, unix_path, sizeof(buffer) - (dst - buffer) );
         free( unix_path );
+        if (is_url)
+        {
+            len = strlen( buffer ) + strlen( src ) - file_part_len;
+            if (len + 1 > sizeof(buffer))
+            {
+                ERR( "Buffer is too short.\n", src );
+                goto done;
+            }
+            strcat( dst, src + file_part_len );
+        }
     }
     else
     {
@@ -1080,8 +1148,6 @@ void steamclient_free_path_array( const char **path_array )
 unsigned int steamclient_unix_path_to_dos_path( bool api_result, const char *src, char *dst, uint32_t dst_bytes, int is_url )
 {
     static const char file_prot[] = "file://";
-    NTSTATUS status;
-    ULONG size = 0;
     uint32_t r = 0;
     WCHAR *dosW;
 
@@ -1114,18 +1180,9 @@ unsigned int steamclient_unix_path_to_dos_path( bool api_result, const char *src
         dst_bytes -= 7;
     }
 
-    status = wine_unix_to_nt_file_name( src, NULL, &size );
-    if (status != STATUS_BUFFER_TOO_SMALL)
-    {
-        WARN( "Unable to convert unix filename to DOS: %s.\n", debugstr_a(src) );
-        *dst = 0;
-        return 0;
-    }
-
-    dosW = (WCHAR *)malloc( size * sizeof(WCHAR) );
-    status = wine_unix_to_nt_file_name( src, dosW, &size );
-    if (!status) r = ntdll_wcstoumbs( dosW, size, dst, dst_bytes, FALSE );
-    else *dst = 0;
+    ntdll_get_dos_file_name( src, &dosW, FILE_OPEN );
+    if (dosW) r = ntdll_wcstoumbs( dosW, wcslen( dosW ) + 1, dst, dst_bytes, FALSE );
+    else      *dst = 0;
     free( dosW );
 
     if (!strncmp( dst, "\\??\\", 4 ))
