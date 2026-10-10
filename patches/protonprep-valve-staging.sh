@@ -380,6 +380,10 @@ apply_all_in_dir() {
     echo "WINE: -HOTFIX- Keep builtin AMD AGS ahead of the native-version heuristic"
     apply_patch "../patches/wine-hotfixes/pending/ntdll-keep-builtin-amd-ags-ahead-of-version-heuristic.patch"
 
+    # WINESTEAMNOEXEC=1 (CEG titles, e.g. Mafia II) under new WoW64
+    echo "WINE: -HOTFIX- Restore the WoW64 FS selector after a steamclient fault redirect"
+    apply_patch "../patches/wine-hotfixes/pending/ntdll-restore-thread-state-after-steamclient-fault-redirect.patch"
+
 ### END WINE HOTFIX/BACKPORT SECTION ###
 
 ### (2-6) WINE PENDING UPSTREAM SECTION ###

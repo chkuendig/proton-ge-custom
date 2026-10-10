@@ -1,0 +1,40 @@
+From 9787ec0145b46ebfa7356b27cd8bd09a71fcb9eb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sun, 11 Oct 2026 00:14:25 +0200
+Subject: [PATCH] ntdll: Restore the thread state when redirecting a
+ steamclient fault on x86_64.
+
+With WINESTEAMNOEXEC=1 (forced for several CEG titles in loader.c), the
+.text of the game's steamclient.dll is mapped read-only and every call into
+it faults. segv_handler() redirects RIP to the lsteamclient export and
+returns, but skips leave_handler(), unlike every other early return in the
+handler.
+
+init_handler() switched %fs to the Unix pthread TEB with ARCH_SET_FS. For a
+32-bit thread in new WoW64 mode only leave_handler() reloads fs32_sel, so
+the redirected 32-bit code runs with a null %fs selector and faults on its
+first TEB access (movl %fs:0x18,%eax in lsteamclient's load_steamclient,
+reported as an access violation at -1). Mafia II (50130) crashes this way
+under PROTON_USE_WOW64=1. 64-bit and classic 32-bit processes were not
+affected, since fs32_sel is zero there and i386 has no leave_handler().
+
+Call leave_handler() before returning, as the virtual_handle_fault() branch
+right below already does.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ dlls/ntdll/unix/signal_x86_64.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
+index 110404c2..0883acd3 100644
+--- a/dlls/ntdll/unix/signal_x86_64.c
++++ b/dlls/ntdll/unix/signal_x86_64.c
+@@ -2731,6 +2731,7 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+         if ((steamclient_addr = steamclient_handle_fault( siginfo->si_addr, (ERROR_sig(ucontext) >> 1) & 0x09 )))
+         {
+             RIP_sig(ucontext) = (intptr_t)steamclient_addr;
++            leave_handler( ucontext );
+             return;
+         }
+ 
