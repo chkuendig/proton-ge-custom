@@ -2941,9 +2941,13 @@ if __name__ == "__main__":
         # Restored 2026-06-01 after the 21494ad8 (2026-05-30) GE-Proton 9-26
         # -> 10-9 rebase silently dropped this from the ZLUDA block. The
         # 2026-05-28 1.5M-clean state had it active via the 9-26 era script.
-        hip_lib = os.path.join(zluda_lib_dir, "libamdhip64.so.6")
-        if file_exists(hip_lib, follow_symlinks=True):
-            prepend_to_env_str(g_session.env, "LD_PRELOAD", hip_lib, ":")
+        # ZLUDA built against ROCm 7.2.4 ships libamdhip64.so.7; older
+        # builds bundle ROCm 6.2.4's .so.6. Preload whichever is bundled.
+        for hip_soname in ("libamdhip64.so.7", "libamdhip64.so.6"):
+            hip_lib = os.path.join(zluda_lib_dir, hip_soname)
+            if file_exists(hip_lib, follow_symlinks=True):
+                prepend_to_env_str(g_session.env, "LD_PRELOAD", hip_lib, ":")
+                break
         g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
         g_session.env["DXVK_ENABLE_NVAPI"] = "1"
