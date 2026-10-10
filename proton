@@ -2926,28 +2926,12 @@ if __name__ == "__main__":
         # NB: use zluda_lib_dir (g_proton.path) here — GE-Proton10-x dropped the
         # `g_proton.lib64_dir` attribute that GE-Proton9-x exposed.
         prepend_to_env_str(g_session.env, ld_path_var, os.path.join(zluda_lib_dir, "wine/x86_64-unix"), ":")
-        wine_stack_fix = os.path.join(zluda_lib_dir, "wine/x86_64-unix", "wine_stack_fix.so")
-        if file_exists(wine_stack_fix, follow_symlinks=True):
-            prepend_to_env_str(g_session.env, "LD_PRELOAD", wine_stack_fix, ":")
-        # Preload HIP runtime so its constructors run on the native main thread
-        # (wine64-preloader) before Wine spawns its own thread pool. Without
-        # this, libamdhip64's `std::vector<amd::roc::ProfilingSignal*>` is
-        # initialised on a Wine thread, and the bounds-check race in
-        # ROCm 6.2.4's signal pool trips under high-frequency dispatch —
-        # Batman PhysX bench crashes at ~70 kernels on
-        # ParticleIOS_compactKernel with `libamdhip64+0x33ca86` =
-        # `__glibcxx_requires_subscript("__n < this->size()")` at
-        # bits/stl_vector.h:1149.
-        # Restored 2026-06-01 after the 21494ad8 (2026-05-30) GE-Proton 9-26
-        # -> 10-9 rebase silently dropped this from the ZLUDA block. The
-        # 2026-05-28 1.5M-clean state had it active via the 9-26 era script.
-        # ZLUDA built against ROCm 7.2.4 ships libamdhip64.so.7; older
-        # builds bundle ROCm 6.2.4's .so.6. Preload whichever is bundled.
-        for hip_soname in ("libamdhip64.so.7", "libamdhip64.so.6"):
-            hip_lib = os.path.join(zluda_lib_dir, hip_soname)
-            if file_exists(hip_lib, follow_symlinks=True):
-                prepend_to_env_str(g_session.env, "LD_PRELOAD", hip_lib, ":")
-                break
+        # libcuda.so (ZLUDA) loads the bundled HIP runtime through its own
+        # DT_NEEDED entries, found on the path above. Nothing is preloaded:
+        # ROCm 7 no longer has the HostThread stack check that
+        # wine_stack_fix.so worked around, and AMD's packages are built
+        # without the libstdc++ assertions the HIP preload and the
+        # assert hook were aimed at.
         g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
         g_session.env["DXVK_ENABLE_NVAPI"] = "1"
