@@ -1,0 +1,35 @@
+From: Christian Kündig <christian@kuendig.info>
+Date: Sun, 11 Oct 2026 06:00:00 +0000
+Subject: [PATCH] ntdll: Keep the host FS base until pthread_teb is initialized.
+
+The GE syscall-user-dispatch patch sequence reverts Valve's
+ntdll-Syscall_Emulation and drops its non-null pthread_teb check in
+init_handler(). If a signal arrives before init_syscall_frame() has saved
+the host TEB, ARCH_SET_FS with a null base clears the live host TLS base.
+save_context() then calls NtCurrentTeb(), implemented on the Unix side
+with pthread_getspecific(), which needs that TLS base.
+
+Restore the guard without changing the preceding SUD ALLOW transition.
+This is a candidate for Asylum's BmLauncher crash in pthread_getspecific
+while segv_handler saves the context. The original fault and the value of
+pthread_teb have not yet been recovered from its root-owned core, so the
+candidate still needs a Deck comparison against the unmodified -next.
+
+Co-Authored-By: Codex GPT-6.1 Sol <noreply@openai.com>
+---
+ dlls/ntdll/unix/signal_x86_64.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
+--- a/dlls/ntdll/unix/signal_x86_64.c
++++ b/dlls/ntdll/unix/signal_x86_64.c
+@@ -928,7 +928,8 @@ static inline ucontext_t *init_handler( void *sigcontext )
+     {
+         struct amd64_thread_data *thread_data = (struct amd64_thread_data *)&get_current_teb()->GdiTebBatch;
+         thread_data->syscall_dispatch = 0; /* SYSCALL_DISPATCH_FILTER_ALLOW */
+-        if (fs32_sel) arch_prctl( ARCH_SET_FS, thread_data->pthread_teb );
++        if (fs32_sel && thread_data->pthread_teb)
++            arch_prctl( ARCH_SET_FS, thread_data->pthread_teb );
+     }
+ #elif defined __APPLE__
+     {
