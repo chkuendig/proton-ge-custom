@@ -308,6 +308,9 @@ def merge_user_dir(src, dst):
 def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, optional=False,
              follow_symlinks=True, track_file=None, link_debug=False):
     try:
+        if not file_exists(src, follow_symlinks=follow_symlinks):
+            return
+
         if prefix is not None:
             dst = os.path.join(prefix, dst)
 
@@ -2892,25 +2895,56 @@ if __name__ == "__main__":
     g_session.init_session(sys.argv[1] != "runinprefix")
 
     # protonfixes execution
-    protonfixes.setup(g_session.env, "PATH", ld_path_var, prepend_to_env_str)
-    protonfixes.setup_mount_drives(setup_dir_drive)
-    protonfixes.winetricks(g_session.env, g_proton.wine_bin, g_proton.wineserver_bin)
-    # HACK: handle DXVK_FRAME_RATE and VKD3D_FRAME_RATE through DXVK_CONFIG
-    protonfixes.setup_frame_rate(g_session.env, append_to_env_str)
-    g_session.check_environment("PROTON_LOCAL_SHADER_CACHE", "localshadercache")
-    protonfixes.setup_local_shader_cache(g_session.compat_config, g_session.env)
-    g_session.check_environment("PROTON_FSR3_UPGRADE", "fsr3")
-    g_session.check_environment("PROTON_FSR4_UPGRADE", "fsr4")
-    g_session.compat_config.add("mlfg")
-    g_session.check_environment("PROTON_MLFG_UPGRADE", "mlfg")
-    g_session.check_environment("PROTON_DLSS_UPGRADE", "dlss")
-    g_session.check_environment("PROTON_XESS_UPGRADE", "xess")
-    g_session.check_environment("PROTON_USE_OPTISCALER", "optiscaler")
-    protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
-    protonfixes.execute()
+    try:
+        protonfixes.setup(g_session.env, "PATH", ld_path_var, prepend_to_env_str)
+        protonfixes.setup_mount_drives(setup_dir_drive)
+        protonfixes.winetricks(g_session.env, g_proton.wine_bin, g_proton.wineserver_bin)
+        # HACK: handle DXVK_FRAME_RATE and VKD3D_FRAME_RATE through DXVK_CONFIG
+        protonfixes.setup_frame_rate(g_session.env, append_to_env_str)
+        g_session.check_environment("PROTON_LOCAL_SHADER_CACHE", "localshadercache")
+        protonfixes.setup_local_shader_cache(g_session.compat_config, g_session.env)
+        g_session.check_environment("PROTON_FSR3_UPGRADE", "fsr3")
+        g_session.check_environment("PROTON_FSR4_UPGRADE", "fsr4")
+        g_session.compat_config.add("mlfg")
+        g_session.check_environment("PROTON_MLFG_UPGRADE", "mlfg")
+        g_session.check_environment("PROTON_DLSS_UPGRADE", "dlss")
+        g_session.check_environment("PROTON_XESS_UPGRADE", "xess")
+        g_session.check_environment("PROTON_USE_OPTISCALER", "optiscaler")
+        protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
+        protonfixes.execute()
+    except Exception as e:
+        log("protonfixes error (non-fatal): " + str(e))
 
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
+
+    # Per-game hooks opt in explicitly; forcing NVAPI alone is independent.
+    from proton_zluda import enabled as zluda_enabled, configure_hardware
+    if zluda_enabled(g_session.env):
+        zluda_lib_dir = g_proton.path("files/lib64/")
+        prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
+        prepend_to_env_str(g_session.env, ld_path_var,
+                os.path.join(zluda_lib_dir, "wine/x86_64-unix"), ":")
+        # ZLUDA links the bundled HIP runtime; neither runtime nor shim is
+        # preloaded into unrelated Wine processes. Hardware policy runs before
+        # the game can load HIP, preserving explicit user overrides.
+        configure_hardware(g_session.env)
+        g_session.env["PROTON_FORCE_NVAPI"] = "1"
+        g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
+        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
+        # Steam owns the per-game cache location; ZLUDA owns CUDA semantics.
+        compat_data = os.environ.get("STEAM_COMPAT_DATA_PATH", "")
+        app_id = os.environ.get("SteamAppId") or os.environ.get("SteamGameId", "")
+        if compat_data and app_id:
+            steamapps = os.path.dirname(os.path.dirname(compat_data))
+            g_session.env.setdefault("ZLUDA_CACHE_DIR",
+                    os.path.join(steamapps, "shadercache", app_id, "ZLUDA"))
+        if os.environ.get("ZLUDA_DEBUG") == "1":
+            g_session.env.setdefault("ZLUDA_LOG_ALL", "1")
+            winedebug = g_session.env.get("WINEDEBUG", "-all")
+            if "+nvcuda" not in winedebug:
+                g_session.env["WINEDEBUG"] = winedebug + ",+nvcuda"
+        log("ZLUDA enabled: CUDA-on-HIP translation active")
 
     #determine mode
     rc = 0
