@@ -2918,75 +2918,28 @@ if __name__ == "__main__":
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
 
-    # ZLUDA block runs after protonfixes so that game-specific fixes
-    # (e.g. PROTON_ENABLE_ZLUDA=1) are already in os.environ
-    if "PROTON_ENABLE_ZLUDA" in os.environ or "forcenvapi" in g_session.compat_config:
+    # Per-game hooks opt in explicitly; forcing NVAPI alone is independent.
+    from proton_zluda import enabled as zluda_enabled, configure_hardware
+    if zluda_enabled(g_session.env):
         zluda_lib_dir = g_proton.path("files/lib64/")
         prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
-        # NB: use zluda_lib_dir (g_proton.path) here — GE-Proton10-x dropped the
-        # `g_proton.lib64_dir` attribute that GE-Proton9-x exposed.
-        prepend_to_env_str(g_session.env, ld_path_var, os.path.join(zluda_lib_dir, "wine/x86_64-unix"), ":")
-        wine_stack_fix = os.path.join(zluda_lib_dir, "wine/x86_64-unix", "wine_stack_fix.so")
-        if file_exists(wine_stack_fix, follow_symlinks=True):
-            prepend_to_env_str(g_session.env, "LD_PRELOAD", wine_stack_fix, ":")
-        # Preload HIP runtime so its constructors run on the native main thread
-        # (wine64-preloader) before Wine spawns its own thread pool. Without
-        # this, libamdhip64's `std::vector<amd::roc::ProfilingSignal*>` is
-        # initialised on a Wine thread, and the bounds-check race in
-        # ROCm 6.2.4's signal pool trips under high-frequency dispatch —
-        # Batman PhysX bench crashes at ~70 kernels on
-        # ParticleIOS_compactKernel with `libamdhip64+0x33ca86` =
-        # `__glibcxx_requires_subscript("__n < this->size()")` at
-        # bits/stl_vector.h:1149.
-        # Restored 2026-06-01 after the 21494ad8 (2026-05-30) GE-Proton 9-26
-        # -> 10-9 rebase silently dropped this from the ZLUDA block. The
-        # 2026-05-28 1.5M-clean state had it active via the 9-26 era script.
-        # ZLUDA built against ROCm 7.2.4 ships libamdhip64.so.7; older
-        # builds bundle ROCm 6.2.4's .so.6. Preload whichever is bundled.
-        for hip_soname in ("libamdhip64.so.7", "libamdhip64.so.6"):
-            hip_lib = os.path.join(zluda_lib_dir, hip_soname)
-            if file_exists(hip_lib, follow_symlinks=True):
-                prepend_to_env_str(g_session.env, "LD_PRELOAD", hip_lib, ":")
-                break
+        prepend_to_env_str(g_session.env, ld_path_var,
+                os.path.join(zluda_lib_dir, "wine/x86_64-unix"), ":")
+        # ZLUDA links the bundled HIP runtime; neither runtime nor shim is
+        # preloaded into unrelated Wine processes. Hardware policy runs before
+        # the game can load HIP, preserving explicit user overrides.
+        configure_hardware(g_session.env)
         g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
         g_session.env["DXVK_ENABLE_NVAPI"] = "1"
-        # HSA_OVERRIDE_GFX_VERSION: only force the gfx1030 (10.3.0) ISA on the
-        # gfx10.3.x APUs that ROCm lacks native support for (Steam Deck gfx1033,
-        # Rembrandt/Raphael/Mendocino gfx1034-1036). On discrete cards
-        # (gfx1030, gfx11xx) leave the native ISA — forcing 10.3.0 there is wrong.
-        # gfx_target_version = MAJ*10000 + MIN*100 + STEP. Respects a user override.
-        if "HSA_OVERRIDE_GFX_VERSION" not in g_session.env:
-            try:
-                import glob as _glob
-                for _props in _glob.glob("/sys/class/kfd/kfd/topology/nodes/*/properties"):
-                    with open(_props, encoding="utf-8") as _fh:
-                        _gfx = next((int(_l.split()[1]) for _l in _fh
-                                     if _l.startswith("gfx_target_version")), 0)
-                    if _gfx in (100303, 100304, 100305, 100306):
-                        g_session.env["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
-                        break
-            except Exception as _e:
-                log("ZLUDA gfx-override detection failed (non-fatal): " + str(_e))
-        # Steam Deck / gfx10.3 can wedge ROCm userspace copy paths when SDMA is
-        # enabled, so default to the safer blit-kernel path unless overridden.
-        g_session.env.setdefault("HSA_ENABLE_SDMA", "0")
-        g_session.env.setdefault("GPU_MAX_HW_QUEUES", "2")
-        # Per-game ZLUDA cache: place the kernel cache under
-        # steamapps/shadercache/<appid>/ZLUDA, alongside DXVK/Mesa caches.
-        # ZLUDA reads ZLUDA_CACHE_DIR; the Steam-path knowledge lives here.
-        # Trace logging (ZLUDA_LOG=1) defaults to /tmp/zluda_tex.log in the lib,
-        # same convention as dxvk/wine debug logs — no override here.
-        # Respects an explicit user ZLUDA_CACHE_DIR.
-        _compat_data = os.environ.get("STEAM_COMPAT_DATA_PATH", "")
-        _app_id = os.environ.get("SteamAppId") or os.environ.get("SteamGameId", "")
-        if _compat_data and _app_id:
-            # STEAM_COMPAT_DATA_PATH = <library>/steamapps/compatdata/<appid>
-            _steamapps = os.path.dirname(os.path.dirname(_compat_data))
-            _zluda_game_dir = os.path.join(_steamapps, "shadercache", _app_id, "ZLUDA")
-            g_session.env.setdefault("ZLUDA_CACHE_DIR", _zluda_game_dir)
-        # Debug logging (opt-in via ZLUDA_DEBUG=1 in env/launch options)
-        if "ZLUDA_DEBUG" in os.environ:
+        # Steam owns the per-game cache location; ZLUDA owns CUDA semantics.
+        compat_data = os.environ.get("STEAM_COMPAT_DATA_PATH", "")
+        app_id = os.environ.get("SteamAppId") or os.environ.get("SteamGameId", "")
+        if compat_data and app_id:
+            steamapps = os.path.dirname(os.path.dirname(compat_data))
+            g_session.env.setdefault("ZLUDA_CACHE_DIR",
+                    os.path.join(steamapps, "shadercache", app_id, "ZLUDA"))
+        if os.environ.get("ZLUDA_DEBUG") == "1":
             g_session.env.setdefault("ZLUDA_LOG_ALL", "1")
             winedebug = g_session.env.get("WINEDEBUG", "-all")
             if "+nvcuda" not in winedebug:
