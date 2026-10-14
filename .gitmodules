@@ -6,7 +6,8 @@
 	url = https://github.com/wine-staging/wine-staging
 [submodule "dxvk"]
 	path = dxvk
-	url = https://github.com/doitsujin/dxvk.git
+	url = https://github.com/chkuendig/dxvk
+	branch = GE-Proton11-7-zluda
 [submodule "openvr"]
 	path = openvr
 	url = https://github.com/ValveSoftware/openvr
@@ -15,7 +16,8 @@
 	url = https://github.com/liberationfonts/liberation-fonts
 [submodule "protonfixes"]
 	path = protonfixes
-	url = https://github.com/open-wine-components/umu-protonfixes
+	url = https://github.com/chkuendig/umu-protonfixes
+	branch = GE-Proton11-7-zluda
 [submodule "vkd3d-proton"]
 	path = vkd3d-proton
 	url = https://github.com/HansKristian-Work/vkd3d-proton
@@ -24,7 +26,8 @@
 	url = https://github.com/KhronosGroup/OpenXR-SDK
 [submodule "dxvk-nvapi"]
 	path = dxvk-nvapi
-	url = https://github.com/jp7677/dxvk-nvapi
+	url = https://github.com/chkuendig/dxvk-nvapi
+	branch = GE-Proton11-7-zluda
 [submodule "vkd3d"]
 	path = vkd3d
 	url = https://gitlab.winehq.org/wine/vkd3d
@@ -136,3 +139,11 @@
 [submodule "dxvk-igdext"]
 	path = dxvk-igdext
 	url = https://github.com/GameTechDev/dxvk-igdext
+[submodule "zluda"]
+	path = zluda
+	url = https://github.com/chkuendig/ZLUDA
+	branch = v7-preview.15-proton
+[submodule "nvcuda"]
+	path = nvcuda
+	url = https://github.com/chkuendig/nvcuda
+	branch = GE-Proton11-7-zluda
