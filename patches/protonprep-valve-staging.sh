@@ -381,10 +381,6 @@ apply_all_in_dir() {
     echo "WINE: -HOTFIX- Restore the WoW64 FS selector after a steamclient fault redirect"
     apply_patch "../patches/wine-hotfixes/pending/ntdll-restore-thread-state-after-steamclient-fault-redirect.patch"
 
-    # Candidate for nested WoW64 startup faults before the host TEB is saved.
-    echo "WINE: -HOTFIX- Guard the signal handler's uninitialized host TEB"
-    apply_patch "../patches/wine-hotfixes/pending/ntdll-guard-uninitialized-pthread-teb-in-signal-handler.patch"
-
 ### END WINE HOTFIX/BACKPORT SECTION ###
 
 ### (2-6) WINE PENDING UPSTREAM SECTION ###
