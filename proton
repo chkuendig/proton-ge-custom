@@ -2932,18 +2932,6 @@ if __name__ == "__main__":
         g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
         g_session.env["DXVK_ENABLE_NVAPI"] = "1"
-        # Steam owns the per-game cache location; ZLUDA owns CUDA semantics.
-        compat_data = os.environ.get("STEAM_COMPAT_DATA_PATH", "")
-        app_id = os.environ.get("SteamAppId") or os.environ.get("SteamGameId", "")
-        if compat_data and app_id:
-            steamapps = os.path.dirname(os.path.dirname(compat_data))
-            g_session.env.setdefault("ZLUDA_CACHE_DIR",
-                    os.path.join(steamapps, "shadercache", app_id, "ZLUDA"))
-        if os.environ.get("ZLUDA_DEBUG") == "1":
-            g_session.env.setdefault("ZLUDA_LOG_ALL", "1")
-            winedebug = g_session.env.get("WINEDEBUG", "-all")
-            if "+nvcuda" not in winedebug:
-                g_session.env["WINEDEBUG"] = winedebug + ",+nvcuda"
         log("ZLUDA enabled: CUDA-on-HIP translation active")
 
     #determine mode

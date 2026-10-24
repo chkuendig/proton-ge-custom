@@ -203,9 +203,6 @@ apply_all_in_dir() {
     # ntdll-Junction_Points - breaks CEG drm -- currently also disabled in upstream staging
     # shell32-Progress_Dialog - relies on kernel32-CopyFileEx -- currently also disabled in upstream staging
     # shell32-ACE_Viewer - adds a UI tab, not needed, relies on kernel32-CopyFileEx -- currently also disabled in upstream staging
-    # nvcuda-CUDA_Support - not applied: replaced by SveSop/nvidia-libs relay (CUDA SDK 13.2, 676 exports vs staging's ~492). Staging version is missing cuGetProcAddress, cuLaunchKernelEx, and many v2 variants needed by PhysX.
-    #   It is "Disabled: True" in staging, so --all never selects it, and a -W for it makes patchinstall.py abort with a KeyError before applying any staging patch.
-
     # dinput-joy-mappings - disabled in favor of proton's gamepad patches -- currently also disabled in upstream staging
     # mfplat-streaming-support -- interferes with proton's mfplat -- currently also disabled in upstream staging
     # wined3d-SWVP-shaders -- interferes with proton's wined3d -- currently also disabled in upstream staging
