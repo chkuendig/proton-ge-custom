@@ -308,9 +308,6 @@ def merge_user_dir(src, dst):
 def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, optional=False,
              follow_symlinks=True, track_file=None, link_debug=False):
     try:
-        if not file_exists(src, follow_symlinks=follow_symlinks):
-            return
-
         if prefix is not None:
             dst = os.path.join(prefix, dst)
 
@@ -2895,25 +2892,22 @@ if __name__ == "__main__":
     g_session.init_session(sys.argv[1] != "runinprefix")
 
     # protonfixes execution
-    try:
-        protonfixes.setup(g_session.env, "PATH", ld_path_var, prepend_to_env_str)
-        protonfixes.setup_mount_drives(setup_dir_drive)
-        protonfixes.winetricks(g_session.env, g_proton.wine_bin, g_proton.wineserver_bin)
-        # HACK: handle DXVK_FRAME_RATE and VKD3D_FRAME_RATE through DXVK_CONFIG
-        protonfixes.setup_frame_rate(g_session.env, append_to_env_str)
-        g_session.check_environment("PROTON_LOCAL_SHADER_CACHE", "localshadercache")
-        protonfixes.setup_local_shader_cache(g_session.compat_config, g_session.env)
-        g_session.check_environment("PROTON_FSR3_UPGRADE", "fsr3")
-        g_session.check_environment("PROTON_FSR4_UPGRADE", "fsr4")
-        g_session.compat_config.add("mlfg")
-        g_session.check_environment("PROTON_MLFG_UPGRADE", "mlfg")
-        g_session.check_environment("PROTON_DLSS_UPGRADE", "dlss")
-        g_session.check_environment("PROTON_XESS_UPGRADE", "xess")
-        g_session.check_environment("PROTON_USE_OPTISCALER", "optiscaler")
-        protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
-        protonfixes.execute()
-    except Exception as e:
-        log("protonfixes error (non-fatal): " + str(e))
+    protonfixes.setup(g_session.env, "PATH", ld_path_var, prepend_to_env_str)
+    protonfixes.setup_mount_drives(setup_dir_drive)
+    protonfixes.winetricks(g_session.env, g_proton.wine_bin, g_proton.wineserver_bin)
+    # HACK: handle DXVK_FRAME_RATE and VKD3D_FRAME_RATE through DXVK_CONFIG
+    protonfixes.setup_frame_rate(g_session.env, append_to_env_str)
+    g_session.check_environment("PROTON_LOCAL_SHADER_CACHE", "localshadercache")
+    protonfixes.setup_local_shader_cache(g_session.compat_config, g_session.env)
+    g_session.check_environment("PROTON_FSR3_UPGRADE", "fsr3")
+    g_session.check_environment("PROTON_FSR4_UPGRADE", "fsr4")
+    g_session.compat_config.add("mlfg")
+    g_session.check_environment("PROTON_MLFG_UPGRADE", "mlfg")
+    g_session.check_environment("PROTON_DLSS_UPGRADE", "dlss")
+    g_session.check_environment("PROTON_XESS_UPGRADE", "xess")
+    g_session.check_environment("PROTON_USE_OPTISCALER", "optiscaler")
+    protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
+    protonfixes.execute()
 
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
