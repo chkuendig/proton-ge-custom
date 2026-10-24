@@ -6,8 +6,7 @@
 	url = https://github.com/wine-staging/wine-staging
 [submodule "dxvk"]
 	path = dxvk
-	url = https://github.com/chkuendig/dxvk
-	branch = GE-Proton11-7-zluda
+	url = https://github.com/doitsujin/dxvk.git
 [submodule "openvr"]
 	path = openvr
 	url = https://github.com/ValveSoftware/openvr
