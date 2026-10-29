@@ -45,7 +45,8 @@ if [[ $part == zluda || $part == all ]]; then
     export SCCACHE_PATH
     SCCACHE_PATH=$(command -v ccache)
     ccache --max-size=4G
-    (cd "$SOURCE_ROOT/zluda" && cargo fetch --locked && cargo build --offline --locked --release -p zluda)
+    bash "$here/build-native.sh"
+    cp "$BUILD_ROOT/native/link-layout.json" "$DESTDIR/provenance/NATIVE-LINK-LAYOUT.json"
     objcopy --strip-debug "$SOURCE_ROOT/zluda/target/release/libnvcuda.so" "$lib64/libcuda.so.1"
     ln -s libcuda.so.1 "$lib64/libcuda.so"
     # Keep the launcher LD order untouched. Both Wine paths resolve to GE's

@@ -16,6 +16,7 @@ import inputs
 import overlay
 import wine_deps
 import wine_scope
+import native_audit
 
 
 class PayloadManifest(unittest.TestCase):
@@ -471,6 +472,105 @@ class WinePrerequisites(unittest.TestCase):
                 self.assertIn('--with-wayland', line)
                 self.assertIn('--with-ffmpeg', line)
                 self.assertIn('--with-mingw=gcc', line)
+
+
+class NativeBuild(unittest.TestCase):
+    def fixture(self, root):
+        target, sdk = root / 'source/zluda/target/release', root / 'sdk'
+        lib = sdk / 'lib'
+        lib.mkdir(parents=True)
+        (lib / 'libamdhip64.so').write_bytes(b'\x7fELFfixture')
+        for package in ['highs-sys', *native_audit.AMD_PACKAGES]:
+            out = target / 'build' / (package + '-fixture')
+            out.mkdir(parents=True)
+            text = ''
+            if package == 'highs-sys':
+                (out / 'out/lib').mkdir(parents=True)
+                (out / 'out/lib/libhighs.a').write_bytes(b'!<arch>\n')
+                text = f'cargo:rustc-link-search=native={out / "out/lib"}\ncargo:rustc-link-lib=static=highs\n'
+            elif package == 'hip_runtime-sys':
+                text = 'cargo:rustc-link-search=native=/opt/rocm/lib/\ncargo:rustc-link-lib=dylib=amdhip64\n'
+            (out / 'output').write_text(text)
+        return target, sdk
+
+    def test_native_library_layout_and_wrong_staging_are_checked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target, sdk = self.fixture(root)
+            legacy = root / 'absent-legacy'
+            result = native_audit.audit(target, sdk, [sdk / 'lib'], legacy)
+            self.assertIn('amdhip64', result['hip_runtime-sys'][0]['resolved'])
+            fft_output = target / 'build/hipfft-sys-fixture/output'
+            fft_output.write_text('cargo:rustc-link-lib=dylib=hipfft\n')
+            with self.assertRaisesRegex(ValueError, 'unexpected hipfft linking'):
+                native_audit.audit(target, sdk, [sdk / 'lib'], legacy)
+            fft_output.write_text('')
+            archive = target / 'build/highs-sys-fixture/out/lib/libhighs.a'
+            wrong = root / 'overlay' / archive.relative_to(root)
+            wrong.parent.mkdir(parents=True)
+            archive.rename(wrong)
+            with self.assertRaisesRegex(ValueError, 'HiGHS static archive absent'):
+                native_audit.audit(target, sdk, [sdk / 'lib'], legacy)
+            wrong.rename(archive)
+            (sdk / 'lib/libamdhip64.so').unlink()
+            with self.assertRaisesRegex(ValueError, 'unresolved native library: amdhip64'):
+                native_audit.audit(target, sdk, [sdk / 'lib'], legacy)
+
+    def test_native_cmake_changes_only_highs_and_drops_destdir(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'source/zluda/ext'
+            (source / 'HiGHS').mkdir(parents=True)
+            (source / 'highs-sys').mkdir()
+            fake = root / 'cmake'
+            fake.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
+                            'print(json.dumps([sys.argv[1:], os.environ.get("DESTDIR")]))\n')
+            fake.chmod(0o755)
+            env = dict(os.environ, SOURCE_ROOT=str(root / 'source'), ZLUDA_REAL_CMAKE=str(fake),
+                       DESTDIR=str(root / 'wrong-stage'))
+            for args, extra in [([str(source / 'highs-sys/../HiGHS'), '-DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu'],
+                                 ['-DCMAKE_INSTALL_LIBDIR=lib']),
+                                (['--build', '/build', '--target', 'install'], []),
+                                ([str(source / 'llvm-project/llvm')], []), (['--version'], [])]:
+                output = subprocess.check_output([str(inputs.HERE / 'native-cmake.py'), *args], env=env, text=True)
+                argv, dest = json.loads(output)
+                self.assertEqual(argv, args + extra)
+                self.assertIsNone(dest)
+
+    def test_native_failure_stops_before_llvm_and_zluda(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target, sdk = self.fixture(root)
+            tools = root / 'bin'
+            tools.mkdir()
+            cargo = tools / 'cargo'
+            cargo.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
+                             'with open(os.environ["TRACE"], "a") as out:\n'
+                             ' out.write(json.dumps([sys.argv[1:], os.environ.get("DESTDIR")])+"\\n")\n'
+                             'if "highs" in sys.argv and os.environ.get("FAIL_NATIVE") == "1": sys.exit(42)\n')
+            cargo.chmod(0o755)
+            cmake = tools / 'cmake'
+            cmake.write_text('#!/bin/sh\nexit 0\n')
+            cmake.chmod(0o755)
+            for fail in ['1', '0']:
+                trace = root / ('trace-' + fail)
+                env = dict(os.environ, PATH=str(tools) + ':' + os.environ['PATH'],
+                           SOURCE_ROOT=str(root / 'source'), BUILD_ROOT=str(root / 'build'), SDK_ROOT=str(sdk),
+                           LIBRARY_PATH=str(sdk / 'lib'), TRACE=str(trace), FAIL_NATIVE=fail, DESTDIR='/wrong-stage')
+                result = subprocess.run(['bash', str(inputs.HERE / 'build-native.sh')], env=env,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                calls = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertEqual(result.returncode, 42 if fail == '1' else 0, result.stderr)
+                self.assertTrue(all(dest is None for _, dest in calls))
+                self.assertEqual(calls[0][0], ['fetch', '--locked'])
+                self.assertIn('highs', calls[1][0])
+                self.assertIn('dark_api', calls[1][0])
+                self.assertNotIn('hipfft-sys', calls[1][0])
+                self.assertNotIn('--keep-going', calls[1][0])
+                if fail == '1':
+                    self.assertEqual(len(calls), 2)
+                else:
+                    self.assertEqual([call[0][-1] for call in calls[2:]], ['llvm_zluda', 'zluda'])
 
 
 class WineScope(unittest.TestCase):
