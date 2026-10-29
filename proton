@@ -1199,7 +1199,7 @@ class CompatData:
                 os.sync()
 
             from proton_zluda import migrate_prefix
-            migrate_prefix(g_proton.base_dir, self.base_dir)
+            migrate_prefix(g_proton.base_dir, self.base_dir, log=log)
             self.migrate_user_paths()
 
             if not file_exists(self.prefix_dir + "/dosdevices/c:", follow_symlinks=False):

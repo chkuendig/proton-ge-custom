@@ -1,0 +1,11 @@
+{
+  "source": "evidence/mafia2-release-exit-20261015/verify-run/steam-runs/20261015T095958Z-50130/tool-MANIFEST.txt",
+  "nvcuda_commit": "8a95cafc",
+  "note": "Historical receipts only. Migration classifies Wine builtin PE/ELF/tool symlinks structurally; hashes cannot cover later rebuilds.",
+  "sha256": {
+    "x86_64-unix/nvcuda.dll.so": "38f554bc40388510e70f23c46dfd507d88cda76ff322e2c71761f2a8d8ee08d4",
+    "x86_64-windows/nvcuda.dll": "03904528b06cc2fb920800378eb9cd4c673cf93b4e9fbb16d45051f855f72218",
+    "i386-windows/nvcuda.dll": "c66f71edbf9b515116f41cd10627c3c8d4cf865023943c39f0a7561b2c645bb2",
+    "x86_64-unix/nvcuda.so": "3e945f5deb694f7de4721c9f10d8fec61a1e92e1b54d783e90d563395cc51321"
+  }
+}

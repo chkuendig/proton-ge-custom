@@ -153,10 +153,45 @@ class CudaRoots(unittest.TestCase):
         compat2 = self.root / 'regular'
         regular = compat2 / 'pfx/drive_c/windows/system32/nvcuda.dll'
         regular.parent.mkdir(parents=True)
-        regular.write_bytes(b'known managed ELF')
-        with mock.patch.object(policy, 'LEGACY_PREFIX_SHA256', {hashlib.sha256(regular.read_bytes()).hexdigest()}):
-            policy.migrate_prefix(self.tool, compat2)
+        regular.write_bytes(b'\x7fELFfixture managed bridge')
+        policy.migrate_prefix(self.tool, compat2)
         self.assertEqual(regular.read_bytes(), (self.cuda / 'stub/x86_64-windows/nvcuda.dll').read_bytes())
+
+    def test_migration_classifies_builtin_pe_elf_symlinks_and_native_user_pe(self):
+        import struct
+        for index, kind in enumerate(['builtin', 'placeholder', 'elf', 'native', 'unknown', 'bad-pe', 'user-link']):
+            compat = self.root / ('migration-' + kind)
+            path = compat / 'pfx/drive_c/windows/system32/nvcuda.dll'
+            path.parent.mkdir(parents=True)
+            data = bytearray(512)
+            data[:2] = b'MZ'
+            struct.pack_into('<I', data, 0x3c, 256)
+            data[256:260] = b'PE\0\0'
+            if kind in ['builtin', 'placeholder', 'bad-pe']:
+                marker = b'Wine placeholder DLL' if kind == 'placeholder' else b'Wine builtin DLL'
+                data[0x40:0x40 + len(marker)] = marker
+            if kind == 'bad-pe':
+                data[256:260] = b'noPE'
+            elif kind == 'elf':
+                data[:4] = b'\x7fELF'
+            elif kind == 'unknown':
+                data[:2] = b'??'
+            if kind == 'user-link':
+                path.symlink_to('/user/drivers/nvcuda.dll')
+            else:
+                path.write_bytes(data)
+            logs = []
+            policy.migrate_prefix(self.tool, compat, log=logs.append)
+            managed = kind in ['builtin', 'placeholder', 'elf']
+            self.assertEqual(path.is_symlink(), kind == 'user-link')
+            if managed:
+                self.assertEqual(path.read_bytes(), (self.cuda / 'stub/x86_64-windows/nvcuda.dll').read_bytes())
+                self.assertEqual(logs, [])
+            elif kind != 'user-link':
+                self.assertEqual(path.read_bytes(), data)
+            self.assertEqual(bool(logs), not managed)
+            record = json.loads((compat / 'zluda-cuda-roots-v1.json').read_text())
+            self.assertEqual(bool(record['preserved']), not managed)
 
     def test_ge_nvidia_flags_do_not_select_or_copy_cuda_and_nvapi_stays_separate(self):
         for flag in ['PROTON_NVIDIA_NVCUDA', 'PROTON_NVIDIA_LIBS', 'PROTON_NVIDIA_NVENC',

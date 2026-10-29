@@ -11,10 +11,6 @@ STUB_SHA256 = {
     "x86_64-windows": "0939c5e19c3cce99668cd0f07db99aa2ede810690c37af9c70df273b924fdfd3",
     "i386-windows": "2685d96065ea86c301a3e56f06b61e1e96a22645b7f69e9866721ad2f9f8833f",
 }
-LEGACY_PREFIX_SHA256 = {
-    "42b674644e53a2be4ee46df7fac49f22f42662828dc80f89e2c0c0a9a5ec9898",
-    "d67d26c6abcf40c8e90931084d820cff5c761d8e948ee5f8bf17c2a227941759",
-}
 ARCHES = {"system32": "x86_64-windows", "syswow64": "i386-windows"}
 
 
@@ -108,15 +104,15 @@ def validate_default_prefix(tool, prefix):
             raise ValueError("default_pfx must contain regular GE CUDA stubs: " + str(path))
 
 
-def migrate_prefix(tool, compatdata):
-    """Run once under Proton's prefix lock; preserve unknown user DLLs/ELFs."""
+def migrate_prefix(tool, compatdata, log=None):
+    """Run once under Proton's prefix lock; preserve native user PE DLLs and unknown files."""
     root, record = stub_assets(tool)
     compatdata = Path(compatdata)
     marker = compatdata / "zluda-cuda-roots-v1.json"
     if marker.exists():
         return
     prefix = (compatdata / "pfx").resolve()
-    changes = []
+    changes, preserved = [], []
     for directory, arch in ARCHES.items():
         path = prefix / "drive_c/windows" / directory / "nvcuda.dll"
         if not path.parent.resolve().is_relative_to(prefix) or not path.parent.is_dir():
@@ -129,8 +125,15 @@ def migrate_prefix(tool, compatdata):
                 any(parts[i:i+3] in (("files", "lib", "wine"), ("files", "lib64", "wine"))
                     for i in range(len(parts)-2)))
         elif path.is_file():
-            digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            managed = digest in LEGACY_PREFIX_SHA256 or digest in record.get("legacy_prefix_sha256", [])
+            with path.open("rb") as stream:
+                header = stream.read(128)
+                managed = header.startswith(b"\x7fELF")
+                if header.startswith(b"MZ") and header[0x40:].startswith(
+                        (b"Wine builtin DLL", b"Wine placeholder DLL")):
+                    pe_offset = int.from_bytes(header[0x3c:0x40], "little")
+                    if 0x40 <= pe_offset <= path.stat().st_size - 4:
+                        stream.seek(pe_offset)
+                        managed = stream.read(4) == b"PE\0\0"
         if managed:
             with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stage:
                 stage.write((root / "stub" / arch / "nvcuda.dll").read_bytes())
@@ -141,7 +144,12 @@ def migrate_prefix(tool, compatdata):
             finally:
                 temporary.unlink(missing_ok=True)
             changes.append(str(path.relative_to(prefix)))
-    marker.write_text(json.dumps({"version": 1, "replaced": changes}, indent=2) + "\n")
+        elif path.exists() or path.is_symlink():
+            preserved.append(str(path.relative_to(prefix)))
+            if log is not None:
+                log("Preserving unrecognized user CUDA DLL: " + str(path))
+    marker.write_text(json.dumps({"version": 1, "replaced": changes,
+                                  "preserved": preserved}, indent=2) + "\n")
 
 
 
