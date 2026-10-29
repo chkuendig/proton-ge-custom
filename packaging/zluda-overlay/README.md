@@ -95,7 +95,18 @@ prerequisites preserves configure results and supports future module selection.
 The native stage explicitly compiles `steamos-math-compat.c`, builds libnuma from
 pinned source, and installs only the seven versioned ROCm libraries listed in the
 lock plus their declared SONAME/development aliases. Link-only math stubs are
-build inputs and are never installed. Package notices are collected per extracted
+build inputs and are never installed. `build-native.sh` first builds the small
+native dependency roots, verifies HiGHS's archive/search paths and the emitted
+ROCm links, then builds LLVM alone before the final ZLUDA package. It retains
+`cuda_types`' feature selection, including hipfft's disabled link feature.
+`native-cmake.py` passes `CMAKE_INSTALL_LIBDIR=lib` only when configuring HiGHS;
+it also removes staging DESTDIR. This leaves the ZLUDA pin and LLVM/Wine flags
+unchanged. Native logs and `NATIVE-LINK-LAYOUT.json` record the actual layout.
+The workflow restores compiler/Cargo source caches by compatible prefixes and
+explicitly saves them even after failure, with unique immutable keys per run.
+Only the bounded 4 GiB compiler cache is retained for LLVM, not its large build
+tree. GitHub's cache eviction controls accumulated snapshots; cache upload and
+reuse still need real CI validation. Package notices are collected per extracted
 AMD package; component and Cargo dependency licenses are retained. Corresponding
 libnuma, relay and prepared Wine source and this build recipe are included under
 `sources/`. GE's existing license payload remains in the archive. Inspect the

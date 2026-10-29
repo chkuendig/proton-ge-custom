@@ -52,18 +52,24 @@ jobs:
           sudo mkdir -p /work
           sudo chown "$USER:$USER" /work
           df -h / /work
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: llvm-cache
         if: matrix.part == 'zluda'
         with:
           path: /work/ccache
-          key: llvm-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('packaging/zluda-overlay/build-components.sh', 'zluda/llvm_zluda/build.rs') }}
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+          # Cache entries are immutable. A unique suffix lets a failed partial
+          # build grow on the next run instead of freezing the first snapshot.
+          key: llvm-v2-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('zluda/llvm_zluda/build.rs') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: llvm-v2-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('zluda/llvm_zluda/build.rs') }}-
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: cargo-cache
         if: matrix.part == 'zluda'
         with:
           path: |
             /work/cargo/registry
             /work/cargo/git
-          key: cargo-linux-1.99.0-${{ hashFiles('zluda/Cargo.lock') }}
+          key: cargo-linux-1.99.0-${{ hashFiles('zluda/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: cargo-linux-1.99.0-${{ hashFiles('zluda/Cargo.lock') }}-
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
@@ -85,6 +91,20 @@ jobs:
       - name: Preserve caches with runner ownership
         if: always() && matrix.part == 'zluda'
         run: sudo chown -R "$USER:$USER" /work/cargo /work/ccache 2>/dev/null || true
+      - name: Save completed or partial LLVM compiler cache
+        if: always() && matrix.part == 'zluda' && steps.llvm-cache.outputs.cache-primary-key != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: /work/ccache
+          key: ${{ steps.llvm-cache.outputs.cache-primary-key }}
+      - name: Save downloaded Cargo sources after success or failure
+        if: always() && matrix.part == 'zluda' && steps.cargo-cache.outputs.cache-primary-key != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            /work/cargo/registry
+            /work/cargo/git
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: overlay-${{ matrix.part }}
@@ -103,6 +123,7 @@ jobs:
             /work/logs
             /work/build/wine/log
             /work/build/wine/changed-sources.txt
+            /work/build/native
           if-no-files-found: warn
           retention-days: 14
 
