@@ -35,7 +35,7 @@ $(OBJ)/.nvcuda-dist: $(OBJ)/.nvcuda-build $(OBJ)/.wine-x86_64-dist $(OBJ)/.wine-
 	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" archive-stubs "$(DST_BASE)" --archive "$(NVCUDA_BUILD)/downloads/GE-Proton11-7-x86_64.tar.gz"
 	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" clean "$(DST_BASE)"
 	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" licenses "$(DST_BASE)" --source "$(SRCDIR)/zluda"
-	git -C "$(SRCDIR)/zluda" archive HEAD wine cuda_types cuda_macros | gzip -n > "$(DST_BASE)/sources/zluda-wine.tar.gz"
+	git -C "$(SRCDIR)/zluda" archive HEAD wine cuda_types cuda_macros dark_api | gzip -n > "$(DST_BASE)/sources/zluda-wine.tar.gz"
 	cp -a "$(NVCUDA_SCRIPTS)" "$(DST_BASE)/sources/overlay-recipes"
 	touch $@
 

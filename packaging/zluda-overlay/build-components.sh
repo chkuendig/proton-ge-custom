@@ -107,7 +107,7 @@ if [[ $part == bridges || $part == all ]]; then
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    git -C "$SOURCE_ROOT/zluda" archive HEAD wine cuda_types cuda_macros | gzip -n > "$DESTDIR/sources/zluda-wine.tar.gz"
+    git -C "$SOURCE_ROOT/zluda" archive HEAD wine cuda_types cuda_macros dark_api | gzip -n > "$DESTDIR/sources/zluda-wine.tar.gz"
 fi
 DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"

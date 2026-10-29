@@ -43,7 +43,7 @@ off-mode NVAPI policy matches GE, including late game-fix behavior. Known manage
 prefix PE placeholders, ELF copies and tool symlinks migrate once under the
 prefix lock; native unmarked user DLLs/unknown files are preserved and logged.
 
-Sources include the complete pinned `wine`, `cuda_types` and `cuda_macros`
+Sources include the complete pinned `wine`, `cuda_types`, `cuda_macros` and `dark_api`
 regeneration inputs in `sources/zluda-wine.tar.gz`. Root MIT/Apache, derived LGPL
 and per-file notices, the independent Cargo lock and downloaded dependency
 licenses are retained. Stage A comparison utilities remain available for source
