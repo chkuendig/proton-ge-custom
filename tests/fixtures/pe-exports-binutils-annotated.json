@@ -1,0 +1,8 @@
+{
+  "run": 40964855504,
+  "artifact": "logs-bridges/build/bridge-equivalence/report/1-original.pe.txt",
+  "sha256": "ca909dd62d261b8e138de661842e4d18c21b03413a8da43ae35e5011f10c90c9",
+  "excerpt": "Complete ordinal/name table; no binary execution",
+  "expected_named_exports": 690,
+  "source_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494"
+}

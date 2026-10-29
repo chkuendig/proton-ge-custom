@@ -27,9 +27,17 @@ def pe_exports(text, allow_empty=False):
         raise ValueError('PE export ordinal base missing')
     exports = []
     for line in table[1].splitlines():
-        match = re.fullmatch(r'\s*\[\s*(\d+)\]\s+(\S+)\s*', line)
+        # New binutils prints an absolute +base ordinal and hexadecimal hint
+        # before the name. Keep supporting the older index/name format.
+        match = re.fullmatch(r'\s*\[\s*(\d+)\]\s+'
+                             r'(?:\+base\[\s*(\d+)\]\s+[0-9a-fA-F]+\s+)?(\S+)\s*', line)
         if match:
-            exports.append((int(match[1]) + int(base[1]), match[2]))
+            ordinal = int(match[1]) + int(base[1])
+            if match[2] is not None and int(match[2]) != ordinal:
+                raise ValueError('PE export annotated ordinal disagrees with base/index')
+            exports.append((ordinal, match[3]))
+        elif line.lstrip().startswith('['):
+            raise ValueError('unrecognized PE export name row: ' + line.strip())
         elif exports and not line.strip():
             break
     if not exports or len({name for _, name in exports}) != len(exports):

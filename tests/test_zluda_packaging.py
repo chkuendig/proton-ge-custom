@@ -91,6 +91,20 @@ Number in:
         with self.assertRaisesRegex(ValueError, 'name table missing'):
             bridge_equivalence.pe_exports(empty)
 
+    def test_real_binutils_annotated_pe32_export_table(self):
+        fixture = ROOT / 'tests/fixtures/pe-exports-binutils-annotated.txt'
+        text = fixture.read_text()
+        exports = bridge_equivalence.pe_exports(text)
+        self.assertEqual(len(exports), 690)
+        self.assertEqual(exports[0], (1, 'cuArray3DCreate'))
+        self.assertEqual(len({name for ordinal, name in exports}), 690)
+        with self.assertRaisesRegex(ValueError, 'annotated ordinal disagrees'):
+            bridge_equivalence.pe_exports(text.replace('+base[   1]', '+base[ 999]', 1))
+        with self.assertRaisesRegex(ValueError, 'unrecognized PE export name row'):
+            bridge_equivalence.pe_exports(text.replace('0000 cuArray3DCreate', 'bad-hint cuArray3DCreate', 1))
+        with self.assertRaisesRegex(ValueError, 'duplicate PE exports'):
+            bridge_equivalence.pe_exports(text.replace('cuArray3DCreate_v2', 'cuArray3DCreate', 1))
+
     def test_winelib_names_and_ordinals_are_read_from_the_embedded_pe_table(self):
         import struct
         data = bytearray(2048)
