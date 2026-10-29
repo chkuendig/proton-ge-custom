@@ -174,7 +174,7 @@ class CudaRoots(unittest.TestCase):
         for name in ['nvml', 'nvenc', 'nvoptix']:
             self.assertIn('wine/nvidia-libs/' + name, text)
         self.assertIn('if old_nvapi != new_nvapi', text)
-        self.assertNotIn('g_session.env["PROTON_FORCE_NVAPI"] = "1"', text)
+        self.assertIn('prepare_nvapi(self.env, self.compat_config)', text)
 
     def test_nvapi_config_matrix_and_late_prefix_decision(self):
         import itertools
@@ -186,7 +186,7 @@ class CudaRoots(unittest.TestCase):
         # Execute the actual late-fix synchronization block with a prefix-call
         # recorder: a new forced NVAPI must reach setup_prefix and its overrides.
         text = (ROOT / 'proton').read_text()
-        start = text.index('    from proton_zluda import dll_override, nvapi_enabled')
+        start = text.index('    from proton_zluda import dll_override, nvapi_enabled, prepare_nvapi')
         end = text.index('    g_compatdata.setup_ddraw(', start)
         import textwrap
         calls = []
@@ -206,3 +206,37 @@ class CudaRoots(unittest.TestCase):
         exec(compile(textwrap.dedent(text[start:end]), 'late-nvapi-block', 'exec'), ns)
         self.assertEqual(session.env['DXVK_ENABLE_NVAPI'], '0')
         self.assertEqual(len(calls), 2)
+
+    def test_zluda_on_implies_nvapi_without_an_extra_user_switch(self):
+        for config in [set(), {'disablenvapi'}, {'disablenvapi', 'hidenvgpu', 'wow64'}]:
+            env = {'PROTON_ENABLE_ZLUDA': '1'}
+            policy.prepare_nvapi(env, config)
+            self.assertEqual(env['PROTON_FORCE_NVAPI'], '1')
+            self.assertEqual(env['DXVK_ENABLE_NVAPI'], '1')
+            self.assertEqual(env['DXVK_NVAPI_ALLOW_OTHER_DRIVERS'], '1')
+            self.assertEqual(env['DXVK_NVAPI_DRIVER_VERSION'], '99999')
+            self.assertEqual(env['WINE_HIDE_AMD_GPU'], '1')
+            self.assertIn('forcenvapi', config)
+            self.assertTrue(policy.nvapi_enabled(config, 'x86_64-windows'))
+            self.assertFalse('hidenvgpu' in config and 'forcenvapi' not in config)
+        text = (ROOT / 'proton').read_text()
+        self.assertLess(text.index('prepare_nvapi(self.env, self.compat_config)'),
+                        text.index('self.check_environment("PROTON_FORCE_NVAPI"'))
+        import textwrap
+        start = text.index('    from proton_zluda import dll_override, nvapi_enabled, prepare_nvapi')
+        end = text.index('    g_compatdata.setup_ddraw(', start)
+        calls = []
+        session = SimpleNamespace(env={'PROTON_ENABLE_ZLUDA': '1', 'WINE_HIDE_NVIDIA_GPU': '1'},
+                                  compat_config={'disablenvapi', 'hidenvgpu'},
+                                  _cuda_previous_nvidia_hide=None, _cuda_hide_written=True)
+        def check_environment(key, flag):
+            if key in session.env:
+                session.compat_config.add(flag) if session.env[key] == '1' else session.compat_config.discard(flag)
+        session.check_environment = check_environment
+        ns = {'g_session': session, 'g_proton': SimpleNamespace(host_pe_arch='x86_64-windows'),
+              'g_compatdata': SimpleNamespace(setup_prefix=lambda: calls.append(policy.nvapi_enabled(
+                   session.compat_config, 'x86_64-windows'))), 'sys': SimpleNamespace(argv=['proton', 'run'])}
+        exec(compile(textwrap.dedent(text[start:end]), 'late-zluda-nvapi', 'exec'), ns)
+        self.assertEqual(calls, [True])
+        self.assertIn('nvapi=n', session.env['WINEDLLOVERRIDES'])
+        self.assertNotIn('WINE_HIDE_NVIDIA_GPU', session.env)

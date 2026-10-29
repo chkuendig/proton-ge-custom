@@ -51,6 +51,17 @@ def nvapi_enabled(config, host_arch):
     return ("disablenvapi" not in config or "forcenvapi" in config) and host_arch != "aarch64-windows"
 
 
+def prepare_nvapi(env, config):
+    """Keep the published one-switch ZLUDA policy ahead of prefix decisions."""
+    if enabled(env):
+        env["PROTON_FORCE_NVAPI"] = "1"
+        env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
+        env["DXVK_ENABLE_NVAPI"] = "1"
+        env["DXVK_NVAPI_DRIVER_VERSION"] = "99999"
+        env["WINE_HIDE_AMD_GPU"] = "1"
+        config.add("forcenvapi")
+
+
 def select_root(env, tool, bootstrap=False, ld_path_var="LD_LIBRARY_PATH"):
     """Select one immutable module namespace for the next Wine process."""
     tool = Path(tool).resolve()

@@ -2213,6 +2213,9 @@ class Session:
                 log("%s" % sys.exc_info()[1])
                 log("************************************************")
 
+        from proton_zluda import prepare_nvapi
+        prepare_nvapi(self.env, self.compat_config)
+
         if "PROTON_LOG" in self.env and nonzero(self.env["PROTON_LOG"]):
             self.env.setdefault("WINEDEBUG", "+timestamp,+pid,+tid,+seh,+unwind,+threadname,+debugstr,+loaddll,+mscoree")
             self.env.setdefault("DXVK_LOG_LEVEL", "info")
@@ -2481,7 +2484,10 @@ class Session:
         if "hidevggpu" in self.compat_config:
             self.env["WINE_HIDE_VANGOGH_GPU"] = "1"
 
+        self._cuda_previous_nvidia_hide = self.env.get("WINE_HIDE_NVIDIA_GPU")
+        self._cuda_hide_written = False
         if "hidenvgpu" in self.compat_config and "forcenvapi" not in self.compat_config:
+            self._cuda_hide_written = True
             self.env["WINE_HIDE_NVIDIA_GPU"] = "1"
 
         if "hideintelgpu" in self.compat_config:
@@ -2897,8 +2903,14 @@ if __name__ == "__main__":
     protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
     protonfixes.execute()
 
-    from proton_zluda import dll_override, nvapi_enabled
+    from proton_zluda import dll_override, nvapi_enabled, prepare_nvapi
     old_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
+    prepare_nvapi(g_session.env, g_session.compat_config)
+    if g_session.env.get("PROTON_ENABLE_ZLUDA") == "1" and getattr(g_session, "_cuda_hide_written", False):
+        if g_session._cuda_previous_nvidia_hide is None:
+            g_session.env.pop("WINE_HIDE_NVIDIA_GPU", None)
+        else:
+            g_session.env["WINE_HIDE_NVIDIA_GPU"] = g_session._cuda_previous_nvidia_hide
     g_session.check_environment("PROTON_DISABLE_NVAPI", "disablenvapi")
     g_session.check_environment("PROTON_FORCE_NVAPI", "forcenvapi")
     new_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
