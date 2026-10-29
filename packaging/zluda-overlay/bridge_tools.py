@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 
 WINE_TOOLS = ['winegcc', 'winebuild', 'wrc', 'widl']
 CROSS_FILES = [('nvcuda', 'build-wine64.txt'),
@@ -76,22 +77,33 @@ def check_unix_headers(source, sdk, report):
     """Preprocess in CI with the relay's actual flags; never compile or link."""
     parser = cross_file(source / 'nvcuda/build-wine64.txt')
     flags = ast.literal_eval(parser.get('built-in options', 'c_args'))
-    command = [str(sdk / 'bin/winegcc'), *flags, '-I' + str(source / 'nvcuda/include'),
-               '-pthread', '-v', '-H', '-E', '-dM', '-x', 'c', '-']
     text = '#include "config.h"\n#include <pthread.h>\n'
-    result = subprocess.run(command, input=text, text=True, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, timeout=30, cwd=source / 'nvcuda/dlls/nvcuda')
+    report.parent.mkdir(parents=True, exist_ok=True)
+    # This Winegcc pin drops stdin inputs. A .c path also avoids depending on
+    # forwarding of -x language arguments; keep the source in the build area.
+    with tempfile.NamedTemporaryFile(mode='w', prefix='wine-unix-headers-', suffix='.c',
+                                     dir=report.parent) as probe:
+        probe.write(text)
+        probe.flush()
+        command = [str(sdk / 'bin/winegcc'), *flags, '-I' + str(source / 'nvcuda/include'),
+                   '-pthread', '-v', '-H', '-E', '-dM', str(Path(probe.name).resolve())]
+        result = subprocess.run(command, stdin=subprocess.DEVNULL, text=True, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, timeout=30, cwd=source / 'nvcuda/dlls/nvcuda')
+    record = {'command': command, 'source': text, 'returncode': result.returncode, 'stderr': result.stderr}
+    report.with_suffix('.macros').write_text(result.stdout)
+    if result.returncode:
+        record['status'] = 'probe-failed'
+        report.write_text(json.dumps(record, indent=2) + '\n')
+        raise ValueError(f'relay header probe failed (exit {result.returncode}): {report}\n{result.stderr}')
     macros = {line.split()[1] for line in result.stdout.splitlines()
               if line.startswith('#define ') and len(line.split()) >= 2}
     required = {'HAVE_PTHREAD_H', 'PTHREAD_MUTEX_INITIALIZER', 'PTHREAD_COND_INITIALIZER'}
     forbidden = {'_WIN32', '__MSVCRT__', 'WINE_UNIX_LIB'}
-    record = {'command': command, 'returncode': result.returncode, 'stderr': result.stderr,
-              'required': sorted(required), 'missing': sorted(required - macros),
-              'forbidden': sorted(forbidden & macros)}
-    report.parent.mkdir(parents=True, exist_ok=True)
-    report.with_suffix('.macros').write_text(result.stdout)
+    record.update(required=sorted(required), missing=sorted(required - macros),
+                  forbidden=sorted(forbidden & macros))
+    record['status'] = 'header-mode-failed' if record['missing'] or record['forbidden'] else 'passed'
     report.write_text(json.dumps(record, indent=2) + '\n')
-    if result.returncode or record['missing'] or record['forbidden']:
+    if record['status'] == 'header-mode-failed':
         raise ValueError('relay must use its own config.h and Unix pthread headers: ' + str(report))
     return record
 

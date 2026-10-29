@@ -699,28 +699,80 @@ class BridgeSDK(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = self.source_fixture(root / 'source')
+            (source / 'nvcuda/dlls/nvcuda').mkdir(parents=True)
             sdk = root / 'sdk'
-            good = '#define HAVE_PTHREAD_H 1\n#define PTHREAD_MUTEX_INITIALIZER {}\n#define PTHREAD_COND_INITIALIZER {}\n'
-            outputs = [good, good.replace('#define HAVE_PTHREAD_H 1\n', ''),
-                       good + '#define __MSVCRT__ 1\n', good + '#define _WIN32 1\n']
-            for index, output in enumerate(outputs):
-                result = subprocess.CompletedProcess([], 0, output, 'recorded underlying gcc command')
-                with mock.patch.object(bridge_tools.subprocess, 'run', return_value=result) as run:
+            (sdk / 'bin').mkdir(parents=True)
+            stub = sdk / 'bin/winegcc'
+            stub.write_text('''#!/usr/bin/env python3
+import json, os
+from pathlib import Path
+import sys
+args = sys.argv[1:]
+if '-' in args or '-x' in args:
+    print('gcc: fatal error: no input files (stdin unsupported)', file=sys.stderr)
+    sys.exit(2)
+files = [Path(arg) for arg in args if arg.endswith('.c')]
+assert len(files) == 1 and files[0].is_file(), args
+text = files[0].read_text()
+assert '#include "config.h"' in text and '#include <pthread.h>' in text
+Path(os.environ['TRACE']).write_text(json.dumps({'args': args, 'source': text, 'cwd': os.getcwd()}))
+mode = os.environ.get('WINE_HEADER_FIXTURE_MODE', 'good')
+if mode != 'missing': print('#define HAVE_PTHREAD_H 1')
+print('#define PTHREAD_MUTEX_INITIALIZER {}')
+print('#define PTHREAD_COND_INITIALIZER {}')
+if mode == 'msvcrt': print('#define __MSVCRT__ 1')
+if mode == 'win32': print('#define _WIN32 1')
+print('recorded underlying gcc command', file=sys.stderr)
+if mode == 'exit':
+    print('preprocessor execution failed', file=sys.stderr)
+    sys.exit(2)
+''')
+            stub.chmod(0o755)
+            # Reproduce the exact unsupported input form, rather than letting
+            # a mocked successful subprocess conceal Winegcc's limitation.
+            old = subprocess.run([str(stub), '-E', '-dM', '-x', 'c', '-'],
+                                 input='#include "config.h"\n#include <pthread.h>\n', text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(old.returncode, 2)
+            self.assertIn('stdin unsupported', old.stderr)
+            for mode in ['good', 'missing', 'msvcrt', 'win32', 'exit']:
+                with self.subTest(mode=mode), mock.patch.dict(os.environ,
+                        TRACE=str(root / 'trace'), WINE_HEADER_FIXTURE_MODE=mode):
                     report = root / 'log/unix-headers.json'
-                    if index:
+                    if mode == 'good':
+                        bridge_tools.check_unix_headers(source, sdk, report)
+                    elif mode == 'exit':
+                        with self.assertRaisesRegex(ValueError, 'relay header probe failed [(]exit 2[)]') as error:
+                            bridge_tools.check_unix_headers(source, sdk, report)
+                        self.assertNotIn('missing', str(error.exception))
+                        self.assertIn('preprocessor execution failed', str(error.exception))
+                    else:
                         with self.assertRaisesRegex(ValueError, 'own config.h and Unix pthread headers'):
                             bridge_tools.check_unix_headers(source, sdk, report)
+                    trace = json.loads((root / 'trace').read_text())
+                    self.assertIn('-I' + str(source / 'nvcuda/include'), trace['args'])
+                    self.assertIn('-E', trace['args'])
+                    self.assertIn('-H', trace['args'])
+                    self.assertEqual(trace['cwd'], str(source / 'nvcuda/dlls/nvcuda'))
+                    self.assertNotIn('-c', trace['args'])
+                    self.assertNotIn('-', trace['args'])
+                    self.assertNotIn('-x', trace['args'])
+                    probe = Path(trace['args'][-1])
+                    self.assertEqual(probe.suffix, '.c')
+                    self.assertFalse(probe.exists())
+                    self.assertEqual(probe.parent, report.parent)
+                    saved = json.loads(report.read_text())
+                    self.assertEqual(saved['source'], trace['source'])
+                    self.assertEqual(saved['command'][1:], trace['args'])
+                    self.assertIn('recorded underlying gcc command', saved['stderr'])
+                    if mode == 'exit':
+                        self.assertEqual(saved['status'], 'probe-failed')
+                        self.assertEqual(saved['returncode'], 2)
+                        self.assertNotIn('missing', saved)
+                        self.assertNotIn('forbidden', saved)
                     else:
-                        bridge_tools.check_unix_headers(source, sdk, report)
-                    args, kwargs = run.call_args
-                    self.assertIn('-I' + str(source / 'nvcuda/include'), args[0])
-                    self.assertIn('-E', args[0])
-                    self.assertIn('-H', args[0])
-                    self.assertEqual(kwargs['cwd'], source / 'nvcuda/dlls/nvcuda')
-                    self.assertNotIn('-c', args[0])
-                    self.assertIn('#include "config.h"', kwargs['input'])
-                    self.assertEqual(report.with_suffix('.macros').read_text(), output)
-                    self.assertEqual(json.loads(report.read_text())['stderr'], result.stderr)
+                        self.assertEqual(saved['returncode'], 0)
+                        self.assertEqual(saved['status'], 'passed' if mode == 'good' else 'header-mode-failed')
 
     def test_missing_native_sdk_library_or_tool_fails_before_meson(self):
         with tempfile.TemporaryDirectory() as temporary:

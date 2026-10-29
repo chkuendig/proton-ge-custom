@@ -117,8 +117,11 @@ keeps nvcuda's `config.h` (including HAVE_PTHREAD_H and its _WIN32 undefinition)
 ahead of Wine's unrelated generated `config.h`. Neither CRT mode nor the pinned
 cross-file's compile flags change. The SDK preflight also preprocesses config.h
 and pthread.h using those flags and rejects missing pthread initializers or
-MSVCRT/Unixlib mode. `log/wine-unix-headers.json` and `.macros` record the actual
-command, underlying compiler/include trace and macros before Meson configure.
+MSVCRT/Unixlib mode. It uses a temporary `.c` file because this Winegcc pin does
+not forward stdin source input. A nonzero preprocessor exit is reported as a
+probe failure; macro checks run only after successful preprocessing.
+`log/wine-unix-headers.json` and `.macros` record the actual command, source text,
+underlying compiler/include trace and macros before Meson configure.
 
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private
