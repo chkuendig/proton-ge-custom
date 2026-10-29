@@ -56,7 +56,18 @@ changes `ntdll`, so silently retaining GE's Wine would lose a shipped fix. The
 same prepared Wine source supplies the relay's headers, `winegcc`, `winebuild`,
 import libraries and resource compiler. WoW64 is an i686 PE plus native x86_64
 unixlib; no i386 HIP/ROCm library is built or shipped. Any missing component or
-license collection fails the job. No failed relay is treated as success.
+required runtime license collection fails the job. No failed relay is treated as success.
+
+`wine_deps.py` generates a focused Makefile from this checkout's `Makefile.in`
+and reuses its dependency recipes, per-architecture Wine environment and configure
+flags, including required Wayland, FFmpeg and warnings-as-errors. It builds GE's
+complete x86_64/i386 Wine prerequisite closure (XML/XKB/pcap, media, speech,
+VKD3D and OpenXR), plus the architecture-independent wayland-protocols data.
+`wine-deps.json` records the direct/transitive dependency contract; tests compare
+it with `Makefile.in`. The workflow checks out and validates all those source pins
+from the input lock. Dependencies run one component at a time with at most three
+jobs inside the component. The prepared Wine source is preserved rather than
+being overwritten by the source-copy rule.
 
 The native stage explicitly compiles `steamos-math-compat.c`, builds libnuma from
 pinned source, and installs only the seven versioned ROCm libraries listed in the
@@ -67,6 +78,11 @@ libnuma, relay and prepared Wine source and this build recipe are included under
 `sources/`. GE's existing license payload remains in the archive. Inspect the
 actual first CI inventory and any component-specific source/NOTICE obligations
 before publishing binaries; this recipe has not certified an unseen SDK payload.
+`hip-dev` and `hsa-rocr-dev` supply build headers only: missing notices in those
+two packages are allowed and recorded with their package identities in
+`provenance/ROCM-PACKAGES.json`. Runtime packages must own their declared shipped
+libraries and provide notices. AMD's notices under `opt/rocm-7.2.4/share/doc/` and
+Debian notices under `usr/share/doc/` are both collected recursively.
 
 ## Layout and verification
 
@@ -120,7 +136,8 @@ artifacts expire after seven days; final output/logs after fourteen days.
 
 Allow approximately 3–6 hours elapsed for the first cold run (jobs overlap), and
 roughly 1–3 hours with a useful LLVM cache. These are planning estimates, not
-measurements of these pins. A cold job hitting its cap requires a CI follow-up;
+measurements of these pins. The complete GE Wine prerequisite graph now needs
+fresh timing; the earlier estimate did not measure those dependencies. A cold job hitting its cap requires a CI follow-up;
 it is not permission to increase local build concurrency. First CI must establish
 SDK package layouts/notices, Wine/MinGW compatibility, duration, disk/RAM use,
 loader output, and archive sizes. Target-runtime and game qualification follow

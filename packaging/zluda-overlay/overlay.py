@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tarfile
 
-from inputs import HERE, LOCK, check_sources, git, manifest, sha256, verify_manifest
+from inputs import HERE, LOCK, components_for_part, git, manifest, sha256, verify_manifest
 
 
 def environment(name):
@@ -21,8 +21,8 @@ def license_name(name):
         r'^(licen[sc]e|copying|copyright|notice)([._-].*|$)', name, re.I))
 
 
-def collect_licenses(source, target):
-    found = 0
+def collect_licenses(source, target, required=True):
+    found = []
     for directory, dirs, files in os.walk(source):
         dirs[:] = [d for d in dirs if d not in ('.git', 'target', 'build') and
                    not (Path(directory) / d).is_symlink()]
@@ -33,9 +33,10 @@ def collect_licenses(source, target):
                     out = target / path.relative_to(source)
                     out.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(path, out)
-                    found += 1
-    if not found:
+                    found.append(path.relative_to(source).as_posix())
+    if not found and required:
         raise ValueError('no license/copyright notices in ' + str(source))
+    return sorted(found)
 
 
 def sdk():
@@ -43,6 +44,8 @@ def sdk():
     root = build / 'sdk-extracted'
     if root.exists() or sdk.exists():
         raise ValueError('SDK extraction directories must be new')
+    packages = []
+    owned = set()
     for item in LOCK['downloads']:
         if item.get('group') != 'rocm':
             continue
@@ -51,8 +54,23 @@ def sdk():
         package = build / 'packages' / item['id']
         package.mkdir(parents=True)
         subprocess.run(['dpkg-deb', '-x', str(archive), str(package)], check=True)
-        collect_licenses(package, dest / 'licenses/rocm' / item['id'])
+        usage = item['usage']
+        if usage not in ('build', 'runtime'):
+            raise ValueError('unknown ROCm package usage: ' + item['id'])
+        payload = item['runtime_files']
+        if (usage == 'build' and payload) or (usage == 'runtime' and not payload):
+            raise ValueError('invalid ROCm runtime ownership: ' + item['id'])
+        for name in payload:
+            if name not in LOCK['rocm_runtime'] or name in owned:
+                raise ValueError('unexpected/duplicate runtime owner: ' + name)
+            if not (package / 'opt/rocm-7.2.4/lib' / name).is_file():
+                raise ValueError('missing declared runtime file in ' + item['id'] + ': ' + name)
+            owned.add(name)
+        notices = collect_licenses(package, dest / 'licenses/rocm' / item['id'], required=usage == 'runtime')
+        packages.append(dict(item, notices=notices))
         shutil.copytree(package, root, dirs_exist_ok=True, symlinks=True)
+    if owned != set(LOCK['rocm_runtime']):
+        raise ValueError('ROCm runtime ownership is incomplete')
     source = root / 'opt/rocm-7.2.4'
     shutil.copytree(source, sdk, symlinks=True)
     for real, aliases in LOCK['rocm_runtime'].items():
@@ -65,13 +83,14 @@ def sdk():
         out.chmod(0o755)
         for alias in aliases:
             (out.parent / alias).symlink_to(real)
+    provenance = dest / 'provenance'
+    provenance.mkdir(parents=True, exist_ok=True)
+    (provenance / 'ROCM-PACKAGES.json').write_text(json.dumps(packages, indent=2) + '\n')
 
 
 def metadata(part):
     source, dest = environment('SOURCE_ROOT'), environment('DESTDIR')
-    names = ['zluda'] if part == 'zluda' else ['nvcuda', 'dxvk', 'dxvk-nvapi', 'wine', 'wine-staging', 'protonfixes']
-    if part == 'all':
-        names += ['zluda']
+    names = components_for_part(part)
     for name in names:
         collect_licenses(source / name, dest / 'licenses' / name)
     if part in ('zluda', 'all'):

@@ -113,6 +113,7 @@ if [[ $part == bridges || $part == all ]]; then
     mkdir -p "$DESTDIR/provenance" "$DESTDIR/sources"
     cp "$BUILD_ROOT/wine/overlay/OVERLAY" "$DESTDIR/provenance/WINE-OVERLAY"
     cp "$BUILD_ROOT/wine/overlay/ELF-DEPENDENCIES" "$DESTDIR/provenance/WINE-ELF-DEPENDENCIES"
+    cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
     git -C "$n" archive HEAD | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
 fi

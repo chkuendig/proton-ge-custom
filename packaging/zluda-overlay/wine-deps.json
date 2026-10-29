@@ -1,0 +1,63 @@
+{
+  "wine": {
+    "common": [
+      "ffmpeg",
+      "openfst",
+      "kaldi",
+      "vosk",
+      "libxml2",
+      "libxkbcommon",
+      "libpcap"
+    ],
+    "i386": [
+      "vkd3d"
+    ],
+    "x86_64": [
+      "piper",
+      "vkd3d",
+      "openxr"
+    ]
+  },
+  "extra": [
+    "wayland-protocols"
+  ],
+  "transitive": {
+    "ffmpeg": [
+      "bzip2",
+      "dav1d",
+      "xz"
+    ],
+    "libxkbcommon": [
+      "libxml2"
+    ],
+    "kaldi": [
+      "openfst"
+    ],
+    "vosk": [
+      "openfst",
+      "kaldi"
+    ],
+    "vkd3d": [
+      "vulkan-headers",
+      "spirv-headers"
+    ]
+  },
+  "sources": {
+    "ffmpeg": "ffmpeg",
+    "openfst": "openfst",
+    "kaldi": "kaldi",
+    "vosk": "vosk-api",
+    "libxml2": "libxml2",
+    "libxkbcommon": "libxkbcommon",
+    "libpcap": "libpcap",
+    "vkd3d": "vkd3d",
+    "piper": "piper",
+    "openxr": "OpenXR-SDK",
+    "wayland-protocols": "wayland-protocols",
+    "bzip2": "bzip2",
+    "dav1d": "dav1d",
+    "xz": "xz",
+    "vulkan-headers": "Vulkan-Headers",
+    "spirv-headers": "SPIRV-Headers"
+  }
+}

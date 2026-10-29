@@ -156,23 +156,15 @@ if [[ ! -s $out/changed-sources.txt ]]; then
     rm -rf "$out/overlay"; exit 0
 fi
 
-# GE: Makefile.in (CFLAGS, <arch>_CFLAGS, WINE_CFLAGS, WINE_*_AUTOCONF_ARGS).
-cflags='-Wno-discarded-qualifiers -O2 -fwrapv -fno-strict-aliasing -ggdb -ffunction-sections -fdata-sections -fno-omit-frame-pointer -std=gnu17'
-x86_64_flags='-mcmodel=small -march=nocona -mtune=core-avx2 -mfpmath=sse'
-i386_flags='-mstackrealign -march=nocona -mtune=core-avx2 -mfpmath=sse'
-# GE11-7's x86_64 ntdll needs libgcc_s.so.1 and libc.so.6, not libunwind.
-# Arch detects libunwind and replaces that unwind path; it is unavailable in
-# Steam's runtime. Match GE's effective configuration rather than shipping it.
-common=(--with-wayland --with-mingw=gcc --disable-tests --without-unwind)
-# Blob identities include file contents and paths, without the Proton SHA.
-# config.h.in also feeds configure's generated headers.
-configure_sources=$(git -C "$src/wine" ls-tree -r "$tag_ours" | \
-    awk '$4 == "configure" || $4 == "configure.ac" || $4 == "include/config.h.in" || $4 ~ /(^|\/)Makefile\.in$/' | \
-    sha256sum | cut -d' ' -f1)
-# Configure probes the box's installed headers and libraries as well as the
-# source. Package changes must invalidate cached feature/library detection.
+# Reuse Proton's complete prerequisite graph and exact per-arch Wine flags.
+# The focused Makefile drops unrelated factories; dependency recipes themselves
+# and their source/configure/build/post-build ordering remain GE's.
+make_tool=$(command -v make)
+ninja_tool=$(command -v ninja)
+python3 "$here/wine_deps.py" "$repo" "$out" --make-tool "$make_tool" --ninja-tool "$ninja_tool" --jobs "$jobs"
+export PATH="$out/proton-tools:$PATH"
+export CMAKE_BUILD_PARALLEL_LEVEL=$jobs CARGO_BUILD_JOBS=$jobs
 build_dependencies=$(dpkg-query -W | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
-echo ":: build dependency fingerprint $build_dependencies"
 build_modules=() build_targets=(all)
 if (( ! full )); then
     while read -r path; do
@@ -183,50 +175,22 @@ if (( ! full )); then
         esac
     done < "$out/changed-sources.txt"
     mapfile -t build_modules < <(printf '%s\n' "${build_modules[@]}" | sort -u)
-    # Make follows each module's generated-header, library and tool dependencies.
-    # Keep the tools needed by the i386 tree available in the x86_64 tree too.
     build_targets=(include/all tools/winebuild/all tools/winegcc/all tools/widl/all tools/wrc/all tools/wmc/all dlls/winecrt0/all dlls/kernel32/all)
     for m in "${build_modules[@]}"; do build_targets+=("$m/all"); done
 fi
-echo ":: build targets: ${build_targets[*]}"
-build() {  # arch configure-args...
-    local arch=$1 obj=$out/obj-$1 dst=$out/dst-$1 key configure_key flags
+build() {
+    local arch=$1
     local targets=("${build_targets[@]}")
-    shift
-    # --with-wine-tools reuses x86_64's tools and omits these local targets.
     if [[ $arch == i386 ]] && (( ! full )); then
         targets=(include/all)
         for m in "${build_modules[@]}"; do targets+=("$m/all"); done
     fi
-    flags=${arch}_flags; flags=${!flags}
-    configure_key=$(printf '%s\n' "$configure_sources" "$build_dependencies" "$cflags $flags" \
-        "$cflags $x86_64_flags" "$cflags $i386_flags" "$HOST_GLIBC" \
-        "${PKG_CONFIG_LIBDIR-}" "--prefix=$dst" "--libdir=$dst/lib" \
-        "${common[@]}" "$@" | sha256sum | cut -d' ' -f1)
-    key="$tag_ours|$configure_key|${targets[*]}"
-    if stamped "build-$arch" "$key"; then echo ":: $arch: built"; return; fi
-    if [[ ! -f $obj/Makefile ]] || ! stamped "configure-$arch" "$configure_key"; then
-        echo ":: configuring $arch"
-        rm -rf "$obj"; mkdir -p "$obj"
-        (cd "$obj" && env CFLAGS="$cflags $flags" CROSSCFLAGS="$cflags $flags" \
-            x86_64_CFLAGS="$cflags $x86_64_flags" i386_CFLAGS="$cflags $i386_flags" \
-            "$src/wine/configure" -C --prefix="$dst" --libdir="$dst/lib" "${common[@]}" "$@") \
-            > "$out/log/configure-$arch.log" 2>&1 || { echo "configure $arch failed: $out/log/configure-$arch.log" >&2; exit 1; }
-        stamp "configure-$arch" "$configure_key"
-    else
-        echo ":: $arch: configure inputs unchanged, reusing object tree"
-    fi
-    echo ":: building $arch (make -j$jobs ${targets[*]}), log $out/log/make-$arch.log"
-    make -C "$obj" -j"$jobs" "${targets[@]}" > "$out/log/make-$arch.log" 2>&1 || { tail -30 "$out/log/make-$arch.log" >&2; exit 1; }
-    if (( full )); then
-        rm -rf "$dst"
-        make -C "$obj" install-lib >> "$out/log/make-$arch.log" 2>&1
-    fi
-    stamp "build-$arch" "$key"
+    "$make_tool" -C "$out/proton-deps" -f "$out/proton-wine.mk" -j1 \
+        "MAKE=$out/proton-tools/make" "overlay-wine-$arch" "OVERLAY_WINE_TARGETS=${targets[*]}" \
+        > "$out/log/make-$arch.log" 2>&1 || { tail -40 "$out/log/make-$arch.log" >&2; exit 1; }
 }
-build x86_64 --enable-win64 --enable-archs=x86_64 --with-ffmpeg
-PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig:/usr/share/pkgconfig \
-    build i386 --with-wine-tools="$out/obj-x86_64" --without-ffmpeg
+build x86_64
+build i386
 
 # --- overlay -----------------------------------------------------------------
 # The release's regular files (top directory stripped) and their sizes.
@@ -412,7 +376,7 @@ fi
     echo "wine=$(git -C "$repo" rev-parse "$rev:wine") staging=$(git -C "$repo" rev-parse "$rev:wine-staging")"
     echo "built=$(date -Is) gcc=$(gcc -dumpfullversion) mingw=$(x86_64-w64-mingw32-gcc -dumpfullversion) glibc_build=$(ldd --version | awk 'NR == 1 { print $NF }')"
     echo "build_dependencies=$build_dependencies"
-    echo "configure_flags=${common[*]}"
+    echo "configure_recipe_sha256=$(sha256sum "$out/proton-wine.mk" | cut -d' ' -f1)"
     echo "mode=$mode glibc_max=$glibc_max host_glibc=$HOST_GLIBC"
     echo '# changed sources'
     sed 's/^/  /' "$out/changed-sources.txt"

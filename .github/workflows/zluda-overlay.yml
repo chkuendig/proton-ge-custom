@@ -35,12 +35,12 @@ jobs:
           PART: ${{ matrix.part }}
         run: |
           set -euo pipefail
-          if [[ "$PART" == zluda ]]; then
-            git submodule update --init --recursive --filter=blob:none -- zluda
-            git -C zluda lfs pull
-          else
-            git submodule update --init --recursive --filter=blob:none -- nvcuda dxvk dxvk-nvapi protonfixes wine wine-staging
-          fi
+          read -r -a components <<< "$(python3 packaging/zluda-overlay/inputs.py checkout-paths "$GITHUB_WORKSPACE" --part "$PART")"
+          git submodule update --init --recursive --filter=blob:none -- "${components[@]}"
+          for component in "${components[@]}"; do
+            git -C "$component" lfs pull
+            git -C "$component" submodule foreach --recursive 'git lfs pull'
+          done
           python3 packaging/zluda-overlay/inputs.py check "$GITHUB_WORKSPACE" --part "$PART"
       - name: Static tests
         run: |

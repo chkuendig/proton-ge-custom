@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'packaging/zluda-overlay'))
 import inputs
 import overlay
+import wine_deps
 
 
 class PayloadManifest(unittest.TestCase):
@@ -160,7 +161,7 @@ class BootstrapFixtures(unittest.TestCase):
                 subprocess.run(['dpkg-deb', '--build', '--root-owner-group', str(package), str(archive)],
                                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 downloads.append({'id': name, 'group': 'rocm', 'url': 'https://fixture.invalid/' + archive.name,
-                                  'sha256': inputs.sha256(archive)})
+                                  'sha256': inputs.sha256(archive), 'usage': 'runtime', 'runtime_files': [library]})
                 runtime[library] = [f'lib{name}.so.1', f'lib{name}.so']
             env = {'BUILD_ROOT': str(root / 'missing/build'), 'DOWNLOAD_ROOT': str(cache),
                    'DESTDIR': str(root / 'missing/dest'), 'SDK_ROOT': str(root / 'missing/sdk/opt/rocm-7.2.4')}
@@ -179,6 +180,42 @@ class BootstrapFixtures(unittest.TestCase):
                                       'usr/share/doc' / name / 'copyright').read_text(), 'fixture license')
                 with self.assertRaisesRegex(ValueError, 'must be new'):
                     overlay.sdk()
+
+    @unittest.skipUnless(shutil.which('dpkg-deb'), 'dpkg-deb is required for the extraction fixture')
+    def test_build_only_missing_notices_allowed_and_runtime_missing_notices_refused(self):
+        for usage in ['build', 'runtime']:
+            with self.subTest(usage=usage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                package = root / 'input'
+                (package / 'DEBIAN').mkdir(parents=True)
+                (package / 'DEBIAN/control').write_text(
+                    'Package: fixture\nVersion: 1\nArchitecture: all\n'
+                    'Maintainer: Fixture <fixture@example.invalid>\nDescription: no notice fixture\n')
+                library = 'libfixture.so.1'
+                file = package / 'opt/rocm-7.2.4' / ('include/hip/header.h' if usage == 'build' else 'lib/' + library)
+                file.parent.mkdir(parents=True)
+                file.write_bytes(b'\x7fELFfixture')
+                cache = root / 'cache'
+                cache.mkdir()
+                archive = cache / 'fixture.deb'
+                subprocess.run(['dpkg-deb', '--build', '--root-owner-group', str(package), str(archive)],
+                               check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                item = {'id': 'fixture', 'group': 'rocm', 'url': 'https://fixture.invalid/fixture.deb',
+                        'sha256': inputs.sha256(archive), 'usage': usage,
+                        'runtime_files': [] if usage == 'build' else [library]}
+                lock = {'downloads': [item], 'rocm_runtime': {} if usage == 'build' else {library: []}}
+                env = {name: str(root / path) for name, path in
+                       [('BUILD_ROOT', 'build'), ('DOWNLOAD_ROOT', 'cache'), ('DESTDIR', 'dest'), ('SDK_ROOT', 'sdk')]}
+                with mock.patch.dict(os.environ, env), mock.patch.object(overlay, 'LOCK', lock):
+                    if usage == 'runtime':
+                        with self.assertRaisesRegex(ValueError, 'no license/copyright notices'):
+                            overlay.sdk()
+                    else:
+                        overlay.sdk()
+                        record = json.loads((root / 'dest/provenance/ROCM-PACKAGES.json').read_text())[0]
+                        self.assertEqual(record['usage'], 'build')
+                        self.assertEqual(record['sha256'], item['sha256'])
+                        self.assertEqual(record['notices'], [])
 
     def test_wine_preflight_uses_pins_without_release_tags(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -228,6 +265,78 @@ class BootstrapFixtures(unittest.TestCase):
             result = subprocess.run(['bash', '-c', script], env=env,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             self.assertNotEqual(result.returncode, 0)
+
+
+class WinePrerequisites(unittest.TestCase):
+    def test_recursive_build_tools_cap_jobs_and_preserve_jobserver(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            build = Path(temporary)
+            fake = build / 'fake-tool'
+            fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+            fake.chmod(0o755)
+            wine_deps.write_tools(build, fake, fake, 3)
+            for name in ['make', 'ninja']:
+                subprocess.run(['bash', '-n', str(build / 'proton-tools' / name)], check=True)
+                result = subprocess.check_output([str(build / 'proton-tools' / name), 'target'],
+                                                 env=dict(os.environ, MAKEFLAGS=''), text=True)
+                self.assertEqual(result.splitlines(), ['-j3', 'target'])
+            result = subprocess.check_output([str(build / 'proton-tools/make'), 'target'],
+                                             env=dict(os.environ, MAKEFLAGS=' -j --jobserver-auth=3,4'), text=True)
+            self.assertEqual(result.splitlines(), ['target'])
+            with self.assertRaisesRegex(ValueError, '1..3'):
+                wine_deps.write_tools(build, fake, fake, 4)
+
+    def test_dependency_policy_and_recursive_source_pins_match_makefile(self):
+        wine_deps.validate((ROOT / 'Makefile.in').read_text())
+        for path in wine_deps.POLICY['sources'].values():
+            self.assertIn(path, inputs.components_for_part('bridges'))
+            self.assertEqual(inputs.LOCK['components'][path], inputs.git(ROOT, 'rev-parse', 'HEAD:' + path))
+        text = (ROOT / 'Makefile.in').read_text().replace('WINE_DEPENDS = ffmpeg', 'WINE_DEPENDS = another ffmpeg')
+        with self.assertRaisesRegex(ValueError, 'prerequisite policy differs'):
+            wine_deps.validate(text)
+
+    def test_generated_makefile_preserves_ge_flags_and_recipes(self):
+        original = (ROOT / 'Makefile.in').read_text()
+        with tempfile.TemporaryDirectory() as temporary:
+            generated = wine_deps.generate(ROOT, Path(temporary) / 'wine')
+            text = generated.read_text()
+            for name in ['WINE_AUTOCONF_ARGS', 'WINE_i386_AUTOCONF_ARGS', 'WINE_x86_64_AUTOCONF_ARGS']:
+                self.assertEqual(wine_deps.assignments(text)[name], wine_deps.assignments(original)[name])
+            self.assertIn('--enable-werror', text)
+            self.assertIn('--with-wayland', text)
+            self.assertIn('--with-ffmpeg', text)
+            self.assertNotIn('$(call rules-source,wine,', text)
+            self.assertNotIn('$(call rules-wine-requests,wine)', text)
+            self.assertIn(f'override WINE_ORIGIN := {generated.parent / "src/wine"}', text)
+            self.assertNotIn('$(call rules-source,dxvk,', text)
+            for name in wine_deps.POLICY['sources']:
+                self.assertIn('$(call rules-source,' + name + ',', text)
+            self.assertIn('$(call rules-meson,wayland-protocols,x86_64,unix)', text)
+            self.assertIn('$(call rules-meson,wayland-protocols,i386,unix)', text)
+            self.assertIn('$(WAYLAND_PROTOCOLS_x86_64_DST)/share/pkgconfig', text)
+            self.assertIn('$(WAYLAND_PROTOCOLS_i386_DST)/share/pkgconfig', text)
+
+    @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required for environment inspection')
+    def test_make_expands_native_and_32bit_dependency_environments(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated = wine_deps.generate(ROOT, Path(temporary) / 'wine')
+            with generated.open('a') as out:
+                for arch in ['x86_64', 'i386']:
+                    out.write(f'$(info INSPECT_{arch}=$(WINE_{arch}_ENV) $(WINE_AUTOCONF_ARGS) $(WINE_{arch}_AUTOCONF_ARGS))\n')
+            # Disable every shell-side parse action and source syncing: this
+            # inspects expanded make variables only, never a compiler or build.
+            result = subprocess.run([os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make'),
+                                     '-C', str(generated.parent / 'proton-deps'), '-f', str(generated),
+                                     '-n', 'overlay-inspect', 'rules-source=', 'HOST_ARCH=x86_64', 'SHELL=/bin/true'],
+                                    check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for arch, triplet in [('x86_64', 'x86_64-linux-gnu'), ('i386', 'i386-linux-gnu')]:
+                line = next(line for line in result.stdout.splitlines() if line.startswith('INSPECT_' + arch + '='))
+                self.assertIn('dst-libxkbcommon-' + arch + '/include', line)
+                self.assertIn('dst-wayland-protocols-' + arch + '/share/pkgconfig', line)
+                self.assertIn('/usr/lib/' + triplet + '/pkgconfig', line)
+                self.assertIn('--with-wayland', line)
+                self.assertIn('--with-ffmpeg', line)
+                self.assertIn('--with-mingw=gcc', line)
 
 
 class AssemblyFixture(unittest.TestCase):

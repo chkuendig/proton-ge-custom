@@ -107,13 +107,17 @@ def check_tree(root):
         check_tree(child)
 
 
+def components_for_part(part):
+    if part == 'all':
+        return list(dict.fromkeys(LOCK['build_parts']['zluda'] + LOCK['build_parts']['bridges']))
+    return LOCK['build_parts'][part]
+
+
 def check_sources(root, part):
     git(root, 'merge-base', '--is-ancestor', LOCK['proton_base'], 'HEAD')
     if git(root, 'status', '--porcelain', '--untracked-files=no', '--ignore-submodules=all'):
         raise ValueError('dirty Proton checkout')
-    names = ['zluda'] if part == 'zluda' else ['nvcuda', 'dxvk', 'dxvk-nvapi', 'wine', 'wine-staging', 'protonfixes']
-    if part == 'all':
-        names += ['zluda']
+    names = components_for_part(part)
     for name in names:
         child = root / name
         expected = git(root, 'rev-parse', 'HEAD:' + name)
@@ -203,7 +207,7 @@ def verify_manifest(root):
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'manifest', 'verify', 'wine-base'])
+    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'manifest', 'verify', 'wine-base', 'checkout-paths'])
     parser.add_argument('directory', type=Path)
     parser.add_argument('--part', choices=['all', 'zluda', 'bridges'], default='all')
     parser.add_argument('--group', choices=['all', 'zluda', 'bridges', 'ge'], default='all')
@@ -212,6 +216,8 @@ def main():
         check_sources(args.directory, args.part)
     elif args.command == 'wine-base':
         print(*wine_base(args.directory))
+    elif args.command == 'checkout-paths':
+        print(*components_for_part(args.part))
     elif args.command == 'manifest':
         manifest(args.directory)
     elif args.command == 'verify':

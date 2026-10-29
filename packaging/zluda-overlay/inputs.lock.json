@@ -18,7 +18,23 @@
     "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
     "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
     "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
-    "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300"
+    "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300",
+    "ffmpeg": "9047fa1b084f76b1b4d065af2d743df1b40dfb56",
+    "openfst": "18e94e63870ebcf79ebb42b7035cd3cb626ec090",
+    "kaldi": "a25f216f5ce4eec5e45a6ab7651e20c9840a05cd",
+    "vosk-api": "12f29a3415e4967e088ed09202bfb0007e5a1787",
+    "libxml2": "b7fa62cbe8ef0df5869e000d5b690bdedd07f33e",
+    "libxkbcommon": "dd642359f8d43c09968e34ca7f1eb1121b2dfd70",
+    "libpcap": "792b4c95e5f10468e846a3d638349ce5a5ddf928",
+    "vkd3d": "84a77b438f0b7a45441db20d390a240a8580f3bc",
+    "piper": "9d06b74959570772e8bcbe7a3f696664d2421167",
+    "OpenXR-SDK": "8899a91c17ce9618f565f42408b47db1d6e9ccc7",
+    "wayland-protocols": "810f1adaf33521cc55fc510566efba2a1418174f",
+    "bzip2": "6a8690fc8d26c815e798c588f796eabe9d684cf0",
+    "dav1d": "b546257f770768b2c88258c533da38b91a06f737",
+    "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
+    "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
+    "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -52,7 +68,11 @@
       "version": "3.0.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/c/comgr/comgr_3.0.0.70204-93~24.04_amd64.deb",
       "sha256": "02951341120d23ebf34b066a84ab172e4813cba4a601f910545c6658989bee87",
-      "size": 58023494
+      "size": 58023494,
+      "usage": "runtime",
+      "runtime_files": [
+        "libamd_comgr.so.3.0.0"
+      ]
     },
     {
       "id": "hip-dev",
@@ -60,7 +80,9 @@
       "version": "7.2.53211.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-dev/hip-dev_7.2.53211.70204-93~24.04_amd64.deb",
       "sha256": "1fd68b7e90c17d201563f9cd4eae536bd2cf089fad026181770be2750d552376",
-      "size": 372772
+      "size": 372772,
+      "usage": "build",
+      "runtime_files": []
     },
     {
       "id": "hip-runtime-amd",
@@ -68,7 +90,13 @@
       "version": "7.2.53211.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-runtime-amd/hip-runtime-amd_7.2.53211.70204-93~24.04_amd64.deb",
       "sha256": "70961d0f79708148a54f23bdde2ebab5c389d5ab4373170d8df94f3e54d87a0b",
-      "size": 13391130
+      "size": 13391130,
+      "usage": "runtime",
+      "runtime_files": [
+        "libamdhip64.so.7.2.70204",
+        "libhiprtc-builtins.so.7.2.70204",
+        "libhiprtc.so.7.2.70204"
+      ]
     },
     {
       "id": "hsa-rocr",
@@ -76,7 +104,11 @@
       "version": "1.18.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr/hsa-rocr_1.18.0.70204-93~24.04_amd64.deb",
       "sha256": "6af02a99d15efbf21ba0e20a333aac32e2d712aa4b325dd0617842f4cde64ab4",
-      "size": 1661210
+      "size": 1661210,
+      "usage": "runtime",
+      "runtime_files": [
+        "libhsa-runtime64.so.1.18.70204"
+      ]
     },
     {
       "id": "hsa-rocr-dev",
@@ -84,7 +116,9 @@
       "version": "1.18.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr-dev/hsa-rocr-dev_1.18.0.70204-93~24.04_amd64.deb",
       "sha256": "dec6c34a06b888fe2f1717647817a00bc7d09e00089f5b97358697032362a7db",
-      "size": 139482
+      "size": 139482,
+      "usage": "build",
+      "runtime_files": []
     },
     {
       "id": "rocm-core",
@@ -92,7 +126,11 @@
       "version": "7.2.4.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocm-core/rocm-core_7.2.4.70204-93~24.04_amd64.deb",
       "sha256": "dfe0d173da998a669921faf08351a01add377cd4d1b471865f921a03484974b6",
-      "size": 32692
+      "size": 32692,
+      "usage": "runtime",
+      "runtime_files": [
+        "librocm-core.so.1.0.70204"
+      ]
     },
     {
       "id": "rocprofiler-register",
@@ -100,7 +138,11 @@
       "version": "0.6.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocprofiler-register/rocprofiler-register_0.6.0.70204-93~24.04_amd64.deb",
       "sha256": "3b13874e567fa40b6eaf9f8d572d5c9a4ac780eb37496b31565755463a378295",
-      "size": 242888
+      "size": 242888,
+      "usage": "runtime",
+      "runtime_files": [
+        "librocprofiler-register.so.0.6.0"
+      ]
     },
     {
       "id": "numactl",
@@ -154,6 +196,51 @@
     "protonfixes": "https://github.com/chkuendig/umu-protonfixes",
     "wine": "https://github.com/ValveSoftware/wine",
     "wine-staging": "https://github.com/wine-staging/wine-staging",
-    "llvm": "https://github.com/chkuendig/llvm-project"
+    "llvm": "https://github.com/chkuendig/llvm-project",
+    "ffmpeg": "https://github.com/FFmpeg/FFmpeg",
+    "openfst": "https://github.com/alphacep/openfst",
+    "kaldi": "https://github.com/alphacep/kaldi",
+    "vosk-api": "https://github.com/alphacep/vosk-api",
+    "libxml2": "https://gitlab.gnome.org/GNOME/libxml2.git",
+    "libxkbcommon": "https://github.com/xkbcommon/libxkbcommon.git",
+    "libpcap": "https://github.com/the-tcpdump-group/libpcap.git",
+    "vkd3d": "https://gitlab.winehq.org/wine/vkd3d",
+    "piper": "https://github.com/shaunren/piper.git",
+    "OpenXR-SDK": "https://github.com/KhronosGroup/OpenXR-SDK",
+    "wayland-protocols": "https://gitlab.freedesktop.org/wayland/wayland-protocols.git",
+    "bzip2": "https://sourceware.org/git/bzip2.git",
+    "dav1d": "https://github.com/videolan/dav1d.git",
+    "xz": "https://github.com/tukaani-project/xz.git",
+    "Vulkan-Headers": "https://github.com/KhronosGroup/Vulkan-Headers",
+    "SPIRV-Headers": "https://github.com/KhronosGroup/SPIRV-Headers"
+  },
+  "build_parts": {
+    "zluda": [
+      "zluda"
+    ],
+    "bridges": [
+      "nvcuda",
+      "dxvk",
+      "dxvk-nvapi",
+      "protonfixes",
+      "wine",
+      "wine-staging",
+      "ffmpeg",
+      "openfst",
+      "kaldi",
+      "vosk-api",
+      "libxml2",
+      "libxkbcommon",
+      "libpcap",
+      "vkd3d",
+      "piper",
+      "OpenXR-SDK",
+      "wayland-protocols",
+      "bzip2",
+      "dav1d",
+      "xz",
+      "Vulkan-Headers",
+      "SPIRV-Headers"
+    ]
   }
 }
