@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "proton_base": "e4dcac96c1d482aa20b2649de323e30366c0695c",
+  "ge_source": "c191f35dcebbeccfacd3b4c6f6eea026e588c1c2",
+  "tool_name": "GE-Proton11-7-zluda",
+  "architecture": "x86_64 + i386 PE (WoW64), no i386 ROCm",
+  "sdk_image": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1",
+  "rust_version": "1.99.0",
+  "llvm": "107e2bfaf44d07e70050da61ab0655b297c0dd4a",
+  "rocm_index": {
+    "url": "https://repo.radeon.com/rocm/apt/7.2.4/dists/noble/main/binary-amd64/Packages.gz",
+    "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
+  },
+  "components": {
+    "zluda": "c60462dc06e9e4b4c3185464919eff5908e763e6",
+    "nvcuda": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
+    "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+    "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
+    "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
+    "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300"
+  },
+  "lfs": {
+    "llvm_zluda/src/device-libs/ockl.bc": {
+      "sha256": "cf32a60cb9369f4869f822db0a4307a9a9f54315f5a7b8e74235760867d1e52a",
+      "size": 266372
+    },
+    "ptx/lib/zluda_ptx_impl.bc": {
+      "sha256": "6a044b905bdd292276012e4d6b97de5fda8671dbe14634c83bfe3bc525b15b7c",
+      "size": 85756
+    },
+    "ptx/lib/zluda_ptx_impl_constrained.bc": {
+      "sha256": "21c24eb2e5004182a06d156ade82801486cb05c73c0a29ee7174034cd92890cd",
+      "size": 93444
+    },
+    "zluda/bin/nvcudart_hybrid64.dll": {
+      "sha256": "bf430d65b863c49bab525001a0712992d17f52f4b5a205536160a337cf8b22b3",
+      "size": 1066704
+    }
+  },
+  "downloads": [
+    {
+      "id": "ge",
+      "url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton11-7/GE-Proton11-7-x86_64.tar.gz",
+      "sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0",
+      "size": 563784602,
+      "digest_url": "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/389598048"
+    },
+    {
+      "id": "comgr",
+      "group": "rocm",
+      "version": "3.0.0.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/c/comgr/comgr_3.0.0.70204-93~24.04_amd64.deb",
+      "sha256": "02951341120d23ebf34b066a84ab172e4813cba4a601f910545c6658989bee87",
+      "size": 58023494
+    },
+    {
+      "id": "hip-dev",
+      "group": "rocm",
+      "version": "7.2.53211.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-dev/hip-dev_7.2.53211.70204-93~24.04_amd64.deb",
+      "sha256": "1fd68b7e90c17d201563f9cd4eae536bd2cf089fad026181770be2750d552376",
+      "size": 372772
+    },
+    {
+      "id": "hip-runtime-amd",
+      "group": "rocm",
+      "version": "7.2.53211.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-runtime-amd/hip-runtime-amd_7.2.53211.70204-93~24.04_amd64.deb",
+      "sha256": "70961d0f79708148a54f23bdde2ebab5c389d5ab4373170d8df94f3e54d87a0b",
+      "size": 13391130
+    },
+    {
+      "id": "hsa-rocr",
+      "group": "rocm",
+      "version": "1.18.0.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr/hsa-rocr_1.18.0.70204-93~24.04_amd64.deb",
+      "sha256": "6af02a99d15efbf21ba0e20a333aac32e2d712aa4b325dd0617842f4cde64ab4",
+      "size": 1661210
+    },
+    {
+      "id": "hsa-rocr-dev",
+      "group": "rocm",
+      "version": "1.18.0.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr-dev/hsa-rocr-dev_1.18.0.70204-93~24.04_amd64.deb",
+      "sha256": "dec6c34a06b888fe2f1717647817a00bc7d09e00089f5b97358697032362a7db",
+      "size": 139482
+    },
+    {
+      "id": "rocm-core",
+      "group": "rocm",
+      "version": "7.2.4.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocm-core/rocm-core_7.2.4.70204-93~24.04_amd64.deb",
+      "sha256": "dfe0d173da998a669921faf08351a01add377cd4d1b471865f921a03484974b6",
+      "size": 32692
+    },
+    {
+      "id": "rocprofiler-register",
+      "group": "rocm",
+      "version": "0.6.0.70204-93~24.04",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocprofiler-register/rocprofiler-register_0.6.0.70204-93~24.04_amd64.deb",
+      "sha256": "3b13874e567fa40b6eaf9f8d572d5c9a4ac780eb37496b31565755463a378295",
+      "size": 242888
+    },
+    {
+      "id": "numactl",
+      "url": "https://codeload.github.com/numactl/numactl/tar.gz/refs/tags/v2.0.18",
+      "sha256": "8cd6c13f3096e9c2293c1d732f56e2aa37a7ada1a98deed3fac7bd6da1aaaaf6",
+      "filename": "numactl-2.0.18.tar.gz",
+      "size": 218289
+    },
+    {
+      "id": "rust",
+      "url": "https://static.rust-lang.org/dist/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz",
+      "sha256": "891c6366d7100feda0bca4c03ce63f3c9ac827cbebbc283e7433061d42c6a376"
+    }
+  ],
+  "cargo_lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
+  "rocm_runtime": {
+    "libamd_comgr.so.3.0.0": [
+      "libamd_comgr.so.3",
+      "libamd_comgr.so"
+    ],
+    "libamdhip64.so.7.2.70204": [
+      "libamdhip64.so.7",
+      "libamdhip64.so"
+    ],
+    "libhiprtc-builtins.so.7.2.70204": [
+      "libhiprtc-builtins.so.7",
+      "libhiprtc-builtins.so"
+    ],
+    "libhiprtc.so.7.2.70204": [
+      "libhiprtc.so.7",
+      "libhiprtc.so"
+    ],
+    "libhsa-runtime64.so.1.18.70204": [
+      "libhsa-runtime64.so.1",
+      "libhsa-runtime64.so"
+    ],
+    "librocm-core.so.1.0.70204": [
+      "librocm-core.so.1",
+      "librocm-core.so"
+    ],
+    "librocprofiler-register.so.0.6.0": [
+      "librocprofiler-register.so.0",
+      "librocprofiler-register.so"
+    ]
+  },
+  "source_repositories": {
+    "zluda": "https://github.com/chkuendig/ZLUDA",
+    "nvcuda": "https://github.com/chkuendig/nvcuda",
+    "dxvk": "https://github.com/doitsujin/dxvk.git",
+    "dxvk-nvapi": "https://github.com/chkuendig/dxvk-nvapi",
+    "protonfixes": "https://github.com/chkuendig/umu-protonfixes",
+    "wine": "https://github.com/ValveSoftware/wine",
+    "wine-staging": "https://github.com/wine-staging/wine-staging",
+    "llvm": "https://github.com/chkuendig/llvm-project"
+  }
+}

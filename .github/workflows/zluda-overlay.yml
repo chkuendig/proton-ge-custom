@@ -1,0 +1,165 @@
+name: ZLUDA overlay (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zluda-overlay-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SDK_IMAGE: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
+
+jobs:
+  components:
+    name: Build ${{ matrix.part }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [zluda, bridges]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+          submodules: false
+          lfs: true
+      - name: Checkout recursive component pins with LFS
+        env:
+          PART: ${{ matrix.part }}
+        run: |
+          set -euo pipefail
+          if [[ "$PART" == zluda ]]; then
+            git submodule update --init --recursive --filter=blob:none -- zluda
+            git -C zluda lfs pull
+          else
+            git submodule update --init --recursive --filter=blob:none -- nvcuda dxvk dxvk-nvapi protonfixes wine wine-staging
+          fi
+          python3 packaging/zluda-overlay/inputs.py check "$GITHUB_WORKSPACE" --part "$PART"
+      - name: Static tests
+        run: |
+          python3 -m unittest discover -s tests
+          for script in packaging/zluda-overlay/*.sh; do bash -n "$script"; done
+      - name: Make room on the ephemeral GitHub runner
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo mkdir -p /work
+          sudo chown "$USER:$USER" /work
+          df -h / /work
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: matrix.part == 'zluda'
+        with:
+          path: /work/ccache
+          key: llvm-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('packaging/zluda-overlay/build-components.sh', 'zluda/llvm_zluda/build.rs') }}
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: matrix.part == 'zluda'
+        with:
+          path: |
+            /work/cargo/registry
+            /work/cargo/git
+          key: cargo-linux-1.99.0-${{ hashFiles('zluda/Cargo.lock') }}
+      - name: Build in the locked Steam Runtime SDK
+        env:
+          PART: ${{ matrix.part }}
+        run: |
+          set -euo pipefail
+          mkdir -p /work/logs
+          docker pull "$SDK_IMAGE" 2>&1 | tee /work/logs/image.log
+          # CI is the only container launch site. On parklife this requires
+          # separate coordinator clearance, including any attempted dry run.
+          docker run --rm --init --cpus=3 --memory=10g \
+            -v "$GITHUB_WORKSPACE:/src" -v /work:/work \
+            -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build \
+            -e SDK_ROOT=/work/sdk/opt/rocm-7.2.4 -e DOWNLOAD_ROOT=/work/downloads \
+            -e WINE_SDK_ROOT=/work/wine-sdk -e DESTDIR=/work/overlay \
+            -e BUILD_PART="$PART" -e JOBS=3 -e CARGO_HOME=/work/cargo \
+            -e CCACHE_DIR=/work/ccache -e CCACHE_BASEDIR=/src \
+            "$SDK_IMAGE" bash /src/packaging/zluda-overlay/ci-build.sh \
+            2>&1 | tee /work/logs/build.log
+      - name: Preserve caches with runner ownership
+        if: always() && matrix.part == 'zluda'
+        run: sudo chown -R "$USER:$USER" /work/cargo /work/ccache 2>/dev/null || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: overlay-${{ matrix.part }}
+          path: |
+            /work/${{ matrix.part }}.tar.gz
+            /work/${{ matrix.part }}.MANIFEST
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Upload build and Wine logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: logs-${{ matrix.part }}
+          path: |
+            /work/logs
+            /work/build/wine/log
+            /work/build/wine/changed-sources.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  assemble:
+    needs: components
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Make room for archive assembly and SDK checks
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          df -h /
+          [[ $(df -B1 --output=avail "$RUNNER_TEMP" | tail -1) -ge 20000000000 ]]
+      - name: Checkout pinned protonfixes
+        run: git submodule update --init --recursive -- protonfixes
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: overlay-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/overlays
+      - name: Assemble GE plus verified overlays
+        env:
+          SOURCE_ROOT: ${{ github.workspace }}
+          BUILD_ROOT: ${{ runner.temp }}/assembly
+          DOWNLOAD_ROOT: ${{ runner.temp }}/downloads
+          DESTDIR: ${{ runner.temp }}/GE-Proton11-7-zluda
+          OVERLAYS_ROOT: ${{ runner.temp }}/overlays
+          OUTPUT_ROOT: ${{ runner.temp }}/release
+        run: |
+          set -euo pipefail
+          mkdir -p "$BUILD_ROOT"
+          bash packaging/zluda-overlay/assemble.sh 2>&1 | tee "$RUNNER_TEMP/assembly.log"
+      - name: Check ELF dependency closure in the pinned SDK
+        run: |
+          set -euo pipefail
+          docker pull "$SDK_IMAGE"
+          docker run --rm --init --cpus=3 --memory=6g \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
+            -e DESTDIR=/tool "$SDK_IMAGE" bash /src/packaging/zluda-overlay/check-loader.sh \
+            2>&1 | tee "$RUNNER_TEMP/loader.log"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: GE-Proton11-7-zluda
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: logs-assembly
+          path: |
+            ${{ runner.temp }}/assembly.log
+            ${{ runner.temp }}/loader.log
+          retention-days: 14
