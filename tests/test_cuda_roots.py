@@ -199,13 +199,13 @@ class CudaRoots(unittest.TestCase):
               'g_compatdata': SimpleNamespace(setup_prefix=lambda: calls.append(set(session.compat_config))),
               'sys': SimpleNamespace(argv=['proton', 'run'])}
         exec(compile(textwrap.dedent(text[start:end]), 'late-nvapi-block', 'exec'), ns)
-        self.assertIn('forcenvapi', calls[0])
-        self.assertEqual(session.env['DXVK_ENABLE_NVAPI'], '1')
-        self.assertIn('nvapi=n', session.env['WINEDLLOVERRIDES'])
+        self.assertEqual(calls, [])
+        self.assertNotIn('DXVK_ENABLE_NVAPI', session.env)
+        self.assertNotIn('WINEDLLOVERRIDES', session.env)
         session.env['PROTON_FORCE_NVAPI'] = '0'
         exec(compile(textwrap.dedent(text[start:end]), 'late-nvapi-block', 'exec'), ns)
-        self.assertEqual(session.env['DXVK_ENABLE_NVAPI'], '0')
-        self.assertEqual(len(calls), 2)
+        self.assertNotIn('DXVK_ENABLE_NVAPI', session.env)
+        self.assertEqual(calls, [])
 
     def test_zluda_on_implies_nvapi_without_an_extra_user_switch(self):
         for config in [set(), {'disablenvapi'}, {'disablenvapi', 'hidenvgpu', 'wow64'}]:
@@ -240,3 +240,79 @@ class CudaRoots(unittest.TestCase):
         self.assertEqual(calls, [True])
         self.assertIn('nvapi=n', session.env['WINEDLLOVERRIDES'])
         self.assertNotIn('WINE_HIDE_NVIDIA_GPU', session.env)
+
+
+class GeOffNvapiEquivalence(unittest.TestCase):
+    def test_off_matches_green_launcher_including_late_gamefix_force(self):
+        import itertools
+        import textwrap
+        fixture = json.loads((ROOT / 'tests/fixtures/ge-nvapi-policy.json').read_text())
+        tree = ast.parse((ROOT / 'proton').read_text())
+        session_class = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Session')
+        init = next(n for n in session_class.body if isinstance(n, ast.FunctionDef) and n.name == 'init_session')
+        setup = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == 'setup_prefix')
+        def source(nodes):
+            return '\n'.join(ast.unparse(n) for n in nodes)
+        flags = [n for n in init.body if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
+                 and isinstance(n.value.func, ast.Attribute) and n.value.func.attr == 'check_environment'
+                 and n.value.args and isinstance(n.value.args[0], ast.Constant)
+                 and n.value.args[0].value in ('PROTON_DISABLE_NVAPI', 'PROTON_FORCE_NVAPI')]
+        hide = [n for n in init.body if isinstance(n, ast.If) and ast.unparse(n.test).startswith("'hidenvgpu' in")]
+        env = [n for n in init.body if isinstance(n, ast.If) and (
+               ast.unparse(n.test).startswith("'vkreflex' in") or
+               ast.unparse(n.test).startswith("'disablenvapi' not in") or
+               ast.unparse(n.test) == "'forcenvapi' in self.compat_config")]
+        prefix = [n for n in ast.walk(setup) if isinstance(n, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == 'use_nvapi' for t in n.targets)]
+        copies = [n for n in ast.walk(setup) if isinstance(n, ast.If) and isinstance(n.test, ast.Name)
+                  and n.test.id == 'use_nvapi']
+        current = dict(flags=source(flags), hide=source(hide), env=source(env),
+                       prefix=source(prefix), copy=source(copies))
+        self.assertTrue(all(current.values()))
+        policies = [{k: compile(p[k], fixture['source'] if p is fixture else 'current', 'exec')
+                     for k in current} for p in (fixture, current)]
+        text = (ROOT / 'proton').read_text()
+        start = text.index('    from proton_zluda import dll_override, nvapi_enabled, prepare_nvapi')
+        late = compile(textwrap.dedent(text[start:text.index('    g_compatdata.setup_ddraw(', start)]),
+                       'current-late-nvapi', 'exec')
+        for disabled, forced, hidden, wow64, libs, late_force, arch in itertools.product(
+                [None, '0', '1'], [None, '0', '1'], [False, True], [False, True], [False, True],
+                [None, '0', '1'], ['x86_64-windows', 'aarch64-windows']):
+            results = []
+            for index, program in enumerate(policies):
+                config = {flag for flag, value in [('hidenvgpu', hidden), ('wow64', wow64),
+                           ('nvidialibs', libs)] if value}
+                env = {'PROTON_ENABLE_ZLUDA': '0', 'WINEDLLOVERRIDES': 'user=n',
+                       'WINE_HIDE_NVIDIA_GPU': 'user', 'DXVK_ENABLE_NVAPI': 'user'}
+                for key, value in [('PROTON_DISABLE_NVAPI', disabled), ('PROTON_FORCE_NVAPI', forced)]:
+                    if value is not None:
+                        env[key] = value
+                session = SimpleNamespace(env=env, compat_config=config, dlloverrides={})
+                def check_environment(key, flag):
+                    if key in env:
+                        config.add(flag) if env[key] not in ('', '0') else config.discard(flag)
+                session.check_environment = check_environment
+                operations = []
+                ns = {'self': session, 'g_session': session, 'nvapi_path': 'nvapi/', 'tracked_files': None,
+                      'g_proton': SimpleNamespace(host_pe_arch=arch, dist_dir='/tool/files/',
+                           arch_pe_dir=lambda path, x86: '/tool/' + path + ('i386/' if x86 else 'x86_64/')),
+                      'utilities': SimpleNamespace(is_driver_loaded=lambda drivers: False),
+                      'try_copy': lambda src, dst, **kw: operations.append(('copy', src, dst)),
+                      'file_exists': lambda *a, **kw: True,
+                      'os': SimpleNamespace(unlink=lambda path: operations.append(('unlink', path))),
+                      'g_compatdata': SimpleNamespace(setup_prefix=lambda: operations.append(('resync',))),
+                      'sys': SimpleNamespace(argv=['proton', 'run']), 'nvapi_enabled': policy.nvapi_enabled}
+                session.prefix_dir = '/compat/pfx/'
+                if index:
+                    policy.prepare_nvapi(env, config)  # the added early hook is also a no-op off
+                for section in ('flags', 'hide', 'env', 'prefix', 'copy'):
+                    exec(program[section], ns)
+                if late_force is not None:
+                    env['PROTON_FORCE_NVAPI'] = late_force
+                if index:
+                    exec(late, ns)
+                # CUDA override ownership deliberately moved to root selection;
+                # compare every NVAPI override, copy/removal and environment value.
+                session.dlloverrides.pop('nvcuda', None)
+                results.append((env, config, session.dlloverrides, operations))
+            self.assertEqual(*results, msg=str((disabled, forced, hidden, wow64, libs, late_force, arch)))

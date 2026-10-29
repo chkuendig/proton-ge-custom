@@ -2904,23 +2904,24 @@ if __name__ == "__main__":
     protonfixes.execute()
 
     from proton_zluda import dll_override, nvapi_enabled, prepare_nvapi
-    old_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
-    prepare_nvapi(g_session.env, g_session.compat_config)
-    if g_session.env.get("PROTON_ENABLE_ZLUDA") == "1" and getattr(g_session, "_cuda_hide_written", False):
-        if g_session._cuda_previous_nvidia_hide is None:
-            g_session.env.pop("WINE_HIDE_NVIDIA_GPU", None)
-        else:
-            g_session.env["WINE_HIDE_NVIDIA_GPU"] = g_session._cuda_previous_nvidia_hide
-    g_session.check_environment("PROTON_DISABLE_NVAPI", "disablenvapi")
-    g_session.check_environment("PROTON_FORCE_NVAPI", "forcenvapi")
-    new_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
-    if old_nvapi != new_nvapi and sys.argv[1] != "runinprefix":
-        g_compatdata.setup_prefix()
-    if new_nvapi:
-        for module in ["nvapi", "nvapi64", "nvofapi64"]:
-            g_session.env["WINEDLLOVERRIDES"] = dll_override(
-                    g_session.env.get("WINEDLLOVERRIDES", ""), module, "n")
-    g_session.env["DXVK_ENABLE_NVAPI"] = "1" if new_nvapi else "0"
+    if g_session.env.get("PROTON_ENABLE_ZLUDA") == "1":
+        old_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
+        prepare_nvapi(g_session.env, g_session.compat_config)
+        if g_session.env.get("PROTON_ENABLE_ZLUDA") == "1" and getattr(g_session, "_cuda_hide_written", False):
+            if g_session._cuda_previous_nvidia_hide is None:
+                g_session.env.pop("WINE_HIDE_NVIDIA_GPU", None)
+            else:
+                g_session.env["WINE_HIDE_NVIDIA_GPU"] = g_session._cuda_previous_nvidia_hide
+        g_session.check_environment("PROTON_DISABLE_NVAPI", "disablenvapi")
+        g_session.check_environment("PROTON_FORCE_NVAPI", "forcenvapi")
+        new_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
+        if old_nvapi != new_nvapi and sys.argv[1] != "runinprefix":
+            g_compatdata.setup_prefix()
+        if new_nvapi:
+            for module in ["nvapi", "nvapi64", "nvofapi64"]:
+                g_session.env["WINEDLLOVERRIDES"] = dll_override(
+                        g_session.env.get("WINEDLLOVERRIDES", ""), module, "n")
+        g_session.env["DXVK_ENABLE_NVAPI"] = "1" if new_nvapi else "0"
 
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
