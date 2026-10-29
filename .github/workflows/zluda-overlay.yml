@@ -144,6 +144,7 @@ jobs:
             /work/build/wine/changed-sources.txt
             /work/build/log
             /work/build/zluda-wine/artifacts
+            /work/build/zluda-wine/*-native-libs.log
             /work/build/zluda-wine-draft/artifacts
             /work/build/zluda-wine-draft/x86_64-native-libs.log
             /work/overlay/provenance/ZLUDA-WINE.json

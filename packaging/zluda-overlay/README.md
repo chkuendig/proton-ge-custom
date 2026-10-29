@@ -271,5 +271,9 @@ validator still requires all three modules, 788/690 exports and both tables.
 
 Draft mode does not build the native CUDA/LLVM backend, generate an overlay
 tarball, install modules into a tool or run the assembly job. Default dispatch
-`profile=overlay` retains that full three-module path; with this incomplete
-source it is expected to fail rather than ship a pilot or C fallback.
+`profile=overlay` retains the full three-module path. The pinned WoW64 draft
+now supplies both PE frontends, all 59 bounded operations and both ELF tables.
+Its 13 native CPU tests include original-C dispatcher comparisons; actual
+PE32/PE64 compilation/loading and Wine/GPU/private-table/callback parity remain
+pending. The package gate rejects missing or partial output without a C fallback;
+passing compilation/assembly alone does not qualify adoption.
