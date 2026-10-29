@@ -12,8 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "c60462dc06e9e4b4c3185464919eff5908e763e6",
-    "nvcuda": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "zluda": "982c24bcbf0529e3863f4e59c8a8eb977f52c23b",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
     "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
@@ -190,7 +189,6 @@
   },
   "source_repositories": {
     "zluda": "https://github.com/chkuendig/ZLUDA",
-    "nvcuda": "https://github.com/chkuendig/nvcuda",
     "dxvk": "https://github.com/doitsujin/dxvk.git",
     "dxvk-nvapi": "https://github.com/chkuendig/dxvk-nvapi",
     "protonfixes": "https://github.com/chkuendig/umu-protonfixes",
@@ -219,7 +217,7 @@
       "zluda"
     ],
     "bridges": [
-      "nvcuda",
+      "zluda",
       "dxvk",
       "dxvk-nvapi",
       "protonfixes",
@@ -242,5 +240,11 @@
       "Vulkan-Headers",
       "SPIRV-Headers"
     ]
+  },
+  "wine_bridge": {
+    "path": "wine/nvcuda",
+    "tree": "699359f620e9864e60e8b8c7d171e255a79288bd",
+    "origin": "https://github.com/chkuendig/nvcuda",
+    "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494"
   }
 }

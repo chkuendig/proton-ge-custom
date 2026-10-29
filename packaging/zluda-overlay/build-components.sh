@@ -73,23 +73,9 @@ if [[ $part == bridges || $part == all ]]; then
     bash "$here/build-wine.sh"
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
     python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT"
-    n=$SOURCE_ROOT/nvcuda
-    meson setup "$BUILD_ROOT/nvcuda-x64" "$n" --cross-file "$n/build-wine64.txt" \
-        --cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini" \
-        --buildtype release -Dfakedll=true
-    ninja -C "$BUILD_ROOT/nvcuda-x64" -j"$JOBS"
-    install -m755 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda/nvcuda.dll.so" "$wl/x86_64-unix/"
-    install -m644 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda_fdll/nvcuda.dll" "$wl/x86_64-windows/"
-    # Compile the same bridge as tests/build-wow64.sh, with explicit tool paths.
-    wow=$BUILD_ROOT/wow64
-    mkdir -p "$wow"
-    python3 "$n/tests/generate-wow64-unsupported.py" "$n" "$wow"
-    i686-w64-mingw32-gcc -O2 -Wall -Wextra -Werror -shared \
-        "$n/dlls/nvcuda/wow64/pe.c" "$wow/unsupported.c" "$wow/exports.def" \
-        -Wl,--kill-at -o "$wl/i386-windows/nvcuda.dll"
-    "$WINE_SDK_ROOT/bin/winebuild" --builtin "$wl/i386-windows/nvcuda.dll"
-    cc -O2 -Wall -Wextra -Werror -fPIC -shared "$n/dlls/nvcuda/wow64/unix.c" \
-        -ldl -pthread -o "$wl/x86_64-unix/nvcuda.so"
+    n=$SOURCE_ROOT/zluda/wine/nvcuda
+    BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR/files bash "$here/build-bridge.sh"
+    DESTDIR=$DESTDIR bash "$here/check-bridge-equivalence.sh"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
         a=$SOURCE_ROOT/dxvk-nvapi
@@ -121,7 +107,7 @@ if [[ $part == bridges || $part == all ]]; then
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    git -C "$n" archive HEAD | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
+    git -C "$SOURCE_ROOT/zluda" archive HEAD:wine/nvcuda | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
 fi
 DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"

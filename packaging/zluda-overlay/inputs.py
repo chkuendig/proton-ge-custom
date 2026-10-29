@@ -126,6 +126,10 @@ def check_sources(root, part):
         if git(child, 'status', '--porcelain', '--untracked-files=no'):
             raise ValueError('dirty component: ' + name)
         check_tree(child)
+    if part in ('bridges', 'all'):
+        bridge = LOCK['wine_bridge']
+        if git(root / 'zluda', 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree']:
+            raise ValueError('locked Wine bridge tree mismatch')
     if part in ('zluda', 'all'):
         assert git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']
         assert sha256(root / 'zluda/Cargo.lock') == LOCK['cargo_lock_sha256']

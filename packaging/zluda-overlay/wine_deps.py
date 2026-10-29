@@ -57,6 +57,8 @@ def generate(source, build, native_only=False):
     selected = set(POLICY['sources']) | {'wine'}
     lines = []
     for line in text.splitlines():
+        if line == 'include $(SRC)/make/zluda-wine-bridge.mk':
+            continue  # The focused Wine prerequisite build does not build CUDA.
         # The one-architecture profile never configures/builds Kaldi i386. Its
         # shared-source serialization is then unnecessary and would pull i386
         # OpenFST/configuration back into the reachable graph.

@@ -100,13 +100,6 @@
 	path = nvidia-libs/dxvk-nvapi
 	url = https://github.com/SveSop/dxvk-nvapi.git
 	branch = experimental
-[submodule "nvidia-libs/nvcuda"]
-	path = nvidia-libs/nvcuda
-	url = https://github.com/SveSop/nvcuda.git
-[submodule "nvidia-libs/nvcuda32"]
-	path = nvidia-libs/nvcuda32
-	url = https://github.com/SveSop/nvcuda.git
-	branch = 32bit_only
 [submodule "nvidia-libs/nvenc"]
 	path = nvidia-libs/nvenc
 	url = https://github.com/SveSop/nvenc.git
@@ -142,7 +135,3 @@
 	path = zluda
 	url = https://github.com/chkuendig/ZLUDA
 	branch = v7-preview.15-proton
-[submodule "nvcuda"]
-	path = nvcuda
-	url = https://github.com/chkuendig/nvcuda
-	branch = GE-Proton11-7-zluda

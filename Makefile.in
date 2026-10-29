@@ -966,10 +966,11 @@ $(OBJ)/.vkd3d-proton-post-source:
 ##
 ## nvidia-libs
 ##
+include $(SRC)/make/zluda-wine-bridge.mk
+
 ifeq ($(TARGET_ARCH),x86_64)
 ifneq ($(WITHOUT_NVIDIA_LIBS),1)
 include $(SRC)/make/rules-nvidia-libs.mk
-include $(SRC)/nvidia-libs/build-nvcuda.mk
 include $(SRC)/nvidia-libs/build-nvenc.mk
 include $(SRC)/nvidia-libs/build-wine-nvml.mk
 include $(SRC)/nvidia-libs/build-wine-nvoptix.mk

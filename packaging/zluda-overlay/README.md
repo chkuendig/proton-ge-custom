@@ -7,6 +7,39 @@ runbooks and launcher are unchanged. This is packaging step 1: `make redist` now
 copies `proton_zluda.py`, but full ZLUDA component dependencies in `all-dist` remain
 separate work.
 
+The CUDA Wine bridge now lives at `zluda/wine/nvcuda` in the ZLUDA gitlink.
+There are no nvcuda/nvcuda32 gitlinks, external bridge checkouts or builds.
+The import preserves source commit `fa81f481` and its history, original LGPL
+notices and the WoW64 ZLUDA-MIT text. `inputs.lock.json` pins both the ZLUDA
+commit and imported subtree ID. Both the overlay and full-source `all-dist`
+use `build-bridge.sh`, installing the same four default Wine modules:
+`x86_64-unix/{nvcuda.dll.so,nvcuda.so}`, `x86_64-windows/nvcuda.dll` and
+`i386-windows/nvcuda.dll`, under `files/lib/wine`. GE's optional legacy
+`wine/nvidia-libs/nvcuda` directory is removed during assembly. The source
+archive remains `sources/nvcuda.tar.gz`, now exported from the ZLUDA subtree;
+licenses remain in `licenses/nvcuda`. Launcher loader ordering is unchanged.
+
+Full-source `make redist` builds this bridge after Wine's x64 SDK, installs
+after both Wine architectures, and includes its source/build recipes and
+licenses. It still needs the separate native ZLUDA/ROCm packaging work
+described above; this target does not claim that full-source redist builds
+the backend. Normal CUDA builds continue to use the imported C bridge.
+
+The bridges CI stage also rebuilds the original `fa81f481` source, reachable
+through the ZLUDA import's history, with the same prepared Wine SDK, flags
+and source epoch as the real payload. It verifies the original source tree,
+header probe, four module paths, PE32 exports and the embedded x64 Winelib
+export table (including Wine stub entries). The x64 fake PE's empty export
+surface is compared separately. ELF export types/binding/visibility and native
+dependency order must also match. File hashes,
+ELF section hashes/sizes and disassembly are retained for comparison. A byte
+difference is explicitly marked `review-required`; it is not treated as proof
+of equivalent code or behavior. Target-runtime W1 and five-workload W2 remain
+separate gates. `provenance/BRIDGE-EQUIVALENCE.json` records the structural
+gate and pending qualification; the logs artifact retains both inspection
+reports and baseline binaries. The extra C build runs serially with the same
+three-job limit, without building or packaging the Rust pilot.
+
 `inputs.lock.json` pins the GE11-7 x86_64 release, seven official AMD ROCm 7.2.4
 noble packages, Rust 1.99.0, numactl 2.0.18 source, Steam Runtime SDK image digest,
 component gitlinks, patched LLVM gitlink, Cargo.lock hash and all four ZLUDA LFS

@@ -394,4 +394,4 @@ cat "$ovl/OVERLAY"
 echo "== done $(date -Is): $ovl"
 
 # Expose both Unix and PE SDK archives plus the exact prepared headers/tools.
-python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" "$repo/nvcuda/build-wine64.txt"
+python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" "$repo/zluda/wine/nvcuda/build-wine64.txt"

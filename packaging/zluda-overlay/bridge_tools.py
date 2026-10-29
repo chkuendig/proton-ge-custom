@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 
 WINE_TOOLS = ['winegcc', 'winebuild', 'wrc', 'widl']
-CROSS_FILES = [('nvcuda', 'build-wine64.txt'),
+CROSS_FILES = [('zluda', 'wine/nvcuda/build-wine64.txt'),
                ('dxvk', 'build-win64.txt'), ('dxvk', 'build-win32.txt'),
                ('dxvk-nvapi', 'build-win64.txt'), ('dxvk-nvapi', 'build-win32.txt')]
 
@@ -73,9 +73,10 @@ def preflight(source, report, sdk=None):
     return records
 
 
-def check_unix_headers(source, sdk, report):
+def check_unix_headers(source, sdk, report, bridge_source=None):
     """Preprocess in CI with the relay's actual flags; never compile or link."""
-    parser = cross_file(source / 'nvcuda/build-wine64.txt')
+    bridge = bridge_source if bridge_source is not None else source / 'zluda/wine/nvcuda'
+    parser = cross_file(bridge / 'build-wine64.txt')
     flags = ast.literal_eval(parser.get('built-in options', 'c_args'))
     text = '#include "config.h"\n#include <pthread.h>\n'
     report.parent.mkdir(parents=True, exist_ok=True)
@@ -85,10 +86,10 @@ def check_unix_headers(source, sdk, report):
                                      dir=report.parent) as probe:
         probe.write(text)
         probe.flush()
-        command = [str(sdk / 'bin/winegcc'), *flags, '-I' + str(source / 'nvcuda/include'),
+        command = [str(sdk / 'bin/winegcc'), *flags, '-I' + str(bridge / 'include'),
                    '-pthread', '-v', '-H', '-E', '-dM', str(Path(probe.name).resolve())]
         result = subprocess.run(command, stdin=subprocess.DEVNULL, text=True, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, timeout=30, cwd=source / 'nvcuda/dlls/nvcuda')
+                                stderr=subprocess.PIPE, timeout=30, cwd=bridge / 'dlls/nvcuda')
     record = {'command': command, 'source': text, 'returncode': result.returncode, 'stderr': result.stderr}
     report.with_suffix('.macros').write_text(result.stdout)
     if result.returncode:

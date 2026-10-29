@@ -21,6 +21,126 @@ import native_plan
 import wine_targets
 import wine_sdk
 import bridge_tools
+import bridge_equivalence
+
+
+class BridgeBinaryInspection(unittest.TestCase):
+    def test_missing_stub_is_a_failure_and_byte_changes_require_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original, relocated, source = root / 'original', root / 'relocated', root / 'source'
+            (source / 'dlls/nvcuda').mkdir(parents=True)
+            (source / 'dlls/nvcuda/nvcuda.spec').write_text(
+                '@ stdcall cuInit(long) wine_cuInit\n@ stub cuD3D10CtxCreate\n')
+            generated = root / 'exports.def'
+            generated.write_text('LIBRARY nvcuda\nEXPORTS\n cuInit@4\n')
+            for payload in [original, relocated]:
+                for name in bridge_equivalence.MODULES:
+                    path = payload / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b'fixture')
+            def inspected(path, prefix):
+                if 'x86_64-windows' in str(path):
+                    exports = []  # Wine fake-module PE64, not the callable table.
+                elif 'i386-windows' in str(path):
+                    exports = [(1, 'cuInit')]
+                else:
+                    exports = [('symbol', 8, 'OBJECT', 'GLOBAL', 'DEFAULT')]
+                return {'sha256': 'different' if path == relocated / bridge_equivalence.MODULES[2] else 'same',
+                        'exports': exports, 'needed': ['libc.so.6'],
+                        'winelib_exports': [(1, 'cuInit'), (2, 'cuD3D10CtxCreate')]}
+            with mock.patch.object(bridge_equivalence, 'inspect', side_effect=inspected):
+                record = bridge_equivalence.compare(original, relocated, source, generated, root / 'report')
+            self.assertEqual(record['gate'], 'file-set-exports-dependencies-pass')
+            self.assertEqual(record['byte_comparison'], 'review-required')
+            self.assertIn('PENDING', record['behavior'])
+            def missing_stub(path, prefix):
+                record = inspected(path, prefix)
+                if path == relocated / bridge_equivalence.MODULES[2]:
+                    record['winelib_exports'] = [(1, 'cuInit')]
+                return record
+            with mock.patch.object(bridge_equivalence, 'inspect', side_effect=missing_stub):
+                with self.assertRaisesRegex(ValueError, 'CUDA export name/ordinal mismatch'):
+                    bridge_equivalence.compare(original, relocated, source, generated, root / 'report')
+            self.assertEqual(json.loads((root / 'report/REPORT.json').read_text())['gate'], 'failed')
+            (relocated / 'lib/wine/x86_64-unix/nvcuda-extra.so').write_bytes(b'extra')
+            with self.assertRaisesRegex(ValueError, 'bridge file set differs'):
+                bridge_equivalence.compare(original, relocated, source, generated, root / 'report')
+            self.assertEqual(json.loads((root / 'report/REPORT.json').read_text())['gate'], 'failed')
+
+    def test_pe_named_exports_keep_ordinals_and_wine_stubs(self):
+        text = '''Ordinal Base 7
+[Ordinal/Name Pointer] Table
+    [   0] cuInit
+    [   1] cuD3D10CtxCreate
+
+The Function Table
+'''
+        self.assertEqual(bridge_equivalence.pe_exports(text), [(7, 'cuInit'), (8, 'cuD3D10CtxCreate')])
+        empty = '''Ordinal Base 1
+Number in:
+ Export Address Table 00000000
+ [Name Pointer/Ordinal] Table 00000000
+'''
+        self.assertEqual(bridge_equivalence.pe_exports(empty, allow_empty=True), [])
+        with self.assertRaisesRegex(ValueError, 'name table missing'):
+            bridge_equivalence.pe_exports('ordinary PE without exports')
+        with self.assertRaisesRegex(ValueError, 'name table missing'):
+            bridge_equivalence.pe_exports(empty)
+
+    def test_winelib_names_and_ordinals_are_read_from_the_embedded_pe_table(self):
+        import struct
+        data = bytearray(2048)
+        data[:6] = b'\x7fELF\x02\x01'
+        struct.pack_into('<Q', data, 32, 64)
+        struct.pack_into('<HH', data, 54, 56, 1)
+        struct.pack_into('<IIQQQQQQ', data, 64, 1, 6, 0, 0x400000, 0, len(data), len(data), 4096)
+        # Place tables before the NT header to exercise signed relative RVAs.
+        data[512:518] = b'PE\0\0\x64\x86'
+        struct.pack_into('<H', data, 536, 0x20b)
+        struct.pack_into('<i', data, 648, 256 - 512)
+        struct.pack_into('<III', data, 272, 7, 2, 2)
+        struct.pack_into('<ii', data, 288, 320 - 512, 336 - 512)
+        struct.pack_into('<ii', data, 320, 352 - 512, 384 - 512)
+        struct.pack_into('<HH', data, 336, 1, 0)
+        data[352:369] = b'cuD3D10CtxCreate\0'
+        data[384:391] = b'cuInit\0'
+        symbols = '  1: 0000000000400200 0 NOTYPE GLOBAL DEFAULT 12 __wine_spec_nt_header\n'
+        self.assertEqual(bridge_equivalence.winelib_exports(bytes(data), symbols),
+                         [(7, 'cuInit'), (8, 'cuD3D10CtxCreate')])
+        with self.assertRaisesRegex(ValueError, 'missing unique Wine NT header'):
+            bridge_equivalence.winelib_exports(bytes(data), '')
+        struct.pack_into('<i', data, 648, len(data))
+        with self.assertRaisesRegex(ValueError, 'outside file-backed ELF segment'):
+            bridge_equivalence.winelib_exports(bytes(data), symbols)
+
+    def test_elf_defined_surface_and_file_sections_are_read_without_execution(self):
+        import struct
+        symbols = '''Symbol table '.dynsym' contains 4 entries:
+  Num:    Value          Size Type    Bind   Vis      Ndx Name
+    1: 0000000000001000   101 FUNC    GLOBAL DEFAULT   12 wine_cuInit
+    2: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND dlopen@GLIBC_2.34 (2)
+    3: 0000000000002000     8 OBJECT  WEAK   HIDDEN    13 __wine_unix_call_funcs
+'''
+        self.assertEqual(bridge_equivalence.elf_exports(symbols), [
+            ('__wine_unix_call_funcs', 8, 'OBJECT', 'WEAK', 'HIDDEN'),
+            ('wine_cuInit', 101, 'FUNC', 'GLOBAL', 'DEFAULT')])
+        # Independent minimal ELF section fixture: a file-backed code byte and
+        # a large NOBITS section must not be treated as file bytes.
+        data = bytearray(64 + 4 * 64 + 32)
+        data[:6] = b'\x7fELF\x02\x01'
+        struct.pack_into('<Q', data, 40, 64)
+        struct.pack_into('<HHH', data, 58, 64, 4, 1)
+        names = b'\0.shstrtab\0.text\0.bss\0'
+        data[320:320 + len(names)] = names
+        data[350] = 0xc3
+        struct.pack_into('<IIQQQQIIQQ', data, 128, 1, 3, 0, 0, 320, len(names), 0, 0, 1, 0)
+        struct.pack_into('<IIQQQQIIQQ', data, 192, 11, 1, 6, 4096, 350, 1, 0, 0, 16, 0)
+        struct.pack_into('<IIQQQQIIQQ', data, 256, 17, 8, 3, 8192, 351, 1 << 20, 0, 0, 8, 0)
+        sections = bridge_equivalence.elf_sections(bytes(data))
+        self.assertEqual(sections['.text']['size'], 1)
+        self.assertEqual(sections['.text']['sha256'], __import__('hashlib').sha256(b'\xc3').hexdigest())
+        self.assertNotIn('sha256', sections['.bss'])
 
 
 class PayloadManifest(unittest.TestCase):
@@ -107,6 +227,29 @@ class RecursivePins(unittest.TestCase):
 
 
 class PackageContract(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('make'), 'GNU Make is required for the bridge graph fixture')
+    def test_make_bridge_runs_after_wine_and_uses_relocated_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            text = ('TARGET_ARCH := x86_64\nOBJ := ' + str(root) + '\nSRC := ' + str(ROOT) + '\n'
+                    'SRCDIR := ' + str(root / 'source') + '\nDST_LIBDIR := ' + str(root / 'dist/files/lib') + '\n'
+                    'DST_BASE := ' + str(root / 'dist') + '\n'
+                    'WINE_SRC := prepared-source\nWINE_x86_64_OBJ := prepared-object\n'
+                    'define rules-source\nNVCUDA_SRC := $(2)\nendef\n'
+                    'include ' + str(ROOT / 'make/zluda-wine-bridge.mk') + '\n')
+            for stamp in ['nvcuda-post-source', 'wine-x86_64-build', 'wine-x86_64-dist', 'wine-i386-dist']:
+                text += str(root / ('.' + stamp)) + ':\n\t@echo gate-' + stamp + '\n'
+            path = root / 'Makefile'
+            path.write_text(text)
+            result = subprocess.check_output(['make', '--no-print-directory', '-n', '-f', str(path), 'all-dist'],
+                                             cwd=root, text=True)
+            self.assertIn(str(root / 'source/zluda/wine/nvcuda/build-wine64.txt'), result)
+            self.assertIn('--object "prepared-object" --source "prepared-source"', result)
+            install = result.index('cp -a')
+            self.assertLess(result.index('gate-wine-x86_64-dist'), install)
+            self.assertLess(result.index('gate-wine-i386-dist'), install)
+            self.assertIn('JOBS=3 bash', result)
+
     def test_job_limit_rejects_before_source_or_build(self):
         for jobs in ['0', '4', '100', '-1']:
             env = dict(os.environ, JOBS=jobs)
@@ -571,6 +714,7 @@ class BridgeSDK(unittest.TestCase):
             (root / component).mkdir(parents=True)
             for name, file in record['files'].items():
                 path = root / component / name
+                path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(file['text'])
                 self.assertEqual(inputs.sha256(path), file['sha256'])
                 if (ROOT / component / name).is_file():
@@ -607,7 +751,7 @@ class BridgeSDK(unittest.TestCase):
             root = Path(temporary)
             source = self.source_fixture(root / 'source')
             build, sdk = self.sdk_fixture(root)
-            cross = source / 'nvcuda/build-wine64.txt'
+            cross = source / 'zluda/wine/nvcuda/build-wine64.txt'
             # A previous SDK may contain symlinks. Replacing one must not
             # overwrite the object-tree executable through that symlink.
             (sdk / 'bin').mkdir(parents=True)
@@ -646,18 +790,18 @@ class BridgeSDK(unittest.TestCase):
             root = Path(temporary)
             source = self.source_fixture(root / 'source')
             fixture = json.loads((ROOT / 'tests/fixtures/deck-winelib.json').read_text())
-            self.assertEqual(fixture['nvcuda'], inputs.LOCK['components']['nvcuda'])
+            self.assertEqual(fixture['nvcuda'], inputs.LOCK['wine_bridge']['import_commit'])
             self.assertEqual(fixture['wine'], inputs.LOCK['components']['wine'])
             if (ROOT / 'wine/tools/winegcc/winegcc.c').is_file():
                 self.assertEqual(inputs.sha256(ROOT / 'wine/tools/winegcc/winegcc.c'), fixture['winegcc_sha256'])
-            cross = source / 'nvcuda/build-wine64.txt'
+            cross = source / 'zluda/wine/nvcuda/build-wine64.txt'
             self.assertEqual(inputs.sha256(cross), fixture['deck']['cross_file_sha256'])
             self.assertIn('Linking target dlls/nvcuda/nvcuda.dll.so', fixture['deck']['excerpt'])
             # The archived relay compile_commands was not copied to this host.
             # Compare the recorded recipe's identical cross-file flags instead.
             self.assertFalse(fixture['deck']['compile_commands_available'])
             build, sdk = self.sdk_fixture(root)
-            include = source / 'nvcuda/include'
+            include = source / 'zluda/wine/nvcuda/include'
             include.mkdir()
             config = include / 'config.h'
             config.write_text(fixture['config']['text'])
@@ -699,7 +843,7 @@ class BridgeSDK(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = self.source_fixture(root / 'source')
-            (source / 'nvcuda/dlls/nvcuda').mkdir(parents=True)
+            (source / 'zluda/wine/nvcuda/dlls/nvcuda').mkdir(parents=True)
             sdk = root / 'sdk'
             (sdk / 'bin').mkdir(parents=True)
             stub = sdk / 'bin/winegcc'
@@ -750,10 +894,10 @@ if mode == 'exit':
                         with self.assertRaisesRegex(ValueError, 'own config.h and Unix pthread headers'):
                             bridge_tools.check_unix_headers(source, sdk, report)
                     trace = json.loads((root / 'trace').read_text())
-                    self.assertIn('-I' + str(source / 'nvcuda/include'), trace['args'])
+                    self.assertIn('-I' + str(source / 'zluda/wine/nvcuda/include'), trace['args'])
                     self.assertIn('-E', trace['args'])
                     self.assertIn('-H', trace['args'])
-                    self.assertEqual(trace['cwd'], str(source / 'nvcuda/dlls/nvcuda'))
+                    self.assertEqual(trace['cwd'], str(source / 'zluda/wine/nvcuda/dlls/nvcuda'))
                     self.assertNotIn('-c', trace['args'])
                     self.assertNotIn('-', trace['args'])
                     self.assertNotIn('-x', trace['args'])
@@ -773,6 +917,15 @@ if mode == 'exit':
                     else:
                         self.assertEqual(saved['returncode'], 0)
                         self.assertEqual(saved['status'], 'passed' if mode == 'good' else 'header-mode-failed')
+            # The CI equivalence arm must probe its original source root with
+            # the same SDK, rather than silently reusing the relocated headers.
+            alternate = root / 'original-bridge'
+            shutil.copytree(source / 'zluda/wine/nvcuda', alternate)
+            with mock.patch.dict(os.environ, TRACE=str(root / 'trace'), WINE_HEADER_FIXTURE_MODE='good'):
+                bridge_tools.check_unix_headers(source, sdk, root / 'log/original-headers.json', alternate)
+            trace = json.loads((root / 'trace').read_text())
+            self.assertIn('-I' + str(alternate / 'include'), trace['args'])
+            self.assertEqual(trace['cwd'], str(alternate / 'dlls/nvcuda'))
 
     def test_missing_native_sdk_library_or_tool_fails_before_meson(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -782,18 +935,18 @@ if mode == 'exit':
             missing = build / 'obj-x86_64/dlls/kernel32/libkernel32.a'
             missing.unlink()
             with self.assertRaisesRegex(ValueError, 'SDK lacks: .*kernel32/libkernel32.a'):
-                wine_sdk.prepare(build, sdk, source / 'nvcuda/build-wine64.txt')
+                wine_sdk.prepare(build, sdk, source / 'zluda/wine/nvcuda/build-wine64.txt')
             missing.write_bytes(b'!<arch>\n')
             (build / 'obj-x86_64/tools/widl/widl').chmod(0o644)
             with self.assertRaisesRegex(ValueError, 'tool is not executable: widl'):
-                wine_sdk.prepare(build, sdk, source / 'nvcuda/build-wine64.txt')
+                wine_sdk.prepare(build, sdk, source / 'zluda/wine/nvcuda/build-wine64.txt')
 
     def test_every_cross_compiler_and_tool_gets_version_preflight(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = self.source_fixture(root / 'source')
             build, sdk = self.sdk_fixture(root)
-            wine_sdk.prepare(build, sdk, source / 'nvcuda/build-wine64.txt')
+            wine_sdk.prepare(build, sdk, source / 'zluda/wine/nvcuda/build-wine64.txt')
             tools = root / 'bin'
             tools.mkdir()
             groups = bridge_tools.commands(source, sdk)
@@ -818,7 +971,8 @@ if mode == 'exit':
                     bridge_tools.preflight(source, report, sdk)
                 self.assertEqual(json.loads(report.read_text())[-1]['returncode'], 46)
             script = (inputs.HERE / 'build-components.sh').read_text()
-            self.assertLess(script.index('bridge-tools-sdk.json'), script.index('meson setup'))
+            self.assertLess(script.index('bridge-tools-sdk.json'), script.index('build-bridge.sh'))
+            script = (inputs.HERE / 'build-bridge.sh').read_text()
             self.assertIn('--cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini"', script)
             wine = (inputs.HERE / 'build-wine.sh').read_text()
             self.assertLess(wine.index('bridge-tools-system.json'), wine.index('build x86_64'))
@@ -1119,6 +1273,9 @@ class AssemblyFixture(unittest.TestCase):
                 path.write_bytes(b'stock GE ' + name.encode())
                 stock[name] = inputs.sha256(path)
             (tool / 'protonfixes/deleted.py').write_text('old')
+            legacy = tool / 'files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so'
+            legacy.parent.mkdir(parents=True)
+            legacy.write_bytes(b'legacy SveSop bridge must not ship')
             (tool / 'compatibilitytool.vdf').write_text(
                 '\n"GE-Proton11-7" // Internal name\n"display_name" "GE"\n')
             (cache / 'GE-Proton11-7-x86_64.tar.gz').write_bytes(b'fake GE for extraction fixture')
@@ -1163,6 +1320,7 @@ class AssemblyFixture(unittest.TestCase):
                 self.assertEqual((dest / 'protonfixes/changed.py').read_text(), 'new')
                 self.assertFalse((dest / 'protonfixes/deleted.py').exists())
                 self.assertEqual((dest / 'proton_zluda.py').read_text(), 'helper')
+                self.assertFalse((dest / 'files/lib/wine/nvidia-libs/nvcuda').exists())
                 self.assertIn('GE-Proton11-7-zluda', (dest / 'compatibilitytool.vdf').read_text())
                 shutil.rmtree(dest)
                 shutil.rmtree(build)

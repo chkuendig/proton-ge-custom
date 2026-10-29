@@ -123,6 +123,8 @@ jobs:
             /work/logs
             /work/build/wine/log
             /work/build/wine/changed-sources.txt
+            /work/build/bridge-equivalence/report
+            /work/build/bridge-equivalence/original-payload
             /work/build/native
           if-no-files-found: warn
           retention-days: 14

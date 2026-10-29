@@ -14,8 +14,9 @@ TOOLS = ['winegcc', 'winebuild', 'wrc', 'widl']
 LIBRARIES = ['winecrt0', 'kernel32', 'ntdll']
 
 
-def prepare(build, sdk, cross):
-    obj, src = build / 'obj-x86_64', build / 'src/wine'
+def prepare(build, sdk, cross, obj=None, src=None):
+    obj = obj if obj is not None else build / 'obj-x86_64'
+    src = src if src is not None else build / 'src/wine'
     include, generated = src / 'include', obj / 'include'
     required = [include / 'windef.h', include / 'wine/server_protocol.h', generated / 'wtypes.h']
     required += [obj / 'tools' / name / name for name in TOOLS]
@@ -89,5 +90,9 @@ if __name__ == '__main__':
     parser.add_argument('build', type=Path)
     parser.add_argument('sdk', type=Path)
     parser.add_argument('cross', type=Path)
+    parser.add_argument('--object', type=Path)
+    parser.add_argument('--source', type=Path)
     args = parser.parse_args()
-    prepare(args.build.resolve(), args.sdk.resolve(), args.cross.resolve())
+    prepare(args.build.resolve(), args.sdk.resolve(), args.cross.resolve(),
+            args.object.resolve() if args.object else None,
+            args.source.resolve() if args.source else None)
