@@ -108,7 +108,11 @@ def generate(source, build, native_only=False):
                  f'.PHONY: overlay-wine-{arch}',
                  f'overlay-wine-{arch}: $(OBJ)/.wine-{arch}-tools '
                  f'$(foreach d,$(WINE_DEPENDS) $(WINE_{arch}_DEPENDS),$(OBJ)/.$(d)-{arch}-post-build)',
-                 f'\t+cd "$(WINE_{arch}_OBJ)" && env $(WINE_{arch}_ENV) $(MAKE) $(OVERLAY_WINE_TARGETS)', '']
+                 f'\t+cd "$(WINE_{arch}_OBJ)" && env $(WINE_{arch}_ENV) '
+                 f'python3 "$(SRC)/packaging/zluda-overlay/wine_targets.py" Makefile '
+                 f'--arch {arch} --profile "$(OVERLAY_WINE_PROFILE)" '
+                 f'--modules "$(OVERLAY_WINE_MODULES)" --make-tool "$(MAKE)" '
+                 f'--report "{build / "log" / ("targets-" + arch + ".json")}"', '']
     build.mkdir(parents=True, exist_ok=True)
     # Source and generated request headers are already prepared by the two-tree
     # comparison. Do not rsync or copy raw request headers over that patched tree.

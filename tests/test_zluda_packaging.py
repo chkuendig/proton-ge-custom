@@ -17,6 +17,7 @@ import overlay
 import wine_deps
 import wine_scope
 import native_audit
+import wine_targets
 
 
 class PayloadManifest(unittest.TestCase):
@@ -472,6 +473,87 @@ class WinePrerequisites(unittest.TestCase):
                 self.assertIn('--with-wayland', line)
                 self.assertIn('--with-ffmpeg', line)
                 self.assertIn('--with-mingw=gcc', line)
+
+
+class WineTargets(unittest.TestCase):
+    def fixture(self, arch):
+        return (ROOT / 'tests/fixtures' / ('wine-' + arch + '.mk')).read_text()
+
+    def test_fixture_provenance_and_configured_source_names(self):
+        provenance = json.loads((ROOT / 'tests/fixtures/wine-targets-source.json').read_text())
+        self.assertEqual(provenance['wine'], inputs.LOCK['components']['wine'])
+        # CI has the recursive Wine source checkout. The host fixtures can also
+        # run without populating that large submodule; their generator reads the
+        # exact pinned Git objects and records every input hash.
+        for name, expected in provenance['sha256'].items():
+            source = ROOT / 'wine' / name
+            if source.is_file():
+                self.assertEqual(inputs.sha256(source), expected, name)
+        for arch in ['x86_64', 'i386']:
+            targets = wine_targets.declared_targets(self.fixture(arch))
+            self.assertNotIn('dlls/winecrt0/all', targets)
+            self.assertIn(f'dlls/winecrt0/{arch}-windows/libwinecrt0.a', targets)
+
+    def test_both_architectures_native_only_and_complete_build_profiles(self):
+        for arch in ['x86_64', 'i386']:
+            text = self.fixture(arch)
+            targets = wine_targets.select(text, arch, 'both', ['dlls/ntdll', 'server', 'programs/wineboot'])
+            self.assertIn('include/all', targets)
+            self.assertIn('dlls/ntdll/all', targets)
+            self.assertIn('server/all', targets)
+            self.assertNotIn('dlls/winecrt0/all', targets)
+            if arch == 'x86_64':
+                for name in ['winecrt0', 'kernel32', 'ntdll']:
+                    self.assertIn(f'dlls/{name}/x86_64-windows/lib{name}.a', targets)
+            else:
+                self.assertFalse(any(target.startswith('tools/') for target in targets))
+            all_targets = wine_targets.select(text, arch, 'all', [])
+            self.assertIn('all', all_targets)
+            self.assertTrue(set(all_targets) <= wine_targets.declared_targets(text))
+        targets = wine_targets.select(self.fixture('x86_64'), 'x86_64', 'x86_64-unix-ntdll', ['dlls/ntdll'])
+        self.assertIn('dlls/ntdll/ntdll.so', targets)
+        self.assertNotIn('dlls/ntdll/all', targets)
+        self.assertFalse(any(target.endswith('.dll') for target in targets))
+        with self.assertRaisesRegex(ValueError, 'cannot build i386'):
+            wine_targets.select(self.fixture('i386'), 'i386', 'x86_64-unix-ntdll', ['dlls/ntdll'])
+        missing = self.fixture('x86_64').replace('dlls/winecrt0/x86_64-windows/libwinecrt0.a:', '')
+        with self.assertRaisesRegex(ValueError, 'SDK archive target: dlls/winecrt0'):
+            wine_targets.select(missing, 'x86_64', 'both', ['dlls/ntdll'])
+
+    @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required')
+    def test_gnu_make_accepts_discovered_goals_and_rejects_old_crt_aggregate(self):
+        make = os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make')
+        for arch, profile in [('x86_64', 'both'), ('i386', 'both'), ('x86_64', 'x86_64-unix-ntdll'),
+                              ('x86_64', 'all'), ('i386', 'all')]:
+            fixture = ROOT / 'tests/fixtures' / ('wine-' + arch + '.mk')
+            targets = wine_targets.select(fixture.read_text(), arch, profile, ['dlls/ntdll'])
+            subprocess.run([make, '-n', '-f', str(fixture), *targets], check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run([make, '-n', '-f', str(fixture), 'dlls/winecrt0/all'],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('No rule to make target', result.stderr)
+
+    def test_cli_reads_configured_file_records_plan_and_executes_those_targets(self):
+        import gzip
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'Makefile').write_text(self.fixture('x86_64'))
+            (root / 'modules').write_text('dlls/ntdll\n')
+            make = root / 'make'
+            make.write_text('#!/usr/bin/env python3\nimport json, pathlib, sys\n'
+                            'pathlib.Path("called.json").write_text(json.dumps(sys.argv[1:]))\n')
+            make.chmod(0o755)
+            subprocess.run([sys.executable, str(inputs.HERE / 'wine_targets.py'), 'Makefile',
+                            '--arch', 'x86_64', '--profile', 'x86_64-unix-ntdll', '--modules', 'modules',
+                            '--make-tool', str(make), '--report', 'log/targets.json'], cwd=root, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            record = json.loads((root / 'log/targets.json').read_text())
+            self.assertEqual(record['targets'], json.loads((root / 'called.json').read_text()))
+            self.assertEqual(record['makefile_sha256'], inputs.sha256(root / 'Makefile'))
+            self.assertEqual(gzip.decompress((root / 'log/targets.Makefile.gz').read_bytes()),
+                             (root / 'Makefile').read_bytes())
+            self.assertIn('dlls/ntdll/ntdll.so', record['targets'])
 
 
 class NativeBuild(unittest.TestCase):

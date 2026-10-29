@@ -1,0 +1,18 @@
+{
+  "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
+  "method": "configure-free target-name translation; recipes omitted",
+  "sha256": {
+    "tools/makedep.c": "3853f476d02990bf51441b17675e79208ae0b14131e2383d91f7fd4e3143ee78",
+    "include/Makefile.in": "8c5d75f230a7d51a8c02ec5999351ad8266c9afa970e9be22f9114f25cd04c27",
+    "tools/winebuild/Makefile.in": "176393c830f1140d8321204ace5eae484a22087b8712e14ea385da4263564b3b",
+    "tools/winegcc/Makefile.in": "483310f611c0518d89b571e4e50c52387917b77d98a1ec191d3e1c2186424e31",
+    "tools/widl/Makefile.in": "87c4174110ecec36505a595288af30b65df19efdf72bbc7d80be7a147d9250b6",
+    "tools/wrc/Makefile.in": "739ea115eb1761c8e363b58d3c9ad0489699a1eb3e728b724df1b269f6957c41",
+    "tools/wmc/Makefile.in": "e4e239bf147e5dc0325ce38a73be153ee80d8db93d413d34817e4b0d102075fb",
+    "dlls/winecrt0/Makefile.in": "7a1bc4f84fdfd18484192a10ae6c02ee3f347ebbec99568f3afdf2cb4f0465fd",
+    "dlls/kernel32/Makefile.in": "31712bee6b250296329491705df275db0ae2d34d379c5da586f033e5eeb5ce4a",
+    "dlls/ntdll/Makefile.in": "b1ef9ef4281555adaccac8172e4357224f35da5fad789a2de6a516675f17a2e9",
+    "server/Makefile.in": "7840325e5fd0edf5dc63eb1826a5887a839da9f4458ac0316f84bfe5310b4305",
+    "programs/wineboot/Makefile.in": "39c587e1ba3fbac0e689683ae8fa7fd18f9f5e9ffe8b0f62fc9c7477c713c5a3"
+  }
+}

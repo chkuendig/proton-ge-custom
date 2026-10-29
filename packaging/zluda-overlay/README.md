@@ -81,6 +81,17 @@ replacement. `provenance/WINE-SCOPE.json` records that inventory. Any different
 prepared-source transformation retains the original two-architecture graph.
 The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
 
+After each Wine configure/tools stage, `wine_targets.py` reads the generated
+top-level Makefile and validates every requested goal. Header/tool/module
+aggregates are used only when declared; static and import SDK libraries use
+their declared per-architecture archive rules. The native-only profile requests
+the native `dlls/ntdll/ntdll.so` producer, alongside the separate SDK import
+libraries. It does not request PE ntdll module rebuilds for the overlay.
+`log/targets-<arch>.json` records the Makefile hash and chosen goals; a compressed
+copy of the actual Makefile is saved beside it even if goal validation fails. Target-name
+fixtures are generated without configure from the pinned Wine generator and
+Makefile.in inputs, including the absence of `winecrt0/all`.
+
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private
 prefixes, and inherited staging would prepend the overlay path a second time.

@@ -168,7 +168,7 @@ python3 "$here/wine_deps.py" "$repo" "$out" --make-tool "$make_tool" --ninja-too
 export PATH="$out/proton-tools:$PATH"
 export CMAKE_BUILD_PARALLEL_LEVEL=$jobs CARGO_BUILD_JOBS=$jobs
 build_dependencies=$(dpkg-query -W | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
-build_modules=() build_targets=(all)
+build_modules=()
 if (( ! full )); then
     while read -r path; do
         case $path in
@@ -178,18 +178,15 @@ if (( ! full )); then
         esac
     done < "$out/changed-sources.txt"
     mapfile -t build_modules < <(printf '%s\n' "${build_modules[@]}" | sort -u)
-    build_targets=(include/all tools/winebuild/all tools/winegcc/all tools/widl/all tools/wrc/all tools/wmc/all dlls/winecrt0/all dlls/kernel32/all)
-    for m in "${build_modules[@]}"; do build_targets+=("$m/all"); done
 fi
+printf '%s\n' "${build_modules[@]}" > "$out/build-modules.txt"
+wine_profile=$wine_scope
+(( ! full )) || wine_profile=all
 build() {
     local arch=$1
-    local targets=("${build_targets[@]}")
-    if [[ $arch == i386 ]] && (( ! full )); then
-        targets=(include/all)
-        for m in "${build_modules[@]}"; do targets+=("$m/all"); done
-    fi
     "$make_tool" -C "$out/proton-deps" -f "$out/proton-wine.mk" -j1 \
-        "MAKE=$out/proton-tools/make" "overlay-wine-$arch" "OVERLAY_WINE_TARGETS=${targets[*]}" \
+        "MAKE=$out/proton-tools/make" "overlay-wine-$arch" \
+        "OVERLAY_WINE_PROFILE=$wine_profile" "OVERLAY_WINE_MODULES=$out/build-modules.txt" \
         > "$out/log/make-$arch.log" 2>&1 || { tail -40 "$out/log/make-$arch.log" >&2; exit 1; }
 }
 build x86_64
