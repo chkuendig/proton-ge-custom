@@ -16,6 +16,11 @@ import proton_zluda as policy
 
 MODULES = ['x86_64-windows/nvcuda.dll', 'i386-windows/nvcuda.dll', 'x86_64-unix/nvcuda.so']
 NAMES = {'nvcuda.dll', 'nvcuda.dll.so', 'nvcuda.so'}
+# Windows system runtimes supplied by Wine, never MinGW redistributable DLLs.
+WINDOWS_IMPORTS = {'kernel32.dll', 'msvcrt.dll', 'ntdll.dll', 'userenv.dll',
+                   'ws2_32.dll', 'bcryptprimitives.dll', 'dbghelp.dll',
+                   'advapi32.dll', 'ucrtbase.dll'}
+
 
 
 def digest(path):
@@ -40,14 +45,64 @@ def pe_info(path):
         raise ValueError('invalid PE optional header')
     directory = optional + {0x10b: 96, 0x20b: 112}[magic]
     export_rva, export_size = unpack('<II', directory)
-    def offset(rva):
+    def offset(rva, size=1):
         for i in range(sections):
             _, virtual_size, virtual, length, position = unpack('<8sIIII', optional + optional_size + i * 40)
             if virtual <= rva < virtual + max(virtual_size, length):
+                if rva - virtual + size > length or position + rva - virtual + size > len(data):
+                    raise ValueError('PE RVA outside file-backed section: ' + str(path))
                 return position + rva - virtual
         raise ValueError('unmapped PE export RVA: ' + str(path))
     count = 0 if not export_rva or not export_size else unpack('<I', offset(export_rva) + 24)[0]
-    return {'machine': machine, 'named_exports': count}
+    directories, = unpack('<I', directory - 4)
+    imports, delayed = [], []
+    for index, stride, names in [(1, 20, imports), (13, 32, delayed)]:
+        if directories <= index:
+            continue
+        if directory + (index + 1) * 8 > optional + optional_size:
+            raise ValueError('PE import directory outside optional header')
+        rva, size = unpack('<II', directory + index * 8)
+        if not rva and not size:
+            continue
+        if not rva or size < stride or size // stride > 65536:
+            raise ValueError('invalid PE import directory')
+        terminated = False
+        for position in range(0, size - stride + 1, stride):
+            record = unpack('<' + 'I' * (stride // 4), offset(rva + position, stride))
+            if not any(record):
+                terminated = True
+                break
+            name_rva = record[3] if index == 1 else record[1]
+            if index == 13:
+                if record[0] & ~1:
+                    raise ValueError('unknown PE delay-import attributes')
+                if not record[0] & 1:
+                    image_base, = unpack('<I' if magic == 0x10b else '<Q',
+                                         optional + (28 if magic == 0x10b else 24))
+                    name_rva -= image_base
+            if not name_rva:
+                raise ValueError('PE import DLL name is missing')
+            start = offset(name_rva)
+            end = data.find(b'\0', start, min(start + 1024, len(data)))
+            if end < 0 or end == start:
+                raise ValueError('unterminated/empty PE import DLL name')
+            offset(name_rva, end - start + 1)
+            try:
+                names.append(data[start:end].decode('ascii'))
+            except UnicodeDecodeError as error:
+                raise ValueError('non-ASCII PE import DLL name') from error
+        if not terminated:
+            raise ValueError('unterminated PE import descriptor table')
+    return {'machine': machine, 'named_exports': count,
+            'imports': imports, 'delay_imports': delayed}
+
+
+def check_pe_imports(info):
+    names = info['imports'] + info['delay_imports']
+    forbidden = sorted({name for name in names if name.lower() not in WINDOWS_IMPORTS
+                        and not re.fullmatch(r'(?:api|ext)-ms-win-[a-z0-9_-]+\.dll', name.lower())})
+    if forbidden:
+        raise ValueError('unexpected PE bridge DLL dependency: ' + ', '.join(forbidden))
 
 
 def elf_info(path, require_wow64=True):
@@ -104,6 +159,7 @@ def inspect_draft(artifacts, commit):
         if path.is_symlink() or digest(path) != expected:
             raise ValueError('x64 draft checksum/regular-file failure: ' + name)
     pe = pe_info(artifacts / 'nvcuda.dll')
+    check_pe_imports(pe)
     if pe['machine'] != 0x8664:
         raise ValueError('x64 draft PE machine mismatch')
     native = elf_info(artifacts / 'nvcuda.so', require_wow64=False)
@@ -138,6 +194,7 @@ def install_bridge(artifacts, tool, commit):
             raise ValueError('bridge checksum/regular-file failure: ' + name)
         if name.endswith('.dll'):
             info = pe_info(source)
+            check_pe_imports(info)
             expected = (0x8664, 788) if name.startswith('x86_64') else (0x14c, 690)
             if (info['machine'], info['named_exports']) != expected:
                 raise ValueError('bridge PE architecture/export surface mismatch: ' + name)
@@ -168,8 +225,8 @@ def write_stubs(tool, originals):
         out.unlink(missing_ok=True)
         out.write_bytes(data)
         out.chmod(0o644)
-        if pe_info(out) != {'machine': 0x8664 if arch.startswith('x86_64') else 0x14c,
-                            'named_exports': 0}:
+        info = pe_info(out)
+        if (info['machine'], info['named_exports']) != (0x8664 if arch.startswith('x86_64') else 0x14c, 0):
             raise ValueError('GE stub is not an empty builtin PE: ' + arch)
     (cuda / 'stubs.json').write_text(json.dumps(
         {'ge_archive_sha256': policy.GE_ARCHIVE_SHA256, 'sha256': policy.STUB_SHA256,
@@ -244,6 +301,7 @@ def audit(tool):
             raise ValueError('on CUDA module must be a regular file: ' + name)
         if name.endswith('.dll'):
             info = pe_info(path)
+            check_pe_imports(info)
             expected = (0x8664, 788) if name.startswith('x86_64') else (0x14c, 690)
             if (info['machine'], info['named_exports']) != expected:
                 raise ValueError('on CUDA PE architecture/export mismatch: ' + name)

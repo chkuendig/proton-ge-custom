@@ -175,6 +175,63 @@ class CudaPackage(unittest.TestCase):
             self.assertEqual(trace.read_text().splitlines() if trace.exists() else [], lines)
             self.assertFalse((self.tool / 'MANIFEST').exists())
 
+    def test_pe_import_policy_rejects_unbundled_compiler_runtimes_on_both_arches(self):
+        allowed = ['KERNEL32.dll', 'msvcrt.dll', 'ntdll.dll', 'USERENV.dll',
+                   'WS2_32.dll', 'api-ms-win-core-synch-l1-2-0.dll', 'bcryptprimitives.dll',
+                   'dbghelp.dll', 'advapi32.dll', 'ucrtbase.dll']
+        for machine in [0x14c, 0x8664]:
+            path = self.root / 'dependency.dll'
+            path.write_bytes(pe(machine, imports=allowed, delay_imports=['api-ms-win-core-synch-l1-2-0.dll']))
+            info = package.pe_info(path)
+            self.assertEqual(info['imports'], allowed)
+            package.check_pe_imports(info)
+            for name in ['libgcc_s_seh-1.dll', 'libgcc_s_dw2-1.dll', 'libstdc++-6.dll',
+                         'libwinpthread-1.dll', 'nvcuda.dll', '../kernel32.dll']:
+                for delayed in [False, True]:
+                    path.write_bytes(pe(machine, imports=allowed if delayed else [*allowed, name],
+                                        delay_imports=[name] if delayed else []))
+                    with self.assertRaisesRegex(ValueError, 'unexpected PE bridge DLL dependency'):
+                        package.check_pe_imports(package.pe_info(path))
+
+    def test_import_violation_blocks_install_final_audit_and_compile_draft(self):
+        bad = self.artifacts / 'i386-windows/nvcuda.dll'
+        bad.write_bytes(pe(0x14c, 690, imports=['libgcc_s_dw2-1.dll']))
+        self.checksums()
+        with self.assertRaisesRegex(ValueError, 'libgcc_s_dw2-1.dll'):
+            package.install_bridge(self.artifacts, self.tool, self.commit)
+        bad.write_bytes(pe(0x14c, 690))
+        self.checksums()
+        self.install()
+        final = self.tool / 'files/lib/wine-cuda/zluda/x86_64-windows/nvcuda.dll'
+        final.write_bytes(pe(0x8664, 788, delay_imports=['libwinpthread-1.dll']))
+        with self.assertRaisesRegex(ValueError, 'libwinpthread-1.dll'):
+            package.audit(self.tool)
+        draft = self.root / 'bad-draft'
+        draft.mkdir()
+        (draft / 'nvcuda.dll').write_bytes(pe(0x8664, 788, imports=['libgcc_s_seh-1.dll']))
+        (draft / 'nvcuda.so').write_bytes(elf(wow64=False))
+        (draft / 'SHA256SUMS').write_text(''.join(package.digest(draft / name) + '  ' + name + '\n'
+                                               for name in ['nvcuda.dll', 'nvcuda.so']))
+        with self.assertRaisesRegex(ValueError, 'libgcc_s_seh-1.dll'):
+            package.inspect_draft(draft, self.commit)
+
+    def test_malformed_pe_import_table_does_not_hide_dependencies(self):
+        import struct
+        path = self.root / 'malformed.dll'
+        data = bytearray(pe(0x8664, 788, imports=['kernel32.dll']))
+        directory = 152 + 112
+        # Truncate the declared directory before its terminating descriptor.
+        struct.pack_into('<I', data, directory + 8 + 4, 20)
+        path.write_bytes(data)
+        with self.assertRaisesRegex(ValueError, 'unterminated PE import descriptor'):
+            package.pe_info(path)
+        # Point a DLL name into virtual memory outside file-backed bytes.
+        data = bytearray(pe(0x8664, 788, imports=['kernel32.dll']))
+        struct.pack_into('<I', data, 640 + 12, 0xfffffff0)
+        path.write_bytes(data)
+        with self.assertRaisesRegex(ValueError, 'unmapped PE export RVA'):
+            package.pe_info(path)
+
     def test_source_archive_stubs_verify_checksum_members_and_exact_hashes(self):
         archive = self.root / 'ge.tar.gz'
         with tarfile.open(archive, 'w:gz') as stream:
