@@ -1,0 +1,543 @@
+{
+  "origin": {
+    "pin": "c60462dc06e9e4b4c3185464919eff5908e763e6",
+    "Cargo.lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
+    "method": "Projected Linux normal/build graph: package identities and dependency edges from pinned Cargo.lock; curated active features from manifests. Not captured cargo output; unrelated nodes omitted."
+  },
+  "metadata": {
+    "packages": [
+      {
+        "name": "zluda",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/zluda#zluda@0.0.0"
+      },
+      {
+        "name": "ptx",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/ptx#ptx@0.0.0"
+      },
+      {
+        "name": "llvm_zluda",
+        "version": "0.1.0",
+        "id": "path+file:///fixture/zluda/llvm_zluda#llvm_zluda@0.1.0"
+      },
+      {
+        "name": "highs",
+        "version": "1.12.0",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#highs@1.12.0"
+      },
+      {
+        "name": "highs-sys",
+        "version": "1.11.0",
+        "id": "path+file:///fixture/zluda/highs-sys#highs-sys@1.11.0"
+      },
+      {
+        "name": "cuda_types",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/cuda_types#cuda_types@0.0.0"
+      },
+      {
+        "name": "dark_api",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/dark_api#dark_api@0.0.0"
+      },
+      {
+        "name": "zluda_cache",
+        "version": "0.1.0",
+        "id": "path+file:///fixture/zluda/zluda_cache#zluda_cache@0.1.0"
+      },
+      {
+        "name": "blake3",
+        "version": "1.8.2",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#blake3@1.8.2"
+      },
+      {
+        "name": "vergen-gix",
+        "version": "10.0.2",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#vergen-gix@10.0.2"
+      },
+      {
+        "name": "lz4-sys",
+        "version": "1.11.1+lz4-1.10.0",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#lz4-sys@1.11.1+lz4-1.10.0"
+      },
+      {
+        "name": "zstd-safe",
+        "version": "7.2.4",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@7.2.4"
+      },
+      {
+        "name": "zstd-sys",
+        "version": "2.0.15+zstd.1.5.7",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.0.15+zstd.1.5.7"
+      },
+      {
+        "name": "libsqlite3-sys",
+        "version": "0.35.0",
+        "id": "registry+https://github.com/rust-lang/crates.io-index#libsqlite3-sys@0.35.0"
+      },
+      {
+        "name": "hip_runtime-sys",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0"
+      },
+      {
+        "name": "hipblaslt-sys",
+        "version": "0.1.0",
+        "id": "path+file:///fixture/zluda/hipblaslt-sys#hipblaslt-sys@0.1.0"
+      },
+      {
+        "name": "hipfft-sys",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/hipfft-sys#hipfft-sys@0.0.0"
+      },
+      {
+        "name": "miopen-sys",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/miopen-sys#miopen-sys@0.0.0"
+      },
+      {
+        "name": "rocblas-sys",
+        "version": "0.1.0",
+        "id": "path+file:///fixture/zluda/rocblas-sys#rocblas-sys@0.1.0"
+      },
+      {
+        "name": "rocsparse-sys",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/rocsparse-sys#rocsparse-sys@0.0.0"
+      },
+      {
+        "name": "rocm_smi-sys",
+        "version": "0.0.0",
+        "id": "path+file:///fixture/zluda/rocm_smi-sys#rocm_smi-sys@0.0.0"
+      }
+    ],
+    "workspace_members": [
+      "path+file:///fixture/zluda/zluda#zluda@0.0.0",
+      "path+file:///fixture/zluda/ptx#ptx@0.0.0",
+      "path+file:///fixture/zluda/llvm_zluda#llvm_zluda@0.1.0",
+      "path+file:///fixture/zluda/highs-sys#highs-sys@1.11.0",
+      "path+file:///fixture/zluda/cuda_types#cuda_types@0.0.0",
+      "path+file:///fixture/zluda/dark_api#dark_api@0.0.0",
+      "path+file:///fixture/zluda/zluda_cache#zluda_cache@0.1.0",
+      "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+      "path+file:///fixture/zluda/hipblaslt-sys#hipblaslt-sys@0.1.0",
+      "path+file:///fixture/zluda/hipfft-sys#hipfft-sys@0.0.0",
+      "path+file:///fixture/zluda/miopen-sys#miopen-sys@0.0.0",
+      "path+file:///fixture/zluda/rocblas-sys#rocblas-sys@0.1.0",
+      "path+file:///fixture/zluda/rocsparse-sys#rocsparse-sys@0.0.0",
+      "path+file:///fixture/zluda/rocm_smi-sys#rocm_smi-sys@0.0.0"
+    ],
+    "resolve": {
+      "nodes": [
+        {
+          "id": "path+file:///fixture/zluda/zluda#zluda@0.0.0",
+          "deps": [
+            {
+              "name": "blake3",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#blake3@1.8.2",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "cuda_types",
+              "pkg": "path+file:///fixture/zluda/cuda_types#cuda_types@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "dark_api",
+              "pkg": "path+file:///fixture/zluda/dark_api#dark_api@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "llvm_zluda",
+              "pkg": "path+file:///fixture/zluda/llvm_zluda#llvm_zluda@0.1.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "lz4_sys",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#lz4-sys@1.11.1+lz4-1.10.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "ptx",
+              "pkg": "path+file:///fixture/zluda/ptx#ptx@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "vergen_gix",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#vergen-gix@10.0.2",
+              "dep_kinds": [
+                {
+                  "kind": "build",
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "zluda_cache",
+              "pkg": "path+file:///fixture/zluda/zluda_cache#zluda_cache@0.1.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/ptx#ptx@0.0.0",
+          "deps": [
+            {
+              "name": "cuda_types",
+              "pkg": "path+file:///fixture/zluda/cuda_types#cuda_types@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "highs",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#highs@1.12.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "llvm_zluda",
+              "pkg": "path+file:///fixture/zluda/llvm_zluda#llvm_zluda@0.1.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/llvm_zluda#llvm_zluda@0.1.0",
+          "deps": []
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#highs@1.12.0",
+          "deps": [
+            {
+              "name": "highs_sys",
+              "pkg": "path+file:///fixture/zluda/highs-sys#highs-sys@1.11.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/highs-sys#highs-sys@1.11.0",
+          "deps": []
+        },
+        {
+          "id": "path+file:///fixture/zluda/cuda_types#cuda_types@0.0.0",
+          "deps": [
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "hipblaslt_sys",
+              "pkg": "path+file:///fixture/zluda/hipblaslt-sys#hipblaslt-sys@0.1.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "hipfft_sys",
+              "pkg": "path+file:///fixture/zluda/hipfft-sys#hipfft-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "miopen_sys",
+              "pkg": "path+file:///fixture/zluda/miopen-sys#miopen-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "rocblas_sys",
+              "pkg": "path+file:///fixture/zluda/rocblas-sys#rocblas-sys@0.1.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "rocm_smi_sys",
+              "pkg": "path+file:///fixture/zluda/rocm_smi-sys#rocm_smi-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "rocsparse_sys",
+              "pkg": "path+file:///fixture/zluda/rocsparse-sys#rocsparse-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/dark_api#dark_api@0.0.0",
+          "deps": [
+            {
+              "name": "cuda_types",
+              "pkg": "path+file:///fixture/zluda/cuda_types#cuda_types@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "lz4_sys",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#lz4-sys@1.11.1+lz4-1.10.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            },
+            {
+              "name": "zstd_safe",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@7.2.4",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/zluda_cache#zluda_cache@0.1.0",
+          "deps": [
+            {
+              "name": "libsqlite3_sys",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#libsqlite3-sys@0.35.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#blake3@1.8.2",
+          "deps": []
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#vergen-gix@10.0.2",
+          "deps": []
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#lz4-sys@1.11.1+lz4-1.10.0",
+          "deps": []
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@7.2.4",
+          "deps": [
+            {
+              "name": "zstd_sys",
+              "pkg": "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.0.15+zstd.1.5.7",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.0.15+zstd.1.5.7",
+          "deps": []
+        },
+        {
+          "id": "registry+https://github.com/rust-lang/crates.io-index#libsqlite3-sys@0.35.0",
+          "deps": []
+        },
+        {
+          "id": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+          "deps": []
+        },
+        {
+          "id": "path+file:///fixture/zluda/hipblaslt-sys#hipblaslt-sys@0.1.0",
+          "deps": [
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/hipfft-sys#hipfft-sys@0.0.0",
+          "deps": [
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/miopen-sys#miopen-sys@0.0.0",
+          "deps": [
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/rocblas-sys#rocblas-sys@0.1.0",
+          "deps": [
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/rocsparse-sys#rocsparse-sys@0.0.0",
+          "deps": [
+            {
+              "name": "hip_runtime_sys",
+              "pkg": "path+file:///fixture/zluda/hip_runtime-sys#hip_runtime-sys@0.0.0",
+              "dep_kinds": [
+                {
+                  "kind": null,
+                  "target": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "path+file:///fixture/zluda/rocm_smi-sys#rocm_smi-sys@0.0.0",
+          "deps": []
+        }
+      ]
+    }
+  },
+  "tree": "zluda v0.0.0 (/fixture/zluda/zluda)|\nptx v0.0.0 (/fixture/zluda/ptx)|\nllvm_zluda v0.1.0 (/fixture/zluda/llvm_zluda)|\nhighs v1.12.0|\nhighs-sys v1.11.0 (/fixture/zluda/highs-sys)|build,default,highs_release\ncuda_types v0.0.0 (/fixture/zluda/cuda_types)|\ndark_api v0.0.0 (/fixture/zluda/dark_api)|\nzluda_cache v0.1.0 (/fixture/zluda/zluda_cache)|\nblake3 v1.8.2|\nvergen-gix v10.0.2|\nlz4-sys v1.11.1+lz4-1.10.0|\nzstd-safe v7.2.4|\nzstd-sys v2.0.15+zstd.1.5.7|default,legacy,std,zdict_builder\nlibsqlite3-sys v0.35.0|bundled,bundled_bindings,cc\nhip_runtime-sys v0.0.0 (/fixture/zluda/hip_runtime-sys)|\nhipblaslt-sys v0.1.0 (/fixture/zluda/hipblaslt-sys)|\nhipfft-sys v0.0.0 (/fixture/zluda/hipfft-sys)|\nmiopen-sys v0.0.0 (/fixture/zluda/miopen-sys)|\nrocblas-sys v0.1.0 (/fixture/zluda/rocblas-sys)|\nrocsparse-sys v0.0.0 (/fixture/zluda/rocsparse-sys)|\nrocm_smi-sys v0.0.0 (/fixture/zluda/rocm_smi-sys)|\n"
+}

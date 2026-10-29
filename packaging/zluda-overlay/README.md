@@ -106,10 +106,19 @@ prerequisites preserves configure results and supports future module selection.
 The native stage explicitly compiles `steamos-math-compat.c`, builds libnuma from
 pinned source, and installs only the seven versioned ROCm libraries listed in the
 lock plus their declared SONAME/development aliases. Link-only math stubs are
-build inputs and are never installed. `build-native.sh` first builds the small
-native dependency roots, verifies HiGHS's archive/search paths and the emitted
-ROCm links, then builds LLVM alone before the final ZLUDA package. It retains
-`cuda_types`' feature selection, including hipfft's disabled link feature.
+build inputs and are never installed. `build-native.sh` resolves the final Linux
+`-p zluda` graph using locked Cargo metadata and its normal/build tree. `native_plan.py` intersects that graph with
+safe early workspace roots and uses their exact package IDs and resolved features.
+Missing required roots fail before compilation; optional registry dependencies
+are reported as absent, covered transitively or deferred to the final build.
+They are never guessed as independent `-p` arguments. Roots that reach LLVM are
+excluded from the early stage. The stage verifies HiGHS's archive/search paths
+and the emitted ROCm links, then builds LLVM alone before the final ZLUDA package.
+It retains `cuda_types`' feature selection, including hipfft's disabled link feature.
+`native/metadata.json`, `zluda-tree.txt` and `plan.json` retain the actual resolver
+inputs and decisions in the logs artifact. The fixture projects package identities
+and dependency edges from the pinned Cargo.lock; it does not claim to be a captured
+Cargo invocation.
 `native-cmake.py` passes `CMAKE_INSTALL_LIBDIR=lib` only when configuring HiGHS;
 it also removes staging DESTDIR. This leaves the ZLUDA pin and LLVM/Wine flags
 unchanged. Native logs and `NATIVE-LINK-LAYOUT.json` record the actual layout.

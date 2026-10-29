@@ -17,6 +17,7 @@ import overlay
 import wine_deps
 import wine_scope
 import native_audit
+import native_plan
 import wine_targets
 
 
@@ -556,6 +557,67 @@ class WineTargets(unittest.TestCase):
             self.assertIn('dlls/ntdll/ntdll.so', record['targets'])
 
 
+class NativePlan(unittest.TestCase):
+    def fixture(self):
+        return json.loads((ROOT / 'tests/fixtures/native-graph.json').read_text())
+
+    def test_resolved_workspace_specs_and_features(self):
+        fixture = self.fixture()
+        self.assertEqual(fixture['origin']['pin'], inputs.LOCK['components']['zluda'])
+        self.assertEqual(fixture['origin']['Cargo.lock_sha256'], inputs.LOCK['cargo_lock_sha256'])
+        record = native_plan.plan(fixture['metadata'], fixture['tree'])
+        members = set(fixture['metadata']['workspace_members'])
+        self.assertTrue(set(record['roots']) <= members)
+        self.assertEqual(len(record['roots']), 4)
+        self.assertIn('highs-sys/build', record['features'])
+        self.assertIn('highs-sys/default', record['features'])
+        self.assertFalse(any('hipfft' in f for f in record['features']))
+        self.assertIn('--no-default-features', record['args'])
+        for name in ['blake3', 'vergen-gix', 'highs']:
+            self.assertIn('deferred', record['optional'][name])
+        for name in ['lz4-sys', 'zstd-sys']:
+            self.assertIn('transitively', record['optional'][name])
+        self.assertIn('absent', record['optional']['zstd'])
+        # A lockfile/resolved registry package is not an explicit workspace root.
+        registry = next(p['id'] for p in fixture['metadata']['packages'] if p['name'] == 'blake3')
+        for spec in ['blake3', registry, 'vergen-gix', 'lz4-sys', 'zstd']:
+            with self.assertRaisesRegex(ValueError, 'unresolvable early package spec'):
+                native_plan.validate_specs(record, record['args'] + ['-p', spec])
+
+    def test_optional_absent_and_required_missing(self):
+        fixture = self.fixture()
+        lines = fixture['tree'].splitlines()
+        tree = '\n'.join(line for line in lines if not line.startswith(('blake3 ', 'vergen-gix ', 'lz4-sys ', 'zstd-sys ')))
+        record = native_plan.plan(fixture['metadata'], tree)
+        for name in ['blake3', 'vergen-gix', 'lz4-sys', 'zstd-sys']:
+            self.assertIn('absent', record['optional'][name])
+        tree = '\n'.join(line for line in lines if not line.startswith('highs-sys '))
+        with self.assertRaisesRegex(ValueError, 'required native graph packages missing: highs-sys'):
+            native_plan.plan(fixture['metadata'], tree)
+
+    def test_early_roots_cannot_start_llvm(self):
+        fixture = self.fixture()
+        ids = {p['name']: p['id'] for p in fixture['metadata']['packages']}
+        for root in ['dark_api', 'highs-sys']:
+            metadata = copy.deepcopy(fixture['metadata'])
+            node = next(n for n in metadata['resolve']['nodes'] if n['id'] == ids[root])
+            node['deps'].append({'pkg': ids['llvm_zluda'], 'dep_kinds': [{'kind': 'build'}]})
+            if root == 'highs-sys':
+                with self.assertRaisesRegex(ValueError, 'required native root would start LLVM'):
+                    native_plan.plan(metadata, fixture['tree'])
+            else:
+                record = native_plan.plan(metadata, fixture['tree'])
+                self.assertNotIn(ids[root], record['roots'])
+                self.assertEqual(record['optional'][root], 'would start LLVM')
+
+    def test_tree_features_duplicates_build_sections_and_bad_records(self):
+        tree = 'highs-sys v1.11.0 (/source/ext/highs-sys)|build\n[build-dependencies]\nhighs-sys v1.11.0 (/source/ext/highs-sys)|default,highs_release (*)\n'
+        self.assertEqual(native_plan.tree_packages(tree),
+                         {('highs-sys', '1.11.0'): {'build', 'default', 'highs_release'}})
+        with self.assertRaisesRegex(ValueError, 'unexpected Cargo tree record'):
+            native_plan.tree_packages('bad record')
+
+
 class NativeBuild(unittest.TestCase):
     def fixture(self, root):
         target, sdk = root / 'source/zluda/target/release', root / 'sdk'
@@ -629,30 +691,49 @@ class NativeBuild(unittest.TestCase):
             cargo.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
                              'with open(os.environ["TRACE"], "a") as out:\n'
                              ' out.write(json.dumps([sys.argv[1:], os.environ.get("DESTDIR")])+"\\n")\n'
-                             'if "highs" in sys.argv and os.environ.get("FAIL_NATIVE") == "1": sys.exit(42)\n')
+                             'fixture=json.load(open(os.environ["GRAPH_FIXTURE"]))\n'
+                             'if sys.argv[1] == "metadata": print(json.dumps(fixture["metadata"]))\n'
+                             'if sys.argv[1] == "tree": print(fixture["tree"])\n'
+                             'if sys.argv[1] == "build" and "--no-default-features" in sys.argv:\n'
+                             ' specs=[sys.argv[i+1] for i, arg in enumerate(sys.argv) if arg == "-p"]\n'
+                             ' assert set(specs) <= set(fixture["metadata"]["workspace_members"])\n'
+                             ' if os.environ.get("FAIL_NATIVE") == "1": sys.exit(42)\n')
             cargo.chmod(0o755)
             cmake = tools / 'cmake'
             cmake.write_text('#!/bin/sh\nexit 0\n')
             cmake.chmod(0o755)
+            rustc = tools / 'rustc'
+            rustc.write_text('#!/bin/sh\nprintf "host: x86_64-unknown-linux-gnu\\n"\n')
+            rustc.chmod(0o755)
             for fail in ['1', '0']:
                 trace = root / ('trace-' + fail)
                 env = dict(os.environ, PATH=str(tools) + ':' + os.environ['PATH'],
                            SOURCE_ROOT=str(root / 'source'), BUILD_ROOT=str(root / 'build'), SDK_ROOT=str(sdk),
-                           LIBRARY_PATH=str(sdk / 'lib'), TRACE=str(trace), FAIL_NATIVE=fail, DESTDIR='/wrong-stage')
+                           LIBRARY_PATH=str(sdk / 'lib'), TRACE=str(trace), FAIL_NATIVE=fail, DESTDIR='/wrong-stage',
+                           GRAPH_FIXTURE=str(ROOT / 'tests/fixtures/native-graph.json'))
                 result = subprocess.run(['bash', str(inputs.HERE / 'build-native.sh')], env=env,
                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 calls = [json.loads(line) for line in trace.read_text().splitlines()]
                 self.assertEqual(result.returncode, 42 if fail == '1' else 0, result.stderr)
                 self.assertTrue(all(dest is None for _, dest in calls))
                 self.assertEqual(calls[0][0], ['fetch', '--locked'])
-                self.assertIn('highs', calls[1][0])
-                self.assertIn('dark_api', calls[1][0])
-                self.assertNotIn('hipfft-sys', calls[1][0])
-                self.assertNotIn('--keep-going', calls[1][0])
+                self.assertEqual(calls[1][0][0], 'metadata')
+                self.assertEqual(calls[2][0][0], 'tree')
+                self.assertEqual(calls[1][0][calls[1][0].index('--filter-platform') + 1], native_plan.TARGET)
+                self.assertEqual(calls[2][0][calls[2][0].index('--target') + 1], native_plan.TARGET)
+                self.assertEqual(calls[2][0][calls[2][0].index('-p') + 1], 'zluda')
+                self.assertIn('normal,build', calls[2][0])
+                early = calls[3][0]
+                self.assertTrue(any('highs-sys@' in arg for arg in early))
+                self.assertTrue(any('dark_api@' in arg for arg in early))
+                self.assertNotIn('blake3', early)
+                self.assertNotIn('hipfft-sys', early)
+                self.assertNotIn('--keep-going', early)
                 if fail == '1':
-                    self.assertEqual(len(calls), 2)
+                    self.assertEqual(len(calls), 4)
                 else:
-                    self.assertEqual([call[0][-1] for call in calls[2:]], ['llvm_zluda', 'zluda'])
+                    self.assertEqual([call[0][-1] for call in calls[4:]], ['llvm_zluda', 'zluda'])
+
 
 
 class WineScope(unittest.TestCase):
