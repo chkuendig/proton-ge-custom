@@ -155,13 +155,16 @@ if [[ ! -s $out/changed-sources.txt ]]; then
     echo "$rev prepares the same Wine as $base: nothing to build"
     rm -rf "$out/overlay"; exit 0
 fi
+wine_scope=$(python3 "$here/wine_scope.py" "$src/wine" "$tag_base" "$tag_ours" "$out/wine-scope.json")
+scope_args=()
+[[ $wine_scope != x86_64-unix-ntdll ]] || scope_args=(--native-only)
 
 # Reuse Proton's complete prerequisite graph and exact per-arch Wine flags.
 # The focused Makefile drops unrelated factories; dependency recipes themselves
 # and their source/configure/build/post-build ordering remain GE's.
 make_tool=$(command -v make)
 ninja_tool=$(command -v ninja)
-python3 "$here/wine_deps.py" "$repo" "$out" --make-tool "$make_tool" --ninja-tool "$ninja_tool" --jobs "$jobs"
+python3 "$here/wine_deps.py" "$repo" "$out" --make-tool "$make_tool" --ninja-tool "$ninja_tool" --jobs "$jobs" "${scope_args[@]}"
 export PATH="$out/proton-tools:$PATH"
 export CMAKE_BUILD_PARALLEL_LEVEL=$jobs CARGO_BUILD_JOBS=$jobs
 build_dependencies=$(dpkg-query -W | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
@@ -190,18 +193,16 @@ build() {
         > "$out/log/make-$arch.log" 2>&1 || { tail -40 "$out/log/make-$arch.log" >&2; exit 1; }
 }
 build x86_64
-build i386
+if [[ $wine_scope != x86_64-unix-ntdll ]]; then build i386; fi
 
 # --- overlay -----------------------------------------------------------------
 # The release's regular files (top directory stripped) and their sizes.
-python3 - "$tgz" "$out/ge-files.txt" "$out/ge-sizes.txt" <<'PY'
-import sys, tarfile
-with tarfile.open(sys.argv[1]) as tf, open(sys.argv[2], 'w') as names, open(sys.argv[3], 'w') as sizes:
-    for m in tf:
-        if m.isfile():
-            p = m.name.split('/', 1)[1]
-            names.write(p + '\n')
-            sizes.write(f'{p}\t{m.size}\n')
+python3 - "$here" "$tgz" "$out/ge-files.txt" "$out/ge-sizes.txt" "$out/wine-scope.json" <<'PY'
+from pathlib import Path
+import sys
+sys.path.insert(0, sys.argv[1])
+import wine_scope
+wine_scope.inventory(*map(Path, sys.argv[2:]))
 PY
 ours() {  # GE release path -> our built module, or installed file for --full
     local p=$1 f=${1##*/} arch subdir m candidate
@@ -263,6 +264,11 @@ if (( full )); then
     grep -E '^files/lib/wine/(i386|x86_64)-(unix|windows)/' "$out/ge-files.txt" | while read -r p; do
         o=$(ours "$p"); [[ -e $o ]] || echo "   $p"
     done
+fi
+if [[ $wine_scope == x86_64-unix-ntdll ]]; then
+    # This exact prepared-source hunk compiles only into the native Unix ntdll.
+    # Keep both PE ntdlls and classic i386 ntdll.so from the locked GE archive.
+    sel=(files/lib/wine/x86_64-unix/ntdll.so)
 fi
 
 ovl=$out/overlay

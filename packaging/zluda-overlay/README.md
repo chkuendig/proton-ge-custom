@@ -71,6 +71,16 @@ from the input lock. Dependencies run one component at a time with at most three
 jobs inside the component. The prepared Wine source is preserved rather than
 being overwritten by the source-copy rule.
 
+For the exact prepared-source delta adding `leave_handler(ucontext)` to the
+x86_64 Unix steamclient fault redirect, `wine_scope.py` selects a native-only
+profile. It skips i386 Wine/prerequisites, removes Kaldi's now-unneeded cross-arch
+serialization, and overlays only `x86_64-unix/ntdll.so`. Both PE ntdlls and the
+classic i386 Unix ntdll come from the locked GE archive. Assembly verifies their
+hashes and all other GE i386 Wine files/links; the PE32 CUDA relay is an explicit
+replacement. `provenance/WINE-SCOPE.json` records that inventory. Any different
+prepared-source transformation retains the original two-architecture graph.
+The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
+
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private
 prefixes, and inherited staging would prepend the overlay path a second time.

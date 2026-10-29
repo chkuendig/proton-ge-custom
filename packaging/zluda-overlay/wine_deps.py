@@ -8,6 +8,11 @@ import shlex
 
 HERE = Path(__file__).resolve().parent
 POLICY = json.loads((HERE / 'wine-deps.json').read_text())
+KALDI_SERIALIZATION = [
+    '$(OBJ)/.kaldi-x86_64-configure: $(OBJ)/.kaldi-i386-configure',
+    '$(OBJ)/.kaldi-i386-build: $(OBJ)/.kaldi-x86_64-configure',
+    '$(OBJ)/.kaldi-i386-build: $(OBJ)/.kaldi-x86_64-build',
+]
 
 
 def assignments(text):
@@ -44,12 +49,19 @@ def validate(text):
             raise ValueError('source path differs from Makefile.in: ' + name)
 
 
-def generate(source, build):
+def generate(source, build, native_only=False):
     text = (source / 'Makefile.in').read_text()
     validate(text)
+    if native_only and not all(line in text.splitlines() for line in KALDI_SERIALIZATION):
+        raise ValueError('GE Kaldi serialization changed; re-audit native-only profile')
     selected = set(POLICY['sources']) | {'wine'}
     lines = []
     for line in text.splitlines():
+        # The one-architecture profile never configures/builds Kaldi i386. Its
+        # shared-source serialization is then unnecessary and would pull i386
+        # OpenFST/configuration back into the reachable graph.
+        if native_only and line in KALDI_SERIALIZATION:
+            continue
         factory = re.match(r'\$\(eval \$\(call ([\w-]+),([^,)]+)[,)]', line)
         if factory and (factory[2] not in selected or
                         (factory[1] in ('rules-source', 'rules-wine-requests') and factory[2] == 'wine')):
@@ -133,8 +145,9 @@ def main():
     parser.add_argument('--make-tool', type=Path)
     parser.add_argument('--ninja-tool', type=Path)
     parser.add_argument('--jobs', type=int, default=3)
+    parser.add_argument('--native-only', action='store_true')
     args = parser.parse_args()
-    print(generate(args.source.resolve(), args.build.resolve()))
+    print(generate(args.source.resolve(), args.build.resolve(), args.native_only))
     if args.make_tool or args.ninja_tool:
         if not args.make_tool or not args.ninja_tool:
             parser.error('both make and ninja tool paths are required')

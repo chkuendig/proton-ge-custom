@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / 'packaging/zluda-overlay'))
 import inputs
 import overlay
 import wine_deps
+import wine_scope
 
 
 class PayloadManifest(unittest.TestCase):
@@ -269,6 +270,23 @@ class BootstrapFixtures(unittest.TestCase):
 
 
 class WinePrerequisites(unittest.TestCase):
+    @staticmethod
+    def make_edges(makefile):
+        result = subprocess.run([os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make'),
+                                 '-C', str(makefile.parent / 'proton-deps'), '-f', str(makefile),
+                                 '-np', 'overlay-inspect', 'rules-source=',
+                                 'HOST_ARCH=x86_64', 'SHELL=/bin/true'], check=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        graph = {}
+        for line in result.stdout.splitlines():
+            if not line or line[0] in '#\t ' or ':' not in line:
+                continue
+            target, dependencies = line.split(':', 1)
+            if re.match(r'\s*\w+\s*[:+?]?=', dependencies):
+                continue
+            graph[target] = set(dependencies.split()) - {'|'}
+        return graph
+
     def test_recursive_build_tools_cap_jobs_and_preserve_jobserver(self):
         with tempfile.TemporaryDirectory() as temporary:
             build = Path(temporary)
@@ -366,22 +384,7 @@ class WinePrerequisites(unittest.TestCase):
             reference = generated.parent / 'reference.mk'
             reference.write_text(focused.split('# Enable secondary expansions,')[0] +
                                  '\n'.join(original) + '\noverlay-inspect:\n\t@:\n')
-            def edges(makefile):
-                result = subprocess.run([os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make'),
-                                         '-C', str(generated.parent / 'proton-deps'), '-f', str(makefile),
-                                         '-np', 'overlay-inspect', 'rules-source=',
-                                         'HOST_ARCH=x86_64', 'SHELL=/bin/true'], check=True,
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                graph = {}
-                for line in result.stdout.splitlines():
-                    if not line or line[0] in '#\t ' or ':' not in line:
-                        continue
-                    target, dependencies = line.split(':', 1)
-                    if re.match(r'\s*\w+\s*[:+?]?=', dependencies):
-                        continue  # Target-specific variable, not an edge.
-                    graph[target] = set(dependencies.split()) - {'|'}
-                return graph
-            expected, actual = edges(reference), edges(generated)
+            expected, actual = self.make_edges(reference), self.make_edges(generated)
             for name in [*wine_deps.POLICY['sources'], 'wine']:
                 for arch in ['i386', 'x86_64']:
                     targets = [str(generated.parent / 'proton-deps' / f'.{name}-{arch}-{stage}')
@@ -404,6 +407,24 @@ class WinePrerequisites(unittest.TestCase):
                         got = {x for x in actual[target] if not x.endswith('.mk')}
                         with self.subTest(target=target):
                             self.assertEqual(got, wanted)
+
+    @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required')
+    def test_native_profile_has_no_reachable_i386_prerequisites(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated = wine_deps.generate(ROOT, Path(temporary) / 'wine', native_only=True)
+            graph = self.make_edges(generated)
+            visited, pending = set(), ['overlay-wine-x86_64']
+            while pending:
+                target = pending.pop()
+                if target in visited:
+                    continue
+                visited.add(target)
+                pending.extend(graph.get(target, set()))
+            self.assertFalse([x for x in visited if '-i386' in x], sorted(visited))
+            for component in wine_deps.POLICY['wine']['common'] + wine_deps.POLICY['wine']['x86_64']:
+                self.assertIn(str(generated.parent / 'proton-deps' / f'.{component}-x86_64-build'), visited)
+            self.assertEqual(wine_deps.assignments(generated.read_text())['WINE_x86_64_AUTOCONF_ARGS'],
+                             wine_deps.assignments((ROOT / 'Makefile.in').read_text())['WINE_x86_64_AUTOCONF_ARGS'])
 
     def test_generated_makefile_preserves_ge_flags_and_recipes(self):
         original = (ROOT / 'Makefile.in').read_text()
@@ -452,6 +473,77 @@ class WinePrerequisites(unittest.TestCase):
                 self.assertIn('--with-mingw=gcc', line)
 
 
+class WineScope(unittest.TestCase):
+    def test_only_exact_prepared_source_hunk_selects_native_profile(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(['git', '-C', str(repo), '-c', 'user.name=Fixture',
+                                                '-c', 'user.email=fixture@example.invalid', *args],
+                                               stderr=subprocess.DEVNULL).decode().strip()
+            git('init', '-q')
+            path = repo / wine_scope.SOURCE
+            path.parent.mkdir(parents=True)
+            before = 'prefix\n            RIP_sig(ucontext) = (intptr_t)steamclient_addr;\n            return;\nsuffix\n'
+            after = before.replace('            return;', '            leave_handler( ucontext );\n            return;')
+            path.write_text(before)
+            git('add', '.')
+            git('commit', '-qm', 'baseline')
+            baseline = git('rev-parse', 'HEAD')
+            for text, extra, mode in [(after, False, 'x86_64-unix-ntdll'),
+                                      (after + 'another change\n', False, 'both'),
+                                      (after, True, 'both'), (before + 'different fix\n', False, 'both')]:
+                path.write_text(text)
+                other = repo / 'other.c'
+                if extra:
+                    other.write_text('new ABI')
+                else:
+                    other.unlink(missing_ok=True)
+                git('add', '-A')
+                git('commit', '-qm', 'candidate')
+                self.assertEqual(wine_scope.select(repo, baseline, 'HEAD')['mode'], mode)
+
+    def test_archive_hashes_preserved_counterparts_and_rejects_mixing(self):
+        import io
+        import tarfile
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive, record = root / 'ge.tar.gz', root / 'scope.json'
+            record.write_text(json.dumps({'mode': 'x86_64-unix-ntdll'}))
+            with tarfile.open(archive, 'w:gz') as stream:
+                for name in [*wine_scope.PRESERVED, wine_scope.OUTPUT,
+                             'files/lib/wine/i386-windows/kernel32.dll', wine_scope.REPLACED_PE32]:
+                    data = name.encode()
+                    member = tarfile.TarInfo('GE/' + name)
+                    member.size = len(data)
+                    stream.addfile(member, io.BytesIO(data))
+                    target = root / 'tool' / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                link = 'files/lib/wine/i386-unix/fixture-link'
+                member = tarfile.TarInfo('GE/' + link)
+                member.type, member.linkname = tarfile.SYMTYPE, 'ntdll.so'
+                stream.addfile(member)
+                (root / 'tool' / link).symlink_to('ntdll.so')
+            wine_scope.inventory(archive, root / 'names', root / 'sizes', record)
+            scope = json.loads(record.read_text())
+            self.assertIn('files/lib/wine/i386-windows/kernel32.dll', scope['ge_preserved_sha256'])
+            self.assertNotIn(wine_scope.REPLACED_PE32, scope['ge_preserved_sha256'])
+            wine_scope.verify(root / 'tool', scope)
+            (root / 'tool' / wine_scope.PRESERVED[0]).write_bytes(b'rebuilt PE32')
+            with self.assertRaisesRegex(ValueError, 'preserved GE Wine file differs'):
+                wine_scope.verify(root / 'tool', scope)
+            (root / 'tool' / wine_scope.PRESERVED[0]).write_bytes(wine_scope.PRESERVED[0].encode())
+            (root / 'tool' / link).unlink()
+            (root / 'tool' / link).symlink_to('different')
+            with self.assertRaisesRegex(ValueError, 'preserved GE Wine link differs'):
+                wine_scope.verify(root / 'tool', scope)
+            with self.assertRaisesRegex(ValueError, 'missing preserved'):
+                with tarfile.open(root / 'empty.tar.gz', 'w:gz'):
+                    pass
+                wine_scope.inventory(root / 'empty.tar.gz', root / 'names', root / 'sizes', record)
+
+
 class AssemblyFixture(unittest.TestCase):
     def test_complete_assembly_and_missing_payload_gate(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -490,6 +582,12 @@ class AssemblyFixture(unittest.TestCase):
             ge.mkdir()
             tool = ge / 'GE-Proton11-7'
             (tool / 'protonfixes').mkdir(parents=True)
+            stock = {}
+            for name in wine_scope.PRESERVED:
+                path = tool / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'stock GE ' + name.encode())
+                stock[name] = inputs.sha256(path)
             (tool / 'protonfixes/deleted.py').write_text('old')
             (tool / 'compatibilitytool.vdf').write_text(
                 '\n"GE-Proton11-7" // Internal name\n"display_name" "GE"\n')
@@ -505,6 +603,10 @@ class AssemblyFixture(unittest.TestCase):
                 record = {'part': part, 'proton': commit,
                           'input_lock_sha256': inputs.sha256(inputs.HERE / 'inputs.lock.json')}
                 (tree / 'provenance' / (part + '.json')).write_text(json.dumps(record))
+                if part == 'bridges':
+                    (tree / 'provenance/WINE-SCOPE.json').write_text(json.dumps(
+                        {'mode': 'x86_64-unix-ntdll', 'ge_preserved_sha256': stock,
+                         'ge_preserved_links': {}}))
                 for name in overlay.required_payload():
                     if name in ['proton', 'proton_zluda.py']:
                         continue

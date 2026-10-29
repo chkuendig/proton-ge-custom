@@ -10,6 +10,7 @@ import subprocess
 import tarfile
 
 from inputs import HERE, LOCK, components_for_part, git, manifest, sha256, verify_manifest
+import wine_scope
 
 
 def environment(name):
@@ -195,6 +196,8 @@ def assemble(overlays):
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
+    scope = dest / 'provenance/WINE-SCOPE.json'
+    wine_scope.verify(dest, json.loads(scope.read_text()))
     for name in ['proton', 'proton_zluda.py']:
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
     (dest / 'proton').chmod(0o755)
