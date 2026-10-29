@@ -129,6 +129,28 @@ class CudaRoots(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'regular pinned GE stub'):
             method(None, str(path), str(self.root / 'destination'))
 
+    def test_missing_default_template_wineboot_materializes_regular_stubs(self):
+        import contextlib
+        prefix = self.tool / 'files/share/default_pfx'
+        calls = []
+        def run(args, env):
+            calls.append((args, dict(env)))
+            if args[-1] == 'wineboot':
+                for directory, arch in policy.ARCHES.items():
+                    path = prefix / 'drive_c/windows' / directory / 'nvcuda.dll'
+                    path.parent.mkdir(parents=True)
+                    path.symlink_to(self.cuda / 'stub' / arch / 'nvcuda.dll')
+        env = {'PROTON_ENABLE_ZLUDA': '1'}
+        policy.select_root(env, self.tool, bootstrap=True)
+        method = self.method('Proton', 'make_default_prefix', {'g_session': SimpleNamespace(env=env, run_proc=run)})
+        proton = SimpleNamespace(base_dir=str(self.tool), default_pfx_dir=str(prefix),
+                                 dist_lock=contextlib.nullcontext(), missing_default_prefix=lambda: True,
+                                 wine_bin='/bin/wine', wineserver_bin='/bin/wineserver')
+        method(proton)
+        policy.validate_default_prefix(self.tool, prefix)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(env['WINEDLLPATH'] == str(self.cuda / 'stub') for args, env in calls))
+
     def test_one_time_legacy_migration_preserves_unknown_user_files(self):
         compat = self.root / 'compat'
         prefix = compat / 'pfx'

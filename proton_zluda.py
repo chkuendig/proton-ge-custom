@@ -104,6 +104,21 @@ def validate_default_prefix(tool, prefix):
             raise ValueError("default_pfx must contain regular GE CUDA stubs: " + str(path))
 
 
+def materialize_default_prefix(tool, prefix):
+    """Only after Wineboot has stopped, under the tool's dist lock."""
+    root, _ = stub_assets(tool)
+    prefix = Path(prefix).resolve()
+    for directory, arch in ARCHES.items():
+        path = prefix / "drive_c/windows" / directory / "nvcuda.dll"
+        if not path.parent.resolve().is_relative_to(prefix):
+            raise ValueError("default prefix CUDA parent leaves template")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+        path.write_bytes((root / "stub" / arch / "nvcuda.dll").read_bytes())
+        path.chmod(0o644)
+    validate_default_prefix(tool, prefix)
+
+
 def migrate_prefix(tool, compatdata, log=None):
     """Run once under Proton's prefix lock; preserve native user PE DLLs and unknown files."""
     root, record = stub_assets(tool)

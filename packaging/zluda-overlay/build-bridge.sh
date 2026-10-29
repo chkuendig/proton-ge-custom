@@ -1,26 +1,20 @@
 #!/usr/bin/env bash
-# Default C bridge, shared by GE overlay CI and the full-source Makefile.
+# Generated builtin PE + Unixlib only. Never substitute the Stage A C relay.
 set -euo pipefail
 : "${BRIDGE_SOURCE:?}" "${BUILD_ROOT:?}" "${BRIDGE_DEST:?}" "${WINE_SDK_ROOT:?}"
 JOBS=${JOBS:-3}
 [[ $JOBS =~ ^[1-3]$ ]] || { echo 'JOBS must be 1..3' >&2; exit 2; }
-n=$BRIDGE_SOURCE
-wl=$BRIDGE_DEST/lib/wine
+here=$(cd -- "$(dirname -- "$0")" && pwd)
 export PATH="$WINE_SDK_ROOT/bin:$PATH"
-mkdir -p "$wl/x86_64-unix" "$wl/x86_64-windows" "$wl/i386-windows"
-meson setup "$BUILD_ROOT/nvcuda-x64" "$n" --cross-file "$n/build-wine64.txt" \
-    --cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini" \
-    --buildtype release -Dfakedll=true
-ninja -C "$BUILD_ROOT/nvcuda-x64" -j"$JOBS"
-install -m755 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda/nvcuda.dll.so" "$wl/x86_64-unix/"
-install -m644 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda_fdll/nvcuda.dll" "$wl/x86_64-windows/"
-# Same compiler flags and generator as the imported tests/build-wow64.sh.
-wow=$BUILD_ROOT/wow64
-mkdir -p "$wow"
-python3 "$n/tests/generate-wow64-unsupported.py" "$n" "$wow"
-i686-w64-mingw32-gcc -O2 -Wall -Wextra -Werror -shared \
-    "$n/dlls/nvcuda/wow64/pe.c" "$wow/unsupported.c" "$wow/exports.def" \
-    -Wl,--kill-at -o "$wl/i386-windows/nvcuda.dll"
-"$WINE_SDK_ROOT/bin/winebuild" --builtin "$wl/i386-windows/nvcuda.dll"
-cc -O2 -Wall -Wextra -Werror -fPIC -shared "$n/dlls/nvcuda/wow64/unix.c" \
-    -ldl -pthread -o "$wl/x86_64-unix/nvcuda.so"
+export ZLUDA_WINE_BUILD_ROOT=$BUILD_ROOT/zluda-wine
+mkdir -p "$BUILD_ROOT/log"
+# Full checkout provenance, pinned independent crate tree and lock are checked
+# by inputs.py before this entry in both CI and make redist.
+commit=$(git -C "$BRIDGE_SOURCE" rev-parse HEAD)
+expected=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["components"]["zluda"])' "$here/inputs.lock.json")
+[[ $commit == "$expected" ]] || { echo 'ZLUDA Wine source pin mismatch' >&2; exit 1; }
+# All three targets and the independent lock are required by this entry. Its
+# incomplete source must fail rather than package a pilot or a C fallback.
+bash "$BRIDGE_SOURCE/build-bridge.sh" 2>&1 | tee "$BUILD_ROOT/log/zluda-wine.log"
+python3 "$here/cuda_package.py" install "$BRIDGE_DEST" \
+    --artifacts "$ZLUDA_WINE_BUILD_ROOT/artifacts" --commit "$commit"

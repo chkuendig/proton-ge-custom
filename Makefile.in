@@ -1683,6 +1683,9 @@ default_pfx: wine lsteamclient steamexe vrclient dxvk d7vk dxvk-nvapi dxvk-igdex
 	rm -rf $(abspath $(DIST_PREFIX_ARM64))
 ifneq ($(findstring x86_64,$(unix_ARCHS)),)
 	python3 $(SRCDIR)/default_pfx.py $(abspath $(DIST_PREFIX)) $(abspath $(DST_DIR)) 0
+ifeq ($(TARGET_ARCH),x86_64)
+	python3 $(SRCDIR)/packaging/zluda-overlay/cuda_package.py audit $(abspath $(DST_BASE))
+endif
 endif
 ifneq ($(findstring aarch64,$(unix_ARCHS)),)
 	python3 $(SRCDIR)/default_pfx.py $(abspath $(DIST_PREFIX_ARM64)) $(abspath $(DST_DIR)) 1

@@ -22,10 +22,17 @@ def cross_file(path):
     return parser
 
 
-def commands(source, sdk=None):
+def commands(source, sdk=None, generated_bridge=False):
     groups = {'build': [['meson'], ['ninja'], ['cc']],
               'wow64': [['i686-w64-mingw32-gcc'], ['cc']]}
+    if generated_bridge:
+        groups['generated-bridge'] = [[tool] for tool in ['rustc', 'cargo',
+             'x86_64-w64-mingw32-gcc', 'i686-w64-mingw32-gcc',
+             'x86_64-w64-mingw32-dlltool', 'i686-w64-mingw32-dlltool',
+             'x86_64-w64-mingw32-objcopy', 'i686-w64-mingw32-objcopy']]
     for component, filename in CROSS_FILES:
+        if generated_bridge and component == 'zluda':
+            continue
         group = component + '/' + filename
         groups[group] = []
         for _, value in cross_file(source / component / filename).items('binaries'):
@@ -41,15 +48,15 @@ def commands(source, sdk=None):
             groups[group].append(command)
     groups['dxvk/shaders'] = [['glslang' if shutil.which('glslang') else 'glslangValidator']]
     if sdk is not None:
-        groups['wine-sdk'] = [[str(sdk / 'bin' / tool)] for tool in WINE_TOOLS]
+        groups['wine-sdk'] = [[str(sdk / 'bin' / tool)] for tool in (['winebuild'] if generated_bridge else WINE_TOOLS)]
         groups['wow64'].append([str(sdk / 'bin/winebuild')])
     return groups
 
 
-def preflight(source, report, sdk=None):
+def preflight(source, report, sdk=None, generated_bridge=False):
     report.parent.mkdir(parents=True, exist_ok=True)
     records = []
-    for component, tools in commands(source, sdk).items():
+    for component, tools in commands(source, sdk, generated_bridge).items():
         for command in tools:
             resolved = shutil.which(command[0])
             record = {'component': component, 'command': command + ['--version'], 'resolved': resolved}
@@ -114,7 +121,8 @@ if __name__ == '__main__':
     parser.add_argument('source', type=Path)
     parser.add_argument('report', type=Path)
     parser.add_argument('--sdk', type=Path)
+    parser.add_argument('--generated', action='store_true')
     args = parser.parse_args()
-    preflight(args.source, args.report, args.sdk)
-    if args.sdk is not None:
+    preflight(args.source, args.report, args.sdk, args.generated)
+    if args.sdk is not None and not args.generated:
         check_unix_headers(args.source, args.sdk, args.report.with_name('wine-unix-headers.json'))

@@ -1,0 +1,163 @@
+"""Contract and namespace fixtures; no bridge is executed or qualified here."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+import tempfile
+import tarfile
+import io
+import unittest
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'packaging/zluda-overlay'))
+sys.path.insert(0, str(ROOT / 'tests/fixtures'))
+from cuda_binary import pe, elf
+import cuda_package as package
+import proton_zluda as policy
+import wine_sdk
+
+
+class CudaPackage(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.tool = self.root / 'tool'
+        self.artifacts = self.root / 'artifacts'
+        self.commit = 'a' * 40
+        hashes = {}
+        for arch, machine in [('x86_64-windows', 0x8664), ('i386-windows', 0x14c)]:
+            path = self.tool / 'files/lib/wine' / arch / 'nvcuda.dll'
+            path.parent.mkdir(parents=True)
+            path.write_bytes(pe(machine))
+            hashes[arch] = package.digest(path)
+        patch = mock.patch.object(policy, 'STUB_SHA256', hashes)
+        patch.start()
+        self.addCleanup(patch.stop)
+        for directory, arch in policy.ARCHES.items():
+            path = self.tool / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll'
+            path.parent.mkdir(parents=True)
+            path.symlink_to('../../../../../lib/wine/' + arch + '/nvcuda.dll')
+        for name in package.MODULES:
+            path = self.artifacts / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(elf() if name.endswith('.so') else
+                             pe(0x8664, 788) if name.startswith('x86_64') else pe(0x14c, 690))
+        (self.artifacts / 'BUILD-CONTRACT.json').write_text(json.dumps({
+            'contract': 'zluda-wine-packaging-1', 'source_commit': self.commit,
+            'rust': 'rustc 1.99.0 (fixture)', 'modules': package.MODULES,
+            'qualification': 'PENDING: fixtures only'}))
+        self.checksums()
+
+    def checksums(self):
+        (self.artifacts / 'SHA256SUMS').write_text(''.join(
+            package.digest(self.artifacts / name) + '  ' + name + '\n' for name in package.MODULES))
+
+    def install(self):
+        package.prepare_stubs(self.tool)
+        package.install_bridge(self.artifacts, self.tool, self.commit)
+        package.remove_canonical(self.tool)
+        (self.tool / 'files/lib64').mkdir(exist_ok=True)
+        (self.tool / 'files/lib64/wine').symlink_to('../lib/wine')
+        package.audit(self.tool)
+
+    def test_exact_roots_and_regular_default_stubs_without_canonical_or_alias(self):
+        canonical = self.tool / 'files/lib/wine'
+        for name in ['x86_64-unix/nvcuda.dll.so', 'x86_64-unix/nvcuda.so',
+                     'nvidia-libs/nvcuda/i386-windows/nvcuda.dll.so']:
+            path = canonical / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'legacy')
+        self.install()
+        for name in package.MODULES:
+            self.assertEqual((self.tool / 'files/lib/wine-cuda/zluda' / name).read_bytes(),
+                             (self.artifacts / name).read_bytes())
+        self.assertFalse(any(p.name in package.NAMES for p in canonical.rglob('*')))
+        policy.validate_default_prefix(self.tool, self.tool / 'files/share/default_pfx')
+        prov = json.loads((self.tool / 'provenance/ZLUDA-WINE.json').read_text())
+        self.assertIn('PENDING', prov['qualification'])
+        for name in ['files/lib/wine-cuda/stub/x86_64-unix/nvcuda.so',
+                     'files/lib/wine-cuda/stub/x86_64-windows/libcuda.so.1',
+                     'files/lib/wine/x86_64-unix/nvcuda.so']:
+            path = self.tool / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'unexpected')
+            with self.assertRaises(ValueError):
+                package.audit(self.tool)
+            path.unlink()
+        stub = self.tool / 'files/lib/wine-cuda/stub/i386-windows/nvcuda.dll'
+        stub.write_bytes(b'wrong GE stub')
+        with self.assertRaisesRegex(ValueError, 'stub hash'):
+            package.audit(self.tool)
+
+    def test_contract_checksum_module_and_architecture_fail_closed(self):
+        for mode in ['commit', 'checksum', 'missing', 'machine', 'exports', 'wow64', 'gpu-dependency', 'symlink']:
+            with self.subTest(mode=mode):
+                path = self.artifacts / 'i386-windows/nvcuda.dll'
+                original = path.read_bytes()
+                native = self.artifacts / 'x86_64-unix/nvcuda.so'
+                saved_native = native.read_bytes()
+                if mode == 'missing':
+                    path.unlink()
+                elif mode == 'machine':
+                    path.write_bytes(pe(0x8664, 690))
+                elif mode == 'exports':
+                    path.write_bytes(pe(0x14c, 689))
+                elif mode == 'wow64':
+                    native.write_bytes(elf(wow64=False))
+                elif mode == 'gpu-dependency':
+                    native.write_bytes(elf(needed=['libcuda.so.1']))
+                elif mode == 'symlink':
+                    path.unlink()
+                    path.symlink_to(self.artifacts / 'x86_64-windows/nvcuda.dll')
+                if mode not in ['missing', 'checksum']:
+                    self.checksums()
+                if mode == 'checksum':
+                    path.write_bytes(b'corrupt')
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    package.install_bridge(self.artifacts, self.tool, 'b' * 40 if mode == 'commit' else self.commit)
+                path.unlink(missing_ok=True)
+                path.write_bytes(original)
+                native.write_bytes(saved_native)
+                self.checksums()
+
+    def test_source_archive_stubs_verify_checksum_members_and_exact_hashes(self):
+        archive = self.root / 'ge.tar.gz'
+        with tarfile.open(archive, 'w:gz') as stream:
+            for arch, machine in [('x86_64-windows', 0x8664), ('i386-windows', 0x14c)]:
+                data = pe(machine)
+                member = tarfile.TarInfo('GE-Proton11-7-x86_64/files/lib/wine/' + arch + '/nvcuda.dll')
+                member.size = len(data)
+                stream.addfile(member, io.BytesIO(data))
+        with self.assertRaisesRegex(ValueError, 'archive checksum mismatch'):
+            package.archive_stubs(archive, self.tool)
+        with mock.patch.object(policy, 'GE_ARCHIVE_SHA256', package.digest(archive)):
+            package.archive_stubs(archive, self.tool)
+            for arch in policy.STUB_SHA256:
+                path = self.tool / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll'
+                self.assertEqual(package.digest(path), policy.STUB_SHA256[arch])
+        with tarfile.open(archive, 'w:gz') as stream:
+            pass
+        with mock.patch.object(policy, 'GE_ARCHIVE_SHA256', package.digest(archive)):
+            with self.assertRaisesRegex(ValueError, 'lacks both'):
+                package.archive_stubs(archive, self.tool)
+
+    def test_generated_sdk_needs_no_old_crossfile_winegcc_or_import_libraries(self):
+        build, sdk = self.root / 'build', self.root / 'sdk'
+        source, obj = build / 'src/wine', build / 'obj-x86_64'
+        for path in [source / 'include/windef.h', source / 'include/wine/server_protocol.h', obj / 'include/wtypes.h']:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('fixture')
+        tool = obj / 'tools/winebuild/winebuild'
+        tool.parent.mkdir(parents=True)
+        tool.write_text('#!/bin/sh\nexit 0\n')
+        tool.chmod(0o755)
+        record = wine_sdk.prepare(build, sdk, generated_bridge=True)
+        self.assertEqual(record['profile'], 'generated')
+        self.assertEqual(list(record['wrappers']), ['winebuild'])
+        self.assertFalse((sdk / 'bin/winegcc').exists())
+        self.assertFalse((sdk / 'nvcuda-wine64.ini').exists())
+        tool.unlink()
+        with self.assertRaisesRegex(ValueError, 'prepared Wine SDK lacks'):
+            wine_sdk.prepare(build, sdk, generated_bridge=True)

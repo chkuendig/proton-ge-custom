@@ -764,6 +764,8 @@ class Proton:
                 local_env["WINEDEBUG"] = "-all"
                 g_session.run_proc([self.wine_bin, "wineboot"], local_env)
                 g_session.run_proc([self.wineserver_bin, "-w"], local_env)
+                from proton_zluda import materialize_default_prefix
+                materialize_default_prefix(self.base_dir, self.default_pfx_dir)
 
 class CompatData:
     def __init__(self, compatdata):

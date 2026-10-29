@@ -1,38 +1,42 @@
-# CUDA Wine modules are owned by the ZLUDA submodule. The legacy NVIDIA
-# nvcuda/nvcuda32 sources and their optional nvidia-libs install tree are gone.
-# This target builds only the bridge; the native backend/runtime overlay remains
-# the separate packaging/zluda-overlay native stage.
+# CUDA builtin PE modules + Unixlib are owned by ZLUDA. The backend/runtime
+# overlay remains a separate component. No legacy Winelib relay is installed.
 ifeq ($(TARGET_ARCH),x86_64)
 
-$(eval $(call rules-source,nvcuda,$(SRCDIR)/zluda/wine/nvcuda))
+$(eval $(call rules-source,nvcuda,$(SRCDIR)/zluda/wine/zluda_wine))
 
 NVCUDA_BUILD := $(OBJ)/obj-zluda-wine-bridge
 NVCUDA_SDK := $(NVCUDA_BUILD)/wine-sdk
 NVCUDA_PAYLOAD := $(NVCUDA_BUILD)/payload
 NVCUDA_SCRIPTS := $(SRC)/packaging/zluda-overlay
 
-# Use Wine's prepared source and completed x64 SDK, including native/PE import
-# libraries. Waiting for both Wine dist targets prevents their DLL copies from
-# overwriting the relocated bridge when make runs with parallel scheduling.
 $(OBJ)/.nvcuda-build: $(OBJ)/.nvcuda-post-source $(OBJ)/.wine-x86_64-build
-$(OBJ)/.nvcuda-build: $(NVCUDA_SCRIPTS)/build-bridge.sh $(NVCUDA_SCRIPTS)/wine_sdk.py $(NVCUDA_SCRIPTS)/bridge_tools.py
+$(OBJ)/.nvcuda-build: $(NVCUDA_SCRIPTS)/build-bridge.sh $(NVCUDA_SCRIPTS)/wine_sdk.py $(NVCUDA_SCRIPTS)/cuda_package.py
 
 $(OBJ)/.nvcuda-build:
 	rm -rf "$(NVCUDA_BUILD)"
-	python3 "$(NVCUDA_SCRIPTS)/wine_sdk.py" "$(NVCUDA_BUILD)" "$(NVCUDA_SDK)" "$(NVCUDA_SRC)/build-wine64.txt" \
+	mkdir -p "$(NVCUDA_BUILD)/downloads"
+	python3 "$(NVCUDA_SCRIPTS)/inputs.py" check "$(SRCDIR)" --part bridges
+	python3 "$(NVCUDA_SCRIPTS)/inputs.py" fetch "$(NVCUDA_BUILD)/downloads" --group bridges
+	env BUILD_ROOT="$(NVCUDA_BUILD)" DOWNLOAD_ROOT="$(NVCUDA_BUILD)/downloads" BUILD_PART=bridges bash "$(NVCUDA_SCRIPTS)/install-rust.sh"
+	python3 "$(NVCUDA_SCRIPTS)/wine_sdk.py" "$(NVCUDA_BUILD)" "$(NVCUDA_SDK)" --generated \
 	    --object "$(WINE_x86_64_OBJ)" --source "$(WINE_SRC)"
-	env BRIDGE_SOURCE="$(NVCUDA_SRC)" BUILD_ROOT="$(NVCUDA_BUILD)" BRIDGE_DEST="$(NVCUDA_PAYLOAD)" \
+	# Build from the immutable checkout: path dependencies and Git provenance
+	# require the complete ZLUDA source layout, rather than a lone rsynced crate.
+	env BRIDGE_SOURCE="$(SRCDIR)/zluda/wine/zluda_wine" BUILD_ROOT="$(NVCUDA_BUILD)" BRIDGE_DEST="$(NVCUDA_PAYLOAD)" \
+	    PATH="$(NVCUDA_BUILD)/rust/bin:$(PATH)" CARGO_HOME="$(NVCUDA_BUILD)/cargo" \
 	    WINE_SDK_ROOT="$(NVCUDA_SDK)" JOBS=3 bash "$(NVCUDA_SCRIPTS)/build-bridge.sh"
 	touch $@
 
+# Both Wine dist targets must finish before removing canonical nvcuda files.
 $(OBJ)/.nvcuda-dist: $(OBJ)/.nvcuda-build $(OBJ)/.wine-x86_64-dist $(OBJ)/.wine-i386-dist
-	install -d "$(DST_LIBDIR)/wine/x86_64-unix" "$(DST_LIBDIR)/wine/x86_64-windows" "$(DST_LIBDIR)/wine/i386-windows"
-	cp -a "$(NVCUDA_PAYLOAD)/lib/wine/." "$(DST_LIBDIR)/wine/"
-	rm -rf "$(DST_LIBDIR)/wine/nvidia-libs/nvcuda"
-	install -d "$(DST_BASE)/licenses/nvcuda" "$(DST_BASE)/sources"
-	cp "$(NVCUDA_SRC)/LICENSE.md" "$(NVCUDA_SRC)/dlls/nvcuda/wow64/ZLUDA-MIT.txt" "$(DST_BASE)/licenses/nvcuda/"
-	git -C "$(SRCDIR)/zluda" archive HEAD:wine/nvcuda | gzip -n > "$(DST_BASE)/sources/nvcuda.tar.gz"
-	cp "$(NVCUDA_SCRIPTS)/build-bridge.sh" "$(NVCUDA_SCRIPTS)/wine_sdk.py" "$(NVCUDA_SCRIPTS)/bridge_tools.py" "$(DST_BASE)/sources/"
+	install -d "$(DST_LIBDIR)/wine-cuda" "$(DST_BASE)/provenance" "$(DST_BASE)/sources"
+	cp -a "$(NVCUDA_PAYLOAD)/files/lib/wine-cuda/." "$(DST_LIBDIR)/wine-cuda/"
+	cp -a "$(NVCUDA_PAYLOAD)/provenance/." "$(DST_BASE)/provenance/"
+	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" archive-stubs "$(DST_BASE)" --archive "$(NVCUDA_BUILD)/downloads/GE-Proton11-7-x86_64.tar.gz"
+	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" clean "$(DST_BASE)"
+	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" licenses "$(DST_BASE)" --source "$(SRCDIR)/zluda"
+	git -C "$(SRCDIR)/zluda" archive HEAD wine cuda_types cuda_macros | gzip -n > "$(DST_BASE)/sources/zluda-wine.tar.gz"
+	cp -a "$(NVCUDA_SCRIPTS)" "$(DST_BASE)/sources/overlay-recipes"
 	touch $@
 
 nvcuda-build: $(OBJ)/.nvcuda-build

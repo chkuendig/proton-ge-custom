@@ -3,42 +3,54 @@
 This is the CI version of the public hub's `build-public-artifacts.sh` and
 `install-zluda-tool.sh` recipe (hub revision `67e7788a`). It creates a compatibility
 tool archive; it does not install into Steam or touch a prefix. The existing Deck
-runbooks and launcher are unchanged. This is packaging step 1: `make redist` now
+runbooks and installed tool are untouched. This is packaging step 1: `make redist` now
 copies `proton_zluda.py`, but full ZLUDA component dependencies in `all-dist` remain
 separate work.
 
-The CUDA Wine bridge now lives at `zluda/wine/nvcuda` in the ZLUDA gitlink.
-There are no nvcuda/nvcuda32 gitlinks, external bridge checkouts or builds.
-The import preserves source commit `fa81f481` and its history, original LGPL
-notices and the WoW64 ZLUDA-MIT text. `inputs.lock.json` pins both the ZLUDA
-commit and imported subtree ID. Both the overlay and full-source `all-dist`
-use `build-bridge.sh`, installing the same four default Wine modules:
-`x86_64-unix/{nvcuda.dll.so,nvcuda.so}`, `x86_64-windows/nvcuda.dll` and
-`i386-windows/nvcuda.dll`, under `files/lib/wine`. GE's optional legacy
-`wine/nvidia-libs/nvcuda` directory is removed during assembly. The source
-archive remains `sources/nvcuda.tar.gz`, now exported from the ZLUDA subtree;
-licenses remain in `licenses/nvcuda`. Launcher loader ordering is unchanged.
+The A2 bridge entry is `zluda/wine/zluda_wine` in the pinned ZLUDA checkout.
+It builds the independent Rust lock for native x64, x64 GNU Windows and i686
+GNU Windows. It never substitutes the Stage A C relay or packages an incomplete
+pilot. The input lock records the crate tree and independent Cargo.lock hash.
+The present foundation source remains under implementation: a successful file
+inventory is not evidence of callback/dark-table/interop or PE32 ABI parity.
+C/Rust equivalence and target-runtime adoption gates remain required.
 
-Full-source `make redist` builds this bridge after Wine's x64 SDK, installs
-after both Wine architectures, and includes its source/build recipes and
-licenses. It still needs the separate native ZLUDA/ROCm packaging work
-described above; this target does not claim that full-source redist builds
-the backend. Normal CUDA builds continue to use the imported C bridge.
+Both overlay and full-source bridge targets install three unchanged modules:
+`files/lib/wine-cuda/zluda/{x86_64-windows,i386-windows}/nvcuda.dll` and
+`files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so`. Both PEs must carry Wine's
+builtin marker, the matching machine and 788/690 named exports respectively;
+the ELF must expose native and WoW64 Unix-call tables and have no direct GPU
+library dependency. Artifact checksums and BUILD-CONTRACT.json must identify
+the exact locked source and toolchain. `provenance/ZLUDA-WINE.json` retains the
+contract, checksums, inspection results and pending qualification statement.
 
-The bridges CI stage also rebuilds the original `fa81f481` source, reachable
-through the ZLUDA import's history, with the same prepared Wine SDK, flags
-and source epoch as the real payload. It verifies the original source tree,
-header probe, four module paths, PE32 exports and the embedded x64 Winelib
-export table (including Wine stub entries). The x64 fake PE's empty export
-surface is compared separately. ELF export types/binding/visibility and native
-dependency order must also match. File hashes,
-ELF section hashes/sizes and disassembly are retained for comparison. A byte
-difference is explicitly marked `review-required`; it is not treated as proof
-of equivalent code or behavior. Target-runtime W1 and five-workload W2 remain
-separate gates. `provenance/BRIDGE-EQUIVALENCE.json` records the structural
-gate and pending qualification; the logs artifact retains both inspection
-reports and baseline binaries. The extra C build runs serially with the same
-three-job limit, without building or packaging the Rust pilot.
+Assembly copies the exact two empty builtin stubs from the checksum-locked GE
+archive into `files/lib/wine-cuda/stub/{x86_64-windows,i386-windows}/nvcuda.dll`.
+Their independently pinned hashes must match. The off root contains only those
+regular PEs, with no Unixlib/backend alias. All nvcuda forms are removed from
+canonical `files/lib/wine`, including its optional `nvidia-libs/nvcuda` tree and
+`lib64/wine` alias. Both default-prefix nvcuda placeholders become regular stub
+bytes, avoiding GE's now-dangling relative symlinks. A namespace audit runs
+before manifests/archive generation; any extra or missing module fails.
+
+Proton bootstraps Wineboot/prefix setup using only the stub root. Immediately
+before game launch, PROTON_ENABLE_ZLUDA=1 selects only the generated root;
+otherwise the stub root remains selected. Inherited managed roots are removed,
+one builtin CUDA override is merged, and only enabled processes receive the
+bundled backend's absolute filename internally. That filename is implementation
+state, not a user setting. Published one-switch NVAPI behavior is retained;
+off-mode NVAPI policy matches GE, including late game-fix behavior. Known managed
+prefix PE placeholders, ELF copies and tool symlinks migrate once under the
+prefix lock; native unmarked user DLLs/unknown files are preserved and logged.
+
+Sources include the complete pinned `wine`, `cuda_types` and `cuda_macros`
+regeneration inputs in `sources/zluda-wine.tar.gz`. Root MIT/Apache, derived LGPL
+and per-file notices, the independent Cargo lock and downloaded dependency
+licenses are retained. Stage A comparison utilities remain available for source
+oracle work; they are no longer invoked as a substitute for generated-bridge
+qualification. Full-source `make redist` builds the bridge after the prepared
+Wine SDK and installs after both Wine architectures; backend/ROCm provisioning
+still belongs to the separate native component.
 
 `inputs.lock.json` pins the GE11-7 x86_64 release, seven official AMD ROCm 7.2.4
 noble packages, Rust 1.99.0, numactl 2.0.18 source, Steam Runtime SDK image digest,
@@ -86,8 +98,8 @@ and archive name come directly from the input lock; release tags are optional,
 but the locked baseline commit must be present and an ancestor of the checkout.
 This source pin
 changes `ntdll`, so silently retaining GE's Wine would lose a shipped fix. The
-same prepared Wine source supplies the relay's headers, `winegcc`, `winebuild`,
-import libraries and resource compiler. WoW64 is an i686 PE plus native x86_64
+same prepared Wine source supplies the generated bridge's source/generated
+headers and `winebuild`. WoW64 is an i686 PE plus native x86_64
 unixlib; no i386 HIP/ROCm library is built or shipped. Any missing component or
 required runtime license collection fails the job. No failed relay is treated as success.
 
@@ -109,8 +121,8 @@ x86_64 Unix steamclient fault redirect, `wine_scope.py` selects a native-only
 profile. It skips i386 Wine/prerequisites, removes Kaldi's now-unneeded cross-arch
 serialization, and overlays only `x86_64-unix/ntdll.so`. Both PE ntdlls and the
 classic i386 Unix ntdll come from the locked GE archive. Assembly verifies their
-hashes and all other GE i386 Wine files/links; the PE32 CUDA relay is an explicit
-replacement. `provenance/WINE-SCOPE.json` records that inventory. Any different
+hashes and all other GE i386 Wine files/links; the canonical PE32 CUDA stub is intentionally removed after its bytes are
+verified and retained in the separate stub root. `provenance/WINE-SCOPE.json` records that inventory. Any different
 prepared-source transformation retains the original two-architecture graph.
 The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
 
@@ -125,36 +137,20 @@ copy of the actual Makefile is saved beside it even if goal validation fails. Ta
 fixtures are generated without configure from the pinned Wine generator and
 Makefile.in inputs, including the absence of `winecrt0/all`.
 
-`wine_sdk.py` exposes winegcc, winebuild, wrc and widl from that object tree,
-both prepared source/generated header directories, and native/PE winecrt0,
-kernel32 and ntdll archives. It validates these inputs before configuring the
-relay. The winegcc wrapper adds header/ABI options only; a second Meson cross
-file retains the pinned link options and adds the three SDK libraries at link
-time. Compiler version/preprocessor probes therefore receive no library inputs.
-The widl wrapper maps `--version` to that pin's supported `-V` option. SDK file
-hashes are retained in `log/wine-sdk.json`.
+`wine_sdk.py --generated` validates matching prepared source/generated headers
+and executable Winebuild, then exports `include`, `include-generated` and
+`bin/winebuild`. It needs neither the retired Winelib cross-file nor winegcc
+or relay import libraries. The original Winelib SDK mode and header probes
+remain covered by historical baseline fixtures. SDK file hashes are recorded
+in `log/wine-sdk.json`.
 
-`bridge_tools.py` reads the actual component cross-files and runs compiler/tool
-`--version` probes. System tools (both MinGW architectures, C/C++, archive,
-strip/resource tools, Meson, Ninja and DXVK's shader compiler) are checked before
-Wine's prerequisite build. Prepared Wine tools are checked again before any
-relay/Meson configure. WoW64 uses i686 MinGW for the PE bridge, the prepared
-winebuild for its builtin marker and host cc for the Unix library. DXVK/NVAPI
-use their pinned MinGW cross-files. `log/bridge-tools-{system,sdk}.json` records
-resolved executable paths, exit status and version output, including failures.
-
-For the relay compiler, caller `-I` paths take precedence over Wine headers, as
-with the Deck's installed winegcc. Winegcc appends its generated include path
-itself, and the SDK wrapper supplies the source headers with `-isystem`. This
-keeps nvcuda's `config.h` (including HAVE_PTHREAD_H and its _WIN32 undefinition)
-ahead of Wine's unrelated generated `config.h`. Neither CRT mode nor the pinned
-cross-file's compile flags change. The SDK preflight also preprocesses config.h
-and pthread.h using those flags and rejects missing pthread initializers or
-MSVCRT/Unixlib mode. It uses a temporary `.c` file because this Winegcc pin does
-not forward stdin source input. A nonzero preprocessor exit is reported as a
-probe failure; macro checks run only after successful preprocessing.
-`log/wine-unix-headers.json` and `.macros` record the actual command, source text,
-underlying compiler/include trace and macros before Meson configure.
+`bridge_tools.py --generated` exercises native C, Rust/Cargo, both MinGW
+compiler/binutils sets, DXVK/NVAPI cross-file tools and the prepared Winebuild
+before bridge configuration. `install-rust.sh` installs checksum-verified Rust
+1.99 and both GNU Windows standard libraries into a private build prefix.
+The upstream bridge entry fetches its independent locked graph and compiles
+offline with at most three jobs. Both component jobs cache downloaded Cargo
+sources even after failures, separated by component and lock hashes.
 
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private
@@ -192,7 +188,7 @@ Only the bounded 4 GiB compiler cache is retained for LLVM, not its large build
 tree. GitHub's cache eviction controls accumulated snapshots; cache upload and
 reuse still need real CI validation. Package notices are collected per extracted
 AMD package; component and Cargo dependency licenses are retained. Corresponding
-libnuma, relay and prepared Wine source and this build recipe are included under
+libnuma, generated bridge and prepared Wine source and this build recipe are included under
 `sources/`. GE's existing license payload remains in the archive. Inspect the
 actual first CI inventory and any component-specific source/NOTICE obligations
 before publishing binaries; this recipe has not certified an unseen SDK payload.
@@ -206,8 +202,8 @@ Debian notices under `usr/share/doc/` are both collected recursively.
 
 GE's canonical Wine modules stay under `files/lib/wine`. `files/lib64/wine` is a
 relative alias to that tree. CUDA and ROCm stay in `files/lib64`, with CUDA aliases
-in `files/lib/wine/x86_64-unix`. Thus the launcher's existing prepend operations
-and their order remain byte-for-byte unchanged, including their precedence over
+in `files/lib/wine/x86_64-unix`. The launcher's existing enabled prepend operations
+and their order are preserved, including their precedence over
 `user_settings` loader paths.
 
 `MANIFEST` contains SHA-256 for every regular file except itself. The hashed

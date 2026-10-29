@@ -16,7 +16,7 @@ full=0 rev=HEAD
 [[ $# == 0 ]] || { echo 'no arguments; use explicit environment inputs' >&2; exit 2; }
 mkdir -p "$out/log"
 exec > >(tee -a "$out/log/build-wine.log") 2>&1
-python3 "$here/bridge_tools.py" "$repo" "$out/log/bridge-tools-system.json"
+python3 "$here/bridge_tools.py" "$repo" "$out/log/bridge-tools-system.json" --generated
 for tool in git patch python3 autoreconf bison flex perl gcc x86_64-w64-mingw32-gcc i686-w64-mingw32-gcc objcopy; do
     command -v "$tool" >/dev/null
 done
@@ -394,4 +394,4 @@ cat "$ovl/OVERLAY"
 echo "== done $(date -Is): $ovl"
 
 # Expose both Unix and PE SDK archives plus the exact prepared headers/tools.
-python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" "$repo/zluda/wine/nvcuda/build-wine64.txt"
+python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" --generated

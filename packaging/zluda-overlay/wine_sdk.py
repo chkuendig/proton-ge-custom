@@ -14,14 +14,15 @@ TOOLS = ['winegcc', 'winebuild', 'wrc', 'widl']
 LIBRARIES = ['winecrt0', 'kernel32', 'ntdll']
 
 
-def prepare(build, sdk, cross, obj=None, src=None):
+def prepare(build, sdk, cross=None, obj=None, src=None, generated_bridge=False):
     obj = obj if obj is not None else build / 'obj-x86_64'
     src = src if src is not None else build / 'src/wine'
     include, generated = src / 'include', obj / 'include'
     required = [include / 'windef.h', include / 'wine/server_protocol.h', generated / 'wtypes.h']
-    required += [obj / 'tools' / name / name for name in TOOLS]
+    tools = ['winebuild'] if generated_bridge else TOOLS
+    required += [obj / 'tools' / name / name for name in tools]
     libraries = {}
-    for arch in ['x86_64-unix', 'x86_64-windows']:
+    for arch in ([] if generated_bridge else ['x86_64-unix', 'x86_64-windows']):
         for name in LIBRARIES:
             relative = Path('dlls') / name
             if arch.endswith('-windows'):
@@ -31,7 +32,7 @@ def prepare(build, sdk, cross, obj=None, src=None):
     for path in required:
         if not path.is_file():
             raise ValueError('prepared Wine SDK lacks: ' + str(path))
-    for name in TOOLS:
+    for name in tools:
         if not os.access(obj / 'tools' / name / name, os.X_OK):
             raise ValueError('prepared Wine SDK tool is not executable: ' + name)
     (sdk / 'bin').mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,7 @@ def prepare(build, sdk, cross, obj=None, src=None):
     link(sdk / 'include-generated', generated)
     for (arch, name), path in libraries.items():
         link(sdk / 'lib/wine' / arch / ('lib' + name + '.a'), path)
-    for name in TOOLS:
+    for name in tools:
         command = [str(obj / 'tools' / name / name)]
         headers = []
         if name == 'winegcc':
@@ -65,18 +66,20 @@ def prepare(build, sdk, cross, obj=None, src=None):
         wrapper.write_text('#!/bin/sh\n' + version_alias + 'exec ' + shlex.join(command) +
                            ' "$@" ' + shlex.join(headers) + '\n')
         wrapper.chmod(0o755)
-    original = cross_file(cross)
-    link_args = ast.literal_eval(original.get('built-in options', 'c_link_args'))
-    if not isinstance(link_args, list) or not all(isinstance(arg, str) for arg in link_args):
-        raise ValueError('invalid nvcuda c_link_args')
-    # Meson's later cross file overrides only these keys, retaining pinned ABI,
-    # machine and compiler options. Libraries apply to link/sanity steps only.
-    (sdk / 'nvcuda-wine64.ini').write_text(
-        '[binaries]\nc = ' + repr(str(sdk / 'bin/winegcc')) + '\n\n[built-in options]\n'
-        'c_link_args = ' + repr(link_args + ['-l' + name for name in LIBRARIES]) + '\n')
-    record = {'cross_sha256': hashlib.sha256(cross.read_bytes()).hexdigest(),
-              'generated_cross': (sdk / 'nvcuda-wine64.ini').read_text(),
-              'wrappers': {name: (sdk / 'bin' / name).read_text() for name in TOOLS},
+    if not generated_bridge:
+        original = cross_file(cross)
+        link_args = ast.literal_eval(original.get('built-in options', 'c_link_args'))
+        if not isinstance(link_args, list) or not all(isinstance(arg, str) for arg in link_args):
+            raise ValueError('invalid nvcuda c_link_args')
+        # Meson's later cross file overrides only these keys, retaining pinned ABI,
+        # machine and compiler options. Libraries apply to link/sanity steps only.
+        (sdk / 'nvcuda-wine64.ini').write_text(
+            '[binaries]\nc = ' + repr(str(sdk / 'bin/winegcc')) + '\n\n[built-in options]\n'
+            'c_link_args = ' + repr(link_args + ['-l' + name for name in LIBRARIES]) + '\n')
+    record = {'profile': 'generated' if generated_bridge else 'winelib',
+              'cross_sha256': hashlib.sha256(cross.read_bytes()).hexdigest() if cross else None,
+              'generated_cross': (sdk / 'nvcuda-wine64.ini').read_text() if not generated_bridge else None,
+              'wrappers': {name: (sdk / 'bin' / name).read_text() for name in tools},
               'object': str(obj), 'source': str(src), 'include': [str(generated), str(include)],
               'cross_file': str(cross), 'sha256': {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                                                 for path in required}}
@@ -89,10 +92,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('build', type=Path)
     parser.add_argument('sdk', type=Path)
-    parser.add_argument('cross', type=Path)
+    parser.add_argument('cross', type=Path, nargs='?')
+    parser.add_argument('--generated', action='store_true')
     parser.add_argument('--object', type=Path)
     parser.add_argument('--source', type=Path)
     args = parser.parse_args()
-    prepare(args.build.resolve(), args.sdk.resolve(), args.cross.resolve(),
+    prepare(args.build.resolve(), args.sdk.resolve(), args.cross.resolve() if args.cross else None,
             args.object.resolve() if args.object else None,
-            args.source.resolve() if args.source else None)
+            args.source.resolve() if args.source else None, args.generated)

@@ -24,9 +24,7 @@ if [[ $part == zluda || $part == all ]]; then
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group zluda
     # Extraction and per-package license collection are checked before compiling.
     DESTDIR=$DESTDIR python3 "$here/overlay.py" sdk
-    tar -xf "$DOWNLOAD_ROOT/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz" -C "$BUILD_ROOT"
-    "$BUILD_ROOT/rust-1.99.0-x86_64-unknown-linux-gnu/install.sh" \
-        --prefix="$BUILD_ROOT/rust" --without=rust-docs --disable-ldconfig
+    BUILD_PART=zluda bash "$here/install-rust.sh"
     export PATH="$BUILD_ROOT/rust/bin:$PATH"
     [[ $(rustc --version) == 'rustc 1.99.0 '* ]]
     export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
@@ -68,14 +66,16 @@ fi
 
 if [[ $part == bridges || $part == all ]]; then
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group bridges
+    BUILD_PART=bridges bash "$here/install-rust.sh"
+    export PATH="$BUILD_ROOT/rust/bin:$PATH"
+    export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
     # This source line changes ntdll relative to GE11-7. Build exactly the
     # changed Wine modules and retain the existing ELF dependency/version gate.
     bash "$here/build-wine.sh"
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
-    python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT"
-    n=$SOURCE_ROOT/zluda/wine/nvcuda
-    BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR/files bash "$here/build-bridge.sh"
-    DESTDIR=$DESTDIR bash "$here/check-bridge-equivalence.sh"
+    python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
+    n=$SOURCE_ROOT/zluda/wine/zluda_wine
+    BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
         a=$SOURCE_ROOT/dxvk-nvapi
@@ -107,7 +107,7 @@ if [[ $part == bridges || $part == all ]]; then
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    git -C "$SOURCE_ROOT/zluda" archive HEAD:wine/nvcuda | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
+    git -C "$SOURCE_ROOT/zluda" archive HEAD wine cuda_types cuda_macros | gzip -n > "$DESTDIR/sources/zluda-wine.tar.gz"
 fi
 DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"

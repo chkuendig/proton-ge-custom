@@ -63,13 +63,12 @@ jobs:
           restore-keys: llvm-v2-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('zluda/llvm_zluda/build.rs') }}-
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: cargo-cache
-        if: matrix.part == 'zluda'
         with:
           path: |
             /work/cargo/registry
             /work/cargo/git
-          key: cargo-linux-1.99.0-${{ hashFiles('zluda/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: cargo-linux-1.99.0-${{ hashFiles('zluda/Cargo.lock') }}-
+          key: cargo-${{ matrix.part }}-1.99.0-${{ hashFiles('zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: cargo-${{ matrix.part }}-1.99.0-${{ hashFiles('zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
@@ -89,7 +88,7 @@ jobs:
             "$SDK_IMAGE" bash /src/packaging/zluda-overlay/ci-build.sh \
             2>&1 | tee /work/logs/build.log
       - name: Preserve caches with runner ownership
-        if: always() && matrix.part == 'zluda'
+        if: always()
         run: sudo chown -R "$USER:$USER" /work/cargo /work/ccache 2>/dev/null || true
       - name: Save completed or partial LLVM compiler cache
         if: always() && matrix.part == 'zluda' && steps.llvm-cache.outputs.cache-primary-key != ''
@@ -98,7 +97,7 @@ jobs:
           path: /work/ccache
           key: ${{ steps.llvm-cache.outputs.cache-primary-key }}
       - name: Save downloaded Cargo sources after success or failure
-        if: always() && matrix.part == 'zluda' && steps.cargo-cache.outputs.cache-primary-key != ''
+        if: always() && steps.cargo-cache.outputs.cache-primary-key != ''
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
@@ -123,8 +122,9 @@ jobs:
             /work/logs
             /work/build/wine/log
             /work/build/wine/changed-sources.txt
-            /work/build/bridge-equivalence/report
-            /work/build/bridge-equivalence/original-payload
+            /work/build/log
+            /work/build/zluda-wine/artifacts
+            /work/overlay/provenance/ZLUDA-WINE.json
             /work/build/native
           if-no-files-found: warn
           retention-days: 14

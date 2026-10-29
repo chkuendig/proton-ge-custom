@@ -82,7 +82,7 @@ def resolve(cache):
                 release = json.load(response)
             asset = next(a for a in release['assets'] if a['browser_download_url'] == item['url'])
             assert asset['digest'] == 'sha256:' + item['sha256']
-        elif item['id'] == 'rust':
+        elif item['id'] == 'rust' or item['id'].startswith('rust-std-'):
             with request(item['url'] + '.sha256') as response:
                 assert response.read().decode().split()[0] == item['sha256']
         else:
@@ -130,6 +130,8 @@ def check_sources(root, part):
         bridge = LOCK['wine_bridge']
         if git(root / 'zluda', 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree']:
             raise ValueError('locked Wine bridge tree mismatch')
+        if sha256(root / 'zluda' / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']:
+            raise ValueError('locked Wine bridge Cargo.lock mismatch')
     if part in ('zluda', 'all'):
         assert git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']
         assert sha256(root / 'zluda/Cargo.lock') == LOCK['cargo_lock_sha256']
@@ -232,7 +234,7 @@ def main():
             resolve(args.directory)
         else:
             for item in LOCK['downloads']:
-                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge'], 'ge': ['ge']}
+                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge', 'rust', 'rust-std-x86_64-pc-windows-gnu', 'rust-std-i686-pc-windows-gnu'], 'ge': ['ge']}
                 if (args.group == 'all' or item['id'] in ids[args.group]
                         or (args.group == 'zluda' and item.get('group') == 'rocm')):
                     print(item['id'], download(item, args.directory), flush=True)

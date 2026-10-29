@@ -22,6 +22,9 @@ import wine_targets
 import wine_sdk
 import bridge_tools
 import bridge_equivalence
+import cuda_package
+sys.path.insert(0, str(ROOT / "tests/fixtures"))
+from cuda_binary import pe, elf
 
 
 class BridgeBinaryInspection(unittest.TestCase):
@@ -227,7 +230,7 @@ class RecursivePins(unittest.TestCase):
 
 
 class PackageContract(unittest.TestCase):
-    @unittest.skipUnless(shutil.which('make'), 'GNU Make is required for the bridge graph fixture')
+    @unittest.skipUnless(os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make'), 'GNU Make is required for the bridge graph fixture')
     def test_make_bridge_runs_after_wine_and_uses_relocated_source(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -241,9 +244,11 @@ class PackageContract(unittest.TestCase):
                 text += str(root / ('.' + stamp)) + ':\n\t@echo gate-' + stamp + '\n'
             path = root / 'Makefile'
             path.write_text(text)
-            result = subprocess.check_output(['make', '--no-print-directory', '-n', '-f', str(path), 'all-dist'],
+            result = subprocess.check_output([os.environ.get('PACKAGING_TEST_MAKE') or 'make', '--no-print-directory', '-n', '-f', str(path), 'all-dist'],
                                              cwd=root, text=True)
-            self.assertIn(str(root / 'source/zluda/wine/nvcuda/build-wine64.txt'), result)
+            self.assertIn(str(root / 'source/zluda/wine/zluda_wine'), result)
+            self.assertIn('--generated', result)
+            self.assertNotIn('build-wine64.txt', result)
             self.assertIn('--object "prepared-object" --source "prepared-source"', result)
             install = result.index('cp -a')
             self.assertLess(result.index('gate-wine-x86_64-dist'), install)
@@ -273,8 +278,8 @@ class PackageContract(unittest.TestCase):
         for name in inputs.LOCK['rocm_runtime']:
             self.assertNotIn('*', name)
         required = overlay.required_payload()
-        for name in ['files/lib/wine/i386-windows/nvcuda.dll',
-                     'files/lib/wine/x86_64-unix/nvcuda.so',
+        for name in ['files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll',
+                     'files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so',
                      'files/lib/wine/nvapi/i386-windows/nvapi.dll', 'proton_zluda.py']:
             self.assertIn(name, required)
 
@@ -941,6 +946,22 @@ if mode == 'exit':
             with self.assertRaisesRegex(ValueError, 'tool is not executable: widl'):
                 wine_sdk.prepare(build, sdk, source / 'zluda/wine/nvcuda/build-wine64.txt')
 
+    def test_generated_tool_preflight_has_no_retired_winelib_source_dependency(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source_fixture(root / 'source')
+            # The new path must work even when the historical relay is absent.
+            shutil.rmtree(source / 'zluda/wine/nvcuda')
+            groups = bridge_tools.commands(source, root / 'sdk', generated_bridge=True)
+            commands = [command[0] for values in groups.values() for command in values]
+            self.assertIn('rustc', commands)
+            self.assertIn('cargo', commands)
+            for arch in ['x86_64', 'i686']:
+                for suffix in ['gcc', 'dlltool', 'objcopy']:
+                    self.assertIn(arch + '-w64-mingw32-' + suffix, commands)
+            self.assertIn(str(root / 'sdk/bin/winebuild'), commands)
+            self.assertFalse(any('winegcc' in command for command in commands))
+
     def test_every_cross_compiler_and_tool_gets_version_preflight(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -973,7 +994,9 @@ if mode == 'exit':
             script = (inputs.HERE / 'build-components.sh').read_text()
             self.assertLess(script.index('bridge-tools-sdk.json'), script.index('build-bridge.sh'))
             script = (inputs.HERE / 'build-bridge.sh').read_text()
-            self.assertIn('--cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini"', script)
+            self.assertIn('bash "$BRIDGE_SOURCE/build-bridge.sh"', script)
+            self.assertIn('cuda_package.py" install', script)
+            self.assertNotIn('meson setup', script)
             wine = (inputs.HERE / 'build-wine.sh').read_text()
             self.assertLess(wine.index('bridge-tools-system.json'), wine.index('build x86_64'))
 
@@ -1272,6 +1295,16 @@ class AssemblyFixture(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'stock GE ' + name.encode())
                 stock[name] = inputs.sha256(path)
+            stub_hashes = {}
+            for arch, machine in [('x86_64-windows', 0x8664), ('i386-windows', 0x14c)]:
+                path = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(pe(machine))
+                stub_hashes[arch] = inputs.sha256(path)
+            for directory, arch in cuda_package.policy.ARCHES.items():
+                path = tool / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll'
+                path.parent.mkdir(parents=True)
+                path.symlink_to('../../../../../lib/wine/' + arch + '/nvcuda.dll')
             (tool / 'protonfixes/deleted.py').write_text('old')
             legacy = tool / 'files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so'
             legacy.parent.mkdir(parents=True)
@@ -1295,13 +1328,17 @@ class AssemblyFixture(unittest.TestCase):
                         {'mode': 'x86_64-unix-ntdll', 'ge_preserved_sha256': stock,
                          'ge_preserved_links': {}}))
                 for name in overlay.required_payload():
-                    if name in ['proton', 'proton_zluda.py']:
+                    if name in ['proton', 'proton_zluda.py'] or '/wine-cuda/stub/' in name or name.endswith('stubs.json'):
                         continue
                     if (name.startswith('files/lib64/')) != (part == 'zluda'):
                         continue
                     path = tree / name
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(b'component')
+                    if '/wine-cuda/zluda/' in name:
+                        path.write_bytes(elf() if name.endswith('.so') else
+                                         pe(0x8664, 788) if 'x86_64-windows' in name else pe(0x14c, 690))
+                    else:
+                        path.write_bytes(b'component')
                 if part == 'zluda':
                     (tree / 'files/lib64/wine').symlink_to('../lib/wine')
                     (tree / 'files/lib/wine/x86_64-unix').mkdir(parents=True)
@@ -1313,7 +1350,8 @@ class AssemblyFixture(unittest.TestCase):
             env = {'SOURCE_ROOT': str(source), 'DOWNLOAD_ROOT': str(cache),
                    'BUILD_ROOT': str(build), 'DESTDIR': str(root / 'result')}
             with mock.patch.dict(os.environ, env), mock.patch.object(overlay, 'LOCK', lock), \
-                 mock.patch.object(overlay, 'extract', extract):
+                 mock.patch.object(overlay, 'extract', extract), \
+                 mock.patch.object(cuda_package.policy, 'STUB_SHA256', stub_hashes):
                 overlay.assemble(overlays)
                 dest = root / 'result'
                 inputs.verify_manifest(dest)
@@ -1325,9 +1363,9 @@ class AssemblyFixture(unittest.TestCase):
                 shutil.rmtree(dest)
                 shutil.rmtree(build)
                 build.mkdir()
-                (trees['bridges.tar.gz'] / 'files/lib/wine/i386-windows/nvcuda.dll').unlink()
+                (trees['bridges.tar.gz'] / 'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll').unlink()
                 inputs.manifest(trees['bridges.tar.gz'])
-                with self.assertRaisesRegex(AssertionError, 'i386-windows/nvcuda.dll'):
+                with self.assertRaisesRegex(ValueError, 'three-module contract'):
                     overlay.assemble(overlays)
 
 

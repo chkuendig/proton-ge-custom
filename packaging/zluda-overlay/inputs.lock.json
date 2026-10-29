@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "982c24bcbf0529e3863f4e59c8a8eb977f52c23b",
+    "zluda": "f9f6ca53aaaa0ecf86933df55d8d4139caeb8556",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
     "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
@@ -154,6 +154,16 @@
       "id": "rust",
       "url": "https://static.rust-lang.org/dist/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz",
       "sha256": "891c6366d7100feda0bca4c03ce63f3c9ac827cbebbc283e7433061d42c6a376"
+    },
+    {
+      "id": "rust-std-x86_64-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-x86_64-pc-windows-gnu.tar.xz",
+      "sha256": "a2382bf189d5621e09db647da419a8e1d4c604d60941cb116da00ce34042b1dd"
+    },
+    {
+      "id": "rust-std-i686-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-i686-pc-windows-gnu.tar.xz",
+      "sha256": "8c3f4dd0743b8f092651fac16d00a64c6f06ea9420355099e0f52954cc1a61c2"
     }
   ],
   "cargo_lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
@@ -242,9 +252,12 @@
     ]
   },
   "wine_bridge": {
-    "path": "wine/nvcuda",
-    "tree": "699359f620e9864e60e8b8c7d171e255a79288bd",
+    "path": "wine/zluda_wine",
+    "tree": "d2e1be3792f601fb62b3df964e76f502a1ec525e",
     "origin": "https://github.com/chkuendig/nvcuda",
-    "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494"
+    "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "contract": "zluda-wine-packaging-1",
+    "cargo_lock_sha256": "cb1a7c7a302647f7b58894146f9ece90b1c35816daf78f4e996a72274666cb68",
+    "qualification": "PENDING: generated full x64/PE32 parity and real artifact build; no C fallback"
   }
 }
