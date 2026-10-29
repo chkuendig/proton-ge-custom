@@ -135,6 +135,101 @@ class PackageContract(unittest.TestCase):
         self.assertIn('g_proton.path("files/lib64/")', block)
 
 
+class BootstrapFixtures(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('dpkg-deb'), 'dpkg-deb is required for the extraction fixture')
+    def test_sdk_extracts_real_small_debs_with_absent_parents(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = root / 'cache'
+            cache.mkdir()
+            downloads, runtime = [], {}
+            for name in ['first', 'second']:
+                package = root / ('input-' + name)
+                (package / 'DEBIAN').mkdir(parents=True)
+                (package / 'DEBIAN/control').write_text(
+                    f'Package: fixture-{name}\nVersion: 1\nArchitecture: all\n'
+                    'Maintainer: Fixture <fixture@example.invalid>\nDescription: tiny extraction fixture\n')
+                library = f'lib{name}.so.1.0'
+                payload = package / 'opt/rocm-7.2.4/lib' / library
+                payload.parent.mkdir(parents=True)
+                payload.write_bytes(b'\x7fELF' + name.encode())
+                notice = package / 'usr/share/doc' / name / 'copyright'
+                notice.parent.mkdir(parents=True)
+                notice.write_text('fixture license')
+                archive = cache / (name + '.deb')
+                subprocess.run(['dpkg-deb', '--build', '--root-owner-group', str(package), str(archive)],
+                               check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                downloads.append({'id': name, 'group': 'rocm', 'url': 'https://fixture.invalid/' + archive.name,
+                                  'sha256': inputs.sha256(archive)})
+                runtime[library] = [f'lib{name}.so.1', f'lib{name}.so']
+            env = {'BUILD_ROOT': str(root / 'missing/build'), 'DOWNLOAD_ROOT': str(cache),
+                   'DESTDIR': str(root / 'missing/dest'), 'SDK_ROOT': str(root / 'missing/sdk/opt/rocm-7.2.4')}
+            with mock.patch.dict(os.environ, env), mock.patch.object(
+                    overlay, 'LOCK', {'downloads': downloads, 'rocm_runtime': runtime}):
+                overlay.sdk()
+                for library, aliases in runtime.items():
+                    installed = Path(env['DESTDIR']) / 'files/lib64' / library
+                    self.assertEqual(installed.read_bytes(),
+                                     (Path(env['SDK_ROOT']) / 'lib' / library).read_bytes())
+                    for alias in aliases:
+                        self.assertEqual(os.readlink(installed.parent / alias), library)
+                for name in ['first', 'second']:
+                    self.assertTrue((Path(env['BUILD_ROOT']) / 'packages' / name).is_dir())
+                    self.assertEqual((Path(env['DESTDIR']) / 'licenses/rocm' / name /
+                                      'usr/share/doc' / name / 'copyright').read_text(), 'fixture license')
+                with self.assertRaisesRegex(ValueError, 'must be new'):
+                    overlay.sdk()
+
+    def test_wine_preflight_uses_pins_without_release_tags(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / 'source'
+            repo.mkdir()
+            def run(*args):
+                return subprocess.check_output(['git', '-C', str(repo), '-c', 'user.name=Fixture',
+                                                '-c', 'user.email=fixture@example.invalid', *args],
+                                               stderr=subprocess.DEVNULL).decode().strip()
+            run('init', '-q')
+            (repo / 'source').write_text('GE baseline')
+            run('add', '.')
+            run('commit', '-qm', 'baseline')
+            baseline = run('rev-parse', 'HEAD')
+            (repo / 'source').write_text('overlay source')
+            run('commit', '-qam', 'overlay')
+            head = run('rev-parse', 'HEAD')
+            self.assertEqual(run('tag', '--list'), '')
+            lock = copy.deepcopy(inputs.LOCK)
+            lock['ge_source'] = baseline
+            helpers = root / 'helpers'
+            helpers.mkdir()
+            shutil.copyfile(inputs.HERE / 'inputs.py', helpers / 'inputs.py')
+            (helpers / 'inputs.lock.json').write_text(json.dumps(lock))
+            cache = root / 'downloads'
+            cache.mkdir()
+            archive = next(x for x in lock['downloads'] if x['id'] == 'ge')['url'].rsplit('/', 1)[1]
+            (cache / archive).write_bytes(b'archive presence fixture')
+            out = root / 'missing/wine'
+            recipe = (inputs.HERE / 'build-wine.sh').read_text()
+            # Execute the actual shell preflight, before any Wine/compiler work.
+            preflight = recipe[recipe.index('rev=$(git -C "$repo" rev-parse --verify'):recipe.index('\nstamped()')]
+            script = 'set -euo pipefail\n' + preflight + '\nprintf "%s\\n" "$rev" "$base" "$tgz"\n'
+            env = dict(os.environ, repo=str(repo), here=str(helpers), cache=str(cache), out=str(out), rev='HEAD')
+            for tags in ['absent', 'misleading']:
+                if tags == 'misleading':
+                    run('tag', 'GE-Proton99-99')
+                result = subprocess.run(['bash', '-c', script], env=env, check=True,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                self.assertEqual(result.stdout.splitlines(), [head, baseline, str(cache / archive)])
+                self.assertTrue((out / 'src').is_dir())
+                self.assertTrue((out / 'stamps').is_dir())
+            # A missing locked source commit must fail, never select a tag instead.
+            lock['ge_source'] = '0' * 40
+            (helpers / 'inputs.lock.json').write_text(json.dumps(lock))
+            result = subprocess.run(['bash', '-c', script], env=env,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.assertNotEqual(result.returncode, 0)
+
+
 class AssemblyFixture(unittest.TestCase):
     def test_complete_assembly_and_missing_payload_gate(self):
         with tempfile.TemporaryDirectory() as temporary:

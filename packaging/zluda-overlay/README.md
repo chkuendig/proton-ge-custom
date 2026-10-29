@@ -48,7 +48,10 @@ it does not install mutable distro packages. CI itself runs on an ephemeral
 GitHub-hosted Ubuntu runner.
 
 `build-wine.sh` retains the hub's two prepared-tree comparison, changed-module
-selection, x86_64/i386 builds, and GE ELF NEEDED/version checks. This source pin
+selection, x86_64/i386 builds, and GE ELF NEEDED/version checks. Its GE baseline
+and archive name come directly from the input lock; release tags are optional,
+but the locked baseline commit must be present and an ancestor of the checkout.
+This source pin
 changes `ntdll`, so silently retaining GE's Wine would lose a shipped fix. The
 same prepared Wine source supplies the relay's headers, `winegcc`, `winebuild`,
 import libraries and resource compiler. WoW64 is an i686 PE plus native x86_64

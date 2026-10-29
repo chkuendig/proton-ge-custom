@@ -131,6 +131,20 @@ def check_sources(root, part):
     print('checked recursive gitlinks and locked inputs:', ', '.join(names))
 
 
+def wine_base(root):
+    """Select GE by immutable lock entries, even when no release tags exist."""
+    base = LOCK['ge_source']
+    if git(root, 'rev-parse', base + '^{commit}') != base:
+        raise ValueError('GE source must be a full locked commit ID')
+    git(root, 'merge-base', '--is-ancestor', base, 'HEAD')
+    item = next(item for item in LOCK['downloads'] if item['id'] == 'ge')
+    archive = item['url'].rsplit('/', 1)[1]
+    suffix = '-x86_64.tar.gz'
+    if not archive.startswith('GE-Proton') or not archive.endswith(suffix):
+        raise ValueError('unexpected locked GE archive name: ' + archive)
+    return base, archive[:-len(suffix)], archive
+
+
 def baseline_links(root):
     path = root / 'provenance/GE-TEMPLATE-LINKS.json'
     return json.loads(path.read_text()) if path.exists() else {}
@@ -189,13 +203,15 @@ def verify_manifest(root):
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'manifest', 'verify'])
+    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'manifest', 'verify', 'wine-base'])
     parser.add_argument('directory', type=Path)
     parser.add_argument('--part', choices=['all', 'zluda', 'bridges'], default='all')
     parser.add_argument('--group', choices=['all', 'zluda', 'bridges', 'ge'], default='all')
     args = parser.parse_args()
     if args.command == 'check':
         check_sources(args.directory, args.part)
+    elif args.command == 'wine-base':
+        print(*wine_base(args.directory))
     elif args.command == 'manifest':
         manifest(args.directory)
     elif args.command == 'verify':

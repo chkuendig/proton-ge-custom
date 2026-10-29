@@ -7,6 +7,7 @@ export GIT_AUTHOR_NAME='Christian Kündig' GIT_COMMITTER_NAME='Christian Kündig
 export GIT_AUTHOR_EMAIL=christian@kuendig.info GIT_COMMITTER_EMAIL=christian@kuendig.info
 : "${SOURCE_ROOT:?}" "${BUILD_ROOT:?}" "${DOWNLOAD_ROOT:?}" "${WINE_SDK_ROOT:?}"
 repo=$SOURCE_ROOT out=$BUILD_ROOT/wine
+here=$(cd -- "$(dirname -- "$0")" && pwd)
 jobs=${JOBS:-3}
 [[ $jobs =~ ^[1-3]$ ]] || { echo 'JOBS must be 1..3' >&2; exit 2; }
 cache=$DOWNLOAD_ROOT
@@ -20,8 +21,11 @@ for tool in git patch python3 autoreconf bison flex perl gcc x86_64-w64-mingw32-
 done
 [[ $(gcc -m32 -print-file-name=libc.so) == /* ]]
 rev=$(git -C "$repo" rev-parse --verify "$rev^{commit}")
-base=$(git -C "$repo" describe --tags --abbrev=0 --match 'GE-Proton*' --exclude '*-zluda*' "$rev")
-src=$out/src tgz=$cache/$base-x86_64.tar.gz
+# Tags are optional in CI clones. Use the same exact GE source/archive pins as
+# final assembly, never a nearest-tag guess or a descriptive SHA as a filename.
+base_inputs=$(python3 "$here/inputs.py" wine-base "$repo")
+read -r base base_name ge_archive <<< "$base_inputs"
+src=$out/src tgz=$cache/$ge_archive
 [[ -s $tgz ]] || { echo "missing $tgz" >&2; exit 1; }
 mkdir -p "$src" "$out/stamps"
 
@@ -49,6 +53,7 @@ wine_inputs() {
 }
 url() { git -C "$repo" config --blob "$1:.gitmodules" "submodule.$2.url"; }
 fetch() {  # dir url commit [depth]
+    mkdir -p "$1"
     [[ -d $1/.git ]] || git init -q "$1"
     git -C "$1" cat-file -e "$3^{commit}" 2>/dev/null || git -C "$1" fetch -q --depth "${4:-1}" "$2" "$3"
 }
@@ -400,8 +405,8 @@ if [[ $glibc_max != none ]] && [[ $(printf '%s\n' "GLIBC_$HOST_GLIBC" "$glibc_ma
 fi
 (cd "$ovl.partial" && find files -type f | sort | xargs sha256sum) > "$ovl.partial/FILES.sha256"
 {
-    echo "rev=$rev $(git -C "$repo" describe --tags --always "$rev")"
-    echo "base=$base $(git -C "$repo" rev-parse "$base^{commit}") $(sha256sum < "$tgz" | cut -c1-64)"
+    echo "rev=$rev"
+    echo "base=$base_name $base $(sha256sum < "$tgz" | cut -c1-64)"
     echo "inputs=$(wine_inputs "$rev")"
     echo "base_inputs=$(wine_inputs "$base")"
     echo "wine=$(git -C "$repo" rev-parse "$rev:wine") staging=$(git -C "$repo" rev-parse "$rev:wine-staging")"

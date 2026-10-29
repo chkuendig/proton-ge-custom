@@ -49,6 +49,7 @@ def sdk():
         archive = cache / item['url'].rsplit('/', 1)[1]
         assert sha256(archive) == item['sha256'], item['id']
         package = build / 'packages' / item['id']
+        package.mkdir(parents=True)
         subprocess.run(['dpkg-deb', '-x', str(archive), str(package)], check=True)
         collect_licenses(package, dest / 'licenses/rocm' / item['id'])
         shutil.copytree(package, root, dirs_exist_ok=True, symlinks=True)
@@ -59,6 +60,7 @@ def sdk():
         with path.open('rb') as stream:
             assert stream.read(4) == b'\x7fELF', real
         out = dest / 'files/lib64' / real
+        out.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, out)
         out.chmod(0o755)
         for alias in aliases:
@@ -81,7 +83,7 @@ def metadata(part):
         if (cargo / 'git/checkouts').exists():
             collect_licenses(cargo / 'git/checkouts', dest / 'licenses/cargo/git')
     prov = dest / 'provenance'
-    prov.mkdir(exist_ok=True)
+    prov.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / 'inputs.lock.json', prov / 'inputs.lock.json')
     recipes = dest / 'sources/overlay-recipes'
     shutil.copytree(HERE, recipes, ignore=shutil.ignore_patterns('__pycache__'))
@@ -152,6 +154,7 @@ def assemble(overlays):
     assert sha256(archive) == ge['sha256']
     if dest.exists():
         raise ValueError('DESTDIR already exists')
+    dest.parent.mkdir(parents=True, exist_ok=True)
     unpack = build / 'ge-unpacked'
     extract(archive, unpack, ge_base=True)
     children = list(unpack.iterdir())
