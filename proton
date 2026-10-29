@@ -983,6 +983,8 @@ class CompatData:
             return
 
     def pfx_copy(self, src, dst, dll_copy=False):
+        if os.path.basename(src).lower() == "nvcuda.dll" and os.path.islink(src):
+            raise ValueError("default_pfx nvcuda must be a regular pinned GE stub")
         if os.path.islink(src):
             contents = os.readlink(src)
             if os.path.dirname(contents).endswith(('/lib/wine/i386-unix', '/lib/wine/i386-windows',
@@ -1196,6 +1198,8 @@ class CompatData:
                     pass
                 os.sync()
 
+            from proton_zluda import migrate_prefix
+            migrate_prefix(g_proton.base_dir, self.base_dir)
             self.migrate_user_paths()
 
             if not file_exists(self.prefix_dir + "/dosdevices/c:", follow_symlinks=False):
@@ -1212,8 +1216,8 @@ class CompatData:
             use_wined3d = "wined3d" in g_session.compat_config
             use_dxvk_dxgi = not use_wined3d and \
                     not ("WINEDLLOVERRIDES" in g_session.env and "dxgi=b" in g_session.env["WINEDLLOVERRIDES"])
-            use_nvapi = (('disablenvapi' not in g_session.compat_config or 'forcenvapi' in g_session.compat_config) and
-                        g_proton.host_pe_arch != "aarch64-windows")
+            from proton_zluda import nvapi_enabled
+            use_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
             use_dxvk_d3d8 = "dxvkd3d8" in g_session.compat_config
 
             builtin_dll_copy = os.environ.get("PROTON_DLL_COPY",
@@ -1421,7 +1425,6 @@ class CompatData:
                 use_nvoptix = "nvoptix" in g_session.compat_config and allow_nvidia_libs
                 use_nvml = ("nvml" in g_session.compat_config and allow_nvidia_libs) or use_nvoptix
                 use_nvenc = "nvenc" in g_session.compat_config and allow_nvidia_libs
-                use_nvcuda = ("nvcuda" in g_session.compat_config and allow_nvidia_libs) or use_nvenc or use_nvoptix
 
                 nvapi_path = "nvapi/"
 
@@ -1437,7 +1440,6 @@ class CompatData:
                     g_session.dlloverrides["nvapi64"] = "n"
                     g_session.dlloverrides["nvofapi64"] = "n"
                     g_session.dlloverrides["nvapi"] = "n"
-                    g_session.dlloverrides["nvcuda"] = "b"
                 else:
                     nvapi64_dll = self.prefix_dir + "drive_c/windows/system32/nvapi64.dll"
                     nvapi32_dll = self.prefix_dir + "drive_c/windows/syswow64/nvapi.dll"
@@ -1449,28 +1451,6 @@ class CompatData:
                         os.unlink(nvapi32_dll)
                     if file_exists(nvapi32_dll + '.debug', follow_symlinks=False):
                         os.unlink(nvapi32_dll + '.debug')
-
-                if use_nvcuda and use_nvapi:
-                    try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvcuda", False) + "nvcuda.dll.so", "drive_c/windows/system32/nvcuda.dll",
-                            prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
-                    g_session.dlloverrides["nvcuda"] = "n,b"
-                else:
-                    nvcuda64_dll = self.prefix_dir + "drive_c/windows/system32/nvcuda.dll"
-                    if file_exists(nvcuda64_dll, follow_symlinks=False):
-                        os.unlink(nvcuda64_dll)
-                    try_copy(g_proton.default_pfx_dir + "drive_c/windows/system32/nvcuda.dll", "drive_c/windows/system32",
-                            prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
-
-                if use_nvcuda and use_nvapi and not disable_nvlibs32:
-                    try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvcuda", True) + "nvcuda.dll.so", "drive_c/windows/syswow64/nvcuda.dll",
-                             prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
-                    g_session.dlloverrides["nvcuda"] = "n,b"
-                else:
-                    nvcuda32_dll = self.prefix_dir + "drive_c/windows/syswow64/nvcuda.dll"
-                    if file_exists(nvcuda32_dll, follow_symlinks=False):
-                        os.unlink(nvcuda32_dll)
-                    try_copy(g_proton.default_pfx_dir + "drive_c/windows/syswow64/nvcuda.dll", "drive_c/windows/syswow64",
-                             prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
 
                 if use_nvenc and use_nvapi:
                     try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvenc", False) + "nvcuvid.dll.so", "drive_c/windows/system32/nvcuvid.dll",
@@ -2065,6 +2045,8 @@ class Session:
         if "WINEDLLPATH" in os.environ:
             dllpaths.append(os.environ["WINEDLLPATH"])
         self.env["WINEDLLPATH"] = ':'.join(dllpaths)
+        from proton_zluda import select_root
+        select_root(self.env, g_proton.base_dir, bootstrap=True, ld_path_var=ld_path_var)
 
         if "STEAM_COMPAT_MEDIA_PATH" in os.environ:
             old_audiofoz_path = os.environ["STEAM_COMPAT_MEDIA_PATH"] + "/audio.foz"
@@ -2331,6 +2313,10 @@ class Session:
             self.compat_config.add("nvenc")
             self.compat_config.add("nvml")
             self.compat_config.add("nvoptix")
+
+        if any(flag in self.compat_config for flag in ("nvcuda", "nvenc", "nvoptix")):
+            log("Native NVIDIA CUDA prefix copying is unsupported; CUDA uses the selected stub/ZLUDA root. "
+                "CUDA-dependent NVENC/NVOptiX combinations still require qualification.")
 
         self.check_environment("DXVK_NVAPI_VKREFLEX", "vkreflex")
         if "vkreflex" in self.compat_config and "disablenvapi" not in self.compat_config and utilities.is_driver_loaded({'nvidia'}):
@@ -2889,6 +2875,8 @@ if __name__ == "__main__":
     if g_proton.missing_default_prefix():
         g_proton.make_default_prefix()
 
+    from proton_zluda import validate_default_prefix
+    validate_default_prefix(g_proton.base_dir, g_proton.default_pfx_dir)
     g_session.init_session(sys.argv[1] != "runinprefix")
 
     # protonfixes execution
@@ -2909,11 +2897,25 @@ if __name__ == "__main__":
     protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
     protonfixes.execute()
 
+    from proton_zluda import dll_override, nvapi_enabled
+    old_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
+    g_session.check_environment("PROTON_DISABLE_NVAPI", "disablenvapi")
+    g_session.check_environment("PROTON_FORCE_NVAPI", "forcenvapi")
+    new_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
+    if old_nvapi != new_nvapi and sys.argv[1] != "runinprefix":
+        g_compatdata.setup_prefix()
+    if new_nvapi:
+        for module in ["nvapi", "nvapi64", "nvofapi64"]:
+            g_session.env["WINEDLLOVERRIDES"] = dll_override(
+                    g_session.env.get("WINEDLLOVERRIDES", ""), module, "n")
+    g_session.env["DXVK_ENABLE_NVAPI"] = "1" if new_nvapi else "0"
+
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
 
     # Per-game hooks opt in explicitly; forcing NVAPI alone is independent.
-    from proton_zluda import enabled as zluda_enabled, configure_hardware
+    from proton_zluda import enabled as zluda_enabled, configure_hardware, select_root
+    select_root(g_session.env, g_proton.base_dir, ld_path_var=ld_path_var)
     if zluda_enabled(g_session.env):
         zluda_lib_dir = g_proton.path("files/lib64/")
         prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
@@ -2923,9 +2925,7 @@ if __name__ == "__main__":
         # preloaded into unrelated Wine processes. Hardware policy runs before
         # the game can load HIP, preserving explicit user overrides.
         configure_hardware(g_session.env)
-        g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
-        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
         log("ZLUDA enabled: CUDA-on-HIP translation active")
 
     #determine mode
