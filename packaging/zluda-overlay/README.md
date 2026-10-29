@@ -63,11 +63,24 @@ and reuses its dependency recipes, per-architecture Wine environment and configu
 flags, including required Wayland, FFmpeg and warnings-as-errors. It builds GE's
 complete x86_64/i386 Wine prerequisite closure (XML/XKB/pcap, media, speech,
 VKD3D and OpenXR), plus the architecture-independent wayland-protocols data.
-`wine-deps.json` records the direct/transitive dependency contract; tests compare
-it with `Makefile.in`. The workflow checks out and validates all those source pins
+`wine-deps.json` records the direct/transitive dependency contract, including
+empty and per-architecture edge sets. Tests compare the focused GNU Make graph
+with the expanded GE graph, including configure/build/post-build edges and
+Kaldi's cross-architecture ordering. The workflow checks out and validates all those source pins
 from the input lock. Dependencies run one component at a time with at most three
 jobs inside the component. The prepared Wine source is preserved rather than
 being overwritten by the source-copy rule.
+
+The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
+must not inherit it: GE dependency recipes already install to absolute private
+prefixes, and inherited staging would prepend the overlay path a second time.
+The generated Makefile also clears it for standalone use. A tiny install fixture
+exercises GE's OpenFST recipes with an exported overlay destination.
+
+Speech dependencies remain in the graph. Wine's `configure.ac` detects Vosk for
+`windows.media.speech` and Piper for `protontts`; Kaldi and OpenFST support Vosk.
+Those modules are outside the current `ntdll` delta, but retaining GE's complete
+prerequisites preserves configure results and supports future module selection.
 
 The native stage explicitly compiles `steamos-math-compat.c`, builds libnuma from
 pinned source, and installs only the seven versioned ROCm libraries listed in the

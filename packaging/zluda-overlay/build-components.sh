@@ -11,6 +11,9 @@ here=$(cd -- "$(dirname -- "$0")" && pwd)
 python3 "$here/inputs.py" check "$SOURCE_ROOT" --part "$part"
 [[ ! -e $DESTDIR ]] || { echo "DESTDIR already exists: $DESTDIR" >&2; exit 1; }
 mkdir -p "$DESTDIR" "$BUILD_ROOT" "$DOWNLOAD_ROOT"
+# Keep the final overlay destination out of upstream build/install environments
+# (including cargo's CMake builds). Only our assembly helpers consume it.
+export -n DESTDIR
 export SOURCE_DATE_EPOCH
 SOURCE_DATE_EPOCH=$(git -C "$SOURCE_ROOT" show -s --format=%ct HEAD)
 wl=$DESTDIR/files/lib/wine
@@ -20,7 +23,7 @@ mkdir -p "$wl/x86_64-unix" "$wl/x86_64-windows" "$wl/i386-windows" "$lib64"
 if [[ $part == zluda || $part == all ]]; then
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group zluda
     # Extraction and per-package license collection are checked before compiling.
-    python3 "$here/overlay.py" sdk
+    DESTDIR=$DESTDIR python3 "$here/overlay.py" sdk
     tar -xf "$DOWNLOAD_ROOT/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz" -C "$BUILD_ROOT"
     "$BUILD_ROOT/rust-1.99.0-x86_64-unknown-linux-gnu/install.sh" \
         --prefix="$BUILD_ROOT/rust" --without=rust-docs --disable-ldconfig
@@ -117,7 +120,7 @@ if [[ $part == bridges || $part == all ]]; then
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
     git -C "$n" archive HEAD | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
 fi
-python3 "$here/overlay.py" metadata --part "$part"
+DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"
 python3 "$here/inputs.py" verify "$DESTDIR"
 echo "Complete $part overlay: $DESTDIR"

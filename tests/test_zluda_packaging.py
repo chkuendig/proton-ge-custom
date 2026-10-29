@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 import shutil
 from unittest import mock
 from pathlib import Path
@@ -294,6 +295,115 @@ class WinePrerequisites(unittest.TestCase):
         text = (ROOT / 'Makefile.in').read_text().replace('WINE_DEPENDS = ffmpeg', 'WINE_DEPENDS = another ffmpeg')
         with self.assertRaisesRegex(ValueError, 'prerequisite policy differs'):
             wine_deps.validate(text)
+        for key in ['OPENFST_DEPENDS', 'KALDI_i386_DEPENDS', 'PIPER_x86_64_DEPENDS']:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, key):
+                wine_deps.validate((ROOT / 'Makefile.in').read_text() + f'\n{key} = missing\n')
+
+    def test_component_preflight_keeps_destdir_private(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            recipe = (inputs.HERE / 'build-components.sh').read_text()
+            preflight = recipe[recipe.index('[[ ! -e $DESTDIR ]]'):recipe.index('\nif [[ $part == zluda')]
+            script = ('set -euo pipefail\n' + preflight +
+                      '\n[[ -d $DESTDIR ]]\n'
+                      'python3 -c \'import os; assert "DESTDIR" not in os.environ\'\n'
+                      'DESTDIR=$DESTDIR python3 -c \'import os; assert os.path.isdir(os.environ["DESTDIR"])\'\n')
+            subprocess.run(['bash', '-c', script], check=True,
+                           env=dict(os.environ, DESTDIR=str(root / 'overlay'),
+                                    BUILD_ROOT=str(root / 'build'), DOWNLOAD_ROOT=str(root / 'downloads'),
+                                    SOURCE_ROOT=str(ROOT)))
+
+    @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required')
+    def test_ge_install_uses_private_prefix_with_exported_overlay_destdir(self):
+        # Run GE's actual configure/build/install rules with a tiny fake library,
+        # not a compiler. This caught the run-3 double-staging of OpenFST headers.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            generated = wine_deps.generate(ROOT, root / 'wine')
+            deps = generated.parent / 'proton-deps'
+            source = root / 'openfst'
+            source.mkdir()
+            (source / 'configure').write_text(
+                '#!/bin/sh\nset -eu\nfor arg do case "$arg" in --prefix=*) prefix=${arg#*=};; esac; done\n'
+                'printf "prefix := %s\\n" "$prefix" > Makefile\n'
+                "cat >> Makefile <<'EOF'\noverride SHELL := /bin/sh\n.PHONY: all install\nall:\n\t@:\ninstall:\n"
+                '\tmkdir -p "$(DESTDIR)$(prefix)/include/fst"\n'
+                '\tprintf fixture > "$(DESTDIR)$(prefix)/include/fst/types.h"\nEOF\n')
+            (source / 'configure').chmod(0o755)
+            (deps / 'obj-openfst-x86_64').mkdir()
+            for stamp in ['.openfst-source', '.openfst-post-source']:
+                (deps / stamp).touch()
+            target = str(deps / '.openfst-x86_64-post-build')
+            make = os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make')
+            command = [make, '-C', str(deps), '-f', str(generated), target, 'rules-source=',
+                       'HOST_ARCH=x86_64', 'SHELL=/bin/true', f'MAKE={make}',
+                       f'OPENFST_SRC={source}', f'OPENFST_ORIGIN={source}']
+            # Parse-time shell calls stay disabled; enable only these fixture
+            # recipes and their inherited prerequisite/recursive commands.
+            with generated.open('a') as out:
+                out.write(f'{target}: override SHELL = /bin/sh\n')
+            subprocess.run(command, check=True,
+                           env=dict(os.environ, DESTDIR=str(root / 'wrong-env-stage')),
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.assertEqual((deps / 'dst-openfst-x86_64/include/fst/types.h').read_text(), 'fixture')
+            self.assertFalse((root / 'wrong-env-stage').exists())
+
+    @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required')
+    def test_focused_make_preserves_full_ge_dependency_edge_sets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            generated = wine_deps.generate(ROOT, Path(temporary) / 'wine')
+            focused = generated.read_text()
+            # Independent reference: instantiate ALL GE component factories.
+            # Only unrelated external includes are omitted. Neither source
+            # syncing nor parse-time shell calls execute during database reads.
+            original = (ROOT / 'Makefile.in').read_text().splitlines()
+            original = [line for line in original if not line.startswith('include ') or
+                        line.startswith('include $(SRC)/make/')]
+            original = [line + ' wayland-protocols' if line.startswith('WINE_DEPENDS =') else line
+                        for line in original]
+            for arch in ['i386', 'x86_64']:
+                original.append(f'$(eval $(call rules-meson,wayland-protocols,{arch},unix))')
+            reference = generated.parent / 'reference.mk'
+            reference.write_text(focused.split('# Enable secondary expansions,')[0] +
+                                 '\n'.join(original) + '\noverlay-inspect:\n\t@:\n')
+            def edges(makefile):
+                result = subprocess.run([os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make'),
+                                         '-C', str(generated.parent / 'proton-deps'), '-f', str(makefile),
+                                         '-np', 'overlay-inspect', 'rules-source=',
+                                         'HOST_ARCH=x86_64', 'SHELL=/bin/true'], check=True,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                graph = {}
+                for line in result.stdout.splitlines():
+                    if not line or line[0] in '#\t ' or ':' not in line:
+                        continue
+                    target, dependencies = line.split(':', 1)
+                    if re.match(r'\s*\w+\s*[:+?]?=', dependencies):
+                        continue  # Target-specific variable, not an edge.
+                    graph[target] = set(dependencies.split()) - {'|'}
+                return graph
+            expected, actual = edges(reference), edges(generated)
+            for name in [*wine_deps.POLICY['sources'], 'wine']:
+                for arch in ['i386', 'x86_64']:
+                    targets = [str(generated.parent / 'proton-deps' / f'.{name}-{arch}-{stage}')
+                               for stage in ['configure', 'build', 'post-build']]
+                    targets += [f'{name}-{arch}-{stage}' for stage in ['configure', 'build']]
+                    for target in targets:
+                        if target not in expected:
+                            continue  # GE intentionally has no i386 Piper/OpenXR.
+                        # Compare dependency edges, including the source and
+                        # cross-architecture Kaldi serialization. Wine's extra
+                        # generated-Makefile invalidation is intentionally local.
+                        # Request headers were already generated in the patched
+                        # Wine scratch tree; its factory is deliberately omitted.
+                        prepared = {str(generated.parent / 'src/wine' / x) for x in
+                                    ['include/wine/server_protocol.h', 'server/request_handlers.h',
+                                     'server/request_trace.h']}
+                        prepared.add(str(generated.parent / 'proton-deps/.wine-wine-requests'))
+                        wanted = {x for x in expected[target] if not x.endswith('.mk')}
+                        wanted -= prepared
+                        got = {x for x in actual[target] if not x.endswith('.mk')}
+                        with self.subTest(target=target):
+                            self.assertEqual(got, wanted)
 
     def test_generated_makefile_preserves_ge_flags_and_recipes(self):
         original = (ROOT / 'Makefile.in').read_text()
@@ -321,6 +431,7 @@ class WinePrerequisites(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             generated = wine_deps.generate(ROOT, Path(temporary) / 'wine')
             with generated.open('a') as out:
+                out.write('$(info INSPECT_BASE=$(BASE_SOURCE_DATE_EPOCH))\n')
                 for arch in ['x86_64', 'i386']:
                     out.write(f'$(info INSPECT_{arch}=$(WINE_{arch}_ENV) $(WINE_AUTOCONF_ARGS) $(WINE_{arch}_AUTOCONF_ARGS))\n')
             # Disable every shell-side parse action and source syncing: this
@@ -328,7 +439,9 @@ class WinePrerequisites(unittest.TestCase):
             result = subprocess.run([os.environ.get('PACKAGING_TEST_MAKE') or shutil.which('make'),
                                      '-C', str(generated.parent / 'proton-deps'), '-f', str(generated),
                                      '-n', 'overlay-inspect', 'rules-source=', 'HOST_ARCH=x86_64', 'SHELL=/bin/true'],
+                                    env=dict(os.environ, SOURCE_DATE_EPOCH='1793260800'),
                                     check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.assertIn('INSPECT_BASE=1793260800', result.stdout.splitlines())
             for arch, triplet in [('x86_64', 'x86_64-linux-gnu'), ('i386', 'i386-linux-gnu')]:
                 line = next(line for line in result.stdout.splitlines() if line.startswith('INSPECT_' + arch + '='))
                 self.assertIn('dst-libxkbcommon-' + arch + '/include', line)

@@ -22,12 +22,20 @@ def validate(text):
         key = 'WINE_DEPENDS' if arch == 'common' else 'WINE_' + arch + '_DEPENDS'
         if values[key] != expected:
             raise ValueError('Wine prerequisite policy differs from Makefile.in: ' + key)
-    for name, expected in POLICY['transitive'].items():
-        if values[name.upper().replace('-', '_') + '_DEPENDS'] != expected:
-            raise ValueError('transitive prerequisite policy differs: ' + name)
+    # Check the complete edge set, including empty and per-architecture sets.
+    # Otherwise a newly added dependency on a leaf silently escapes the policy.
+    for name in POLICY['sources']:
+        prefix = name.upper().replace('-', '_')
+        for arch in ['common', 'i386', 'x86_64', 'aarch64', 'arm64ec', 'HOST']:
+            key = prefix + ('_DEPENDS' if arch == 'common' else '_' + arch + '_DEPENDS')
+            expected = (POLICY['transitive'].get(name, []) if arch == 'common'
+                        else POLICY.get('per_arch', {}).get(name, {}).get(arch, []))
+            if set(values.get(key, [])) != set(expected):
+                raise ValueError('transitive prerequisite policy differs: ' + key)
     # Every direct or transitive input must have an explicit source-path mapping.
     names = set(POLICY['extra'])
-    for dependencies in [*POLICY['wine'].values(), *POLICY['transitive'].values()]:
+    per_arch = [deps for arches in POLICY.get('per_arch', {}).values() for deps in arches.values()]
+    for dependencies in [*POLICY['wine'].values(), *POLICY['transitive'].values(), *per_arch]:
         names.update(dependencies)
     if names != set(POLICY['sources']):
         raise ValueError('incomplete Wine prerequisite source mapping')
@@ -62,6 +70,11 @@ def generate(source, build):
         '# Generated from the checked-out Makefile.in; no dependency recipes are duplicated.',
         f'SRCDIR := {source}', 'CONTAINER := 1', 'TARGET_ARCH := x86_64',
         'NO_MAKEFILE_DEPENDENCY := 1',
+        'BASE_SOURCE_DATE_EPOCH = $(SOURCE_DATE_EPOCH)',
+        # DESTDIR belongs to the final overlay assembly. GE dependencies already
+        # use absolute private --prefix/CMAKE_INSTALL_PREFIX directories. Letting
+        # that environment variable reach make install stages them a second time.
+        'override DESTDIR :=', 'unexport DESTDIR',
         # GE prepares Wine in place; this recipe prepares a scratch checkout.
         # Both source and generated-file prerequisites must use that same tree.
         f'override WINE_SRC := {build / "src/wine"}',
