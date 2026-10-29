@@ -28,6 +28,7 @@ def generate(repo, output):
     if hashes['tools/makedep.c'] != MAKEDEP_SHA256:
         raise ValueError('re-audit fixture translation against changed tools/makedep.c')
     # Pin the naming formats and the specific distinction which caused run 4.
+    assert 'arch_dirs[0] = "";' in makedep
     assert 'arch_dirs[arch] = strmake( "%s-windows/", archs.str[arch] );' in makedep
     static = makedep.split('static void output_static_lib(', 1)[1].split('static void ', 1)[0]
     assert 'strmake( "%s%s", arch_dirs[arch], make->staticlib )' in static
@@ -42,8 +43,10 @@ def generate(repo, output):
             all_targets = []
             if 'STATICLIB' in values:
                 rules.append(f'{name}/{arch}-windows/{values["STATICLIB"]}:')
+                rules.append(f'{name}/{values["STATICLIB"]}:')
             if 'IMPORTLIB' in values:
                 rules.append(f'{name}/{arch}-windows/lib{values["IMPORTLIB"]}.a:')
+                rules.append(f'{name}/lib{values["IMPORTLIB"]}.a:')
             if 'MODULE' in values:
                 all_targets.append(f'{name}/{arch}-windows/{values["MODULE"]}')
             if 'UNIXLIB' in values:

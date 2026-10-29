@@ -84,13 +84,31 @@ The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
 After each Wine configure/tools stage, `wine_targets.py` reads the generated
 top-level Makefile and validates every requested goal. Header/tool/module
 aggregates are used only when declared; static and import SDK libraries use
-their declared per-architecture archive rules. The native-only profile requests
+their declared PE and native Unix archive rules. The native-only profile requests
 the native `dlls/ntdll/ntdll.so` producer, alongside the separate SDK import
 libraries. It does not request PE ntdll module rebuilds for the overlay.
 `log/targets-<arch>.json` records the Makefile hash and chosen goals; a compressed
 copy of the actual Makefile is saved beside it even if goal validation fails. Target-name
 fixtures are generated without configure from the pinned Wine generator and
 Makefile.in inputs, including the absence of `winecrt0/all`.
+
+`wine_sdk.py` exposes winegcc, winebuild, wrc and widl from that object tree,
+both prepared source/generated header directories, and native/PE winecrt0,
+kernel32 and ntdll archives. It validates these inputs before configuring the
+relay. The winegcc wrapper adds header/ABI options only; a second Meson cross
+file retains the pinned link options and adds the three SDK libraries at link
+time. Compiler version/preprocessor probes therefore receive no library inputs.
+The widl wrapper maps `--version` to that pin's supported `-V` option. SDK file
+hashes are retained in `log/wine-sdk.json`.
+
+`bridge_tools.py` reads the actual component cross-files and runs compiler/tool
+`--version` probes. System tools (both MinGW architectures, C/C++, archive,
+strip/resource tools, Meson, Ninja and DXVK's shader compiler) are checked before
+Wine's prerequisite build. Prepared Wine tools are checked again before any
+relay/Meson configure. WoW64 uses i686 MinGW for the PE bridge, the prepared
+winebuild for its builtin marker and host cc for the Unix library. DXVK/NVAPI
+use their pinned MinGW cross-files. `log/bridge-tools-{system,sdk}.json` records
+resolved executable paths, exit status and version output, including failures.
 
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private

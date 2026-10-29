@@ -56,6 +56,10 @@ def select(text, arch, profile, modules):
         if len(candidates) != 1:
             raise ValueError('expected one Wine SDK archive target: ' + name)
         require(candidates[0])
+        # Native Winegcc builds .dll.so relays using ELF archives in the DLL
+        # directory itself; PE archives alone cannot satisfy that link.
+        native = name + '/lib' + name.split('/')[-1] + '.a'
+        require(native)
 
     if profile not in ('all', 'both', 'x86_64-unix-ntdll'):
         raise ValueError('unknown Wine build profile: ' + profile)

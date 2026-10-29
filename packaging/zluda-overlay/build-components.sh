@@ -72,9 +72,10 @@ if [[ $part == bridges || $part == all ]]; then
     # changed Wine modules and retain the existing ELF dependency/version gate.
     bash "$here/build-wine.sh"
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
-    [[ -x $WINE_SDK_ROOT/bin/winegcc && -x $WINE_SDK_ROOT/bin/winebuild && -x $WINE_SDK_ROOT/bin/wrc ]]
+    python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT"
     n=$SOURCE_ROOT/nvcuda
     meson setup "$BUILD_ROOT/nvcuda-x64" "$n" --cross-file "$n/build-wine64.txt" \
+        --cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini" \
         --buildtype release -Dfakedll=true
     ninja -C "$BUILD_ROOT/nvcuda-x64" -j"$JOBS"
     install -m755 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda/nvcuda.dll.so" "$wl/x86_64-unix/"

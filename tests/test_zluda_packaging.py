@@ -19,6 +19,8 @@ import wine_scope
 import native_audit
 import native_plan
 import wine_targets
+import wine_sdk
+import bridge_tools
 
 
 class PayloadManifest(unittest.TestCase):
@@ -506,6 +508,7 @@ class WineTargets(unittest.TestCase):
             if arch == 'x86_64':
                 for name in ['winecrt0', 'kernel32', 'ntdll']:
                     self.assertIn(f'dlls/{name}/x86_64-windows/lib{name}.a', targets)
+                    self.assertIn(f'dlls/{name}/lib{name}.a', targets)
             else:
                 self.assertFalse(any(target.startswith('tools/') for target in targets))
             all_targets = wine_targets.select(text, arch, 'all', [])
@@ -520,6 +523,9 @@ class WineTargets(unittest.TestCase):
         missing = self.fixture('x86_64').replace('dlls/winecrt0/x86_64-windows/libwinecrt0.a:', '')
         with self.assertRaisesRegex(ValueError, 'SDK archive target: dlls/winecrt0'):
             wine_targets.select(missing, 'x86_64', 'both', ['dlls/ntdll'])
+        missing_native = self.fixture('x86_64').replace('dlls/kernel32/libkernel32.a:', '')
+        with self.assertRaisesRegex(ValueError, 'no declared target: dlls/kernel32/libkernel32.a'):
+            wine_targets.select(missing_native, 'x86_64', 'x86_64-unix-ntdll', ['dlls/ntdll'])
 
     @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required')
     def test_gnu_make_accepts_discovered_goals_and_rejects_old_crt_aggregate(self):
@@ -555,6 +561,132 @@ class WineTargets(unittest.TestCase):
             self.assertEqual(gzip.decompress((root / 'log/targets.Makefile.gz').read_bytes()),
                              (root / 'Makefile').read_bytes())
             self.assertIn('dlls/ntdll/ntdll.so', record['targets'])
+
+
+class BridgeSDK(unittest.TestCase):
+    def source_fixture(self, root):
+        fixture = json.loads((ROOT / 'tests/fixtures/bridge-cross-files.json').read_text())
+        for component, record in fixture.items():
+            self.assertEqual(record['pin'], inputs.LOCK['components'][component])
+            (root / component).mkdir(parents=True)
+            for name, file in record['files'].items():
+                path = root / component / name
+                path.write_text(file['text'])
+                self.assertEqual(inputs.sha256(path), file['sha256'])
+                if (ROOT / component / name).is_file():
+                    self.assertEqual(inputs.sha256(ROOT / component / name), file['sha256'])
+        return root
+
+    def sdk_fixture(self, root):
+        build, sdk = root / 'wine build', root / 'wine sdk'
+        obj, src = build / 'obj-x86_64', build / 'src/wine'
+        for header in [src / 'include/windef.h', src / 'include/wine/server_protocol.h', obj / 'include/wtypes.h']:
+            header.parent.mkdir(parents=True, exist_ok=True)
+            header.write_text('fixture header')
+        for name in wine_sdk.TOOLS:
+            tool = obj / 'tools' / name / name
+            tool.parent.mkdir(parents=True)
+            tool.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
+                            'with open(os.environ["TRACE"], "a") as out:\n'
+                            ' out.write(json.dumps([sys.argv[0], sys.argv[1:]])+"\\n")\n'
+                            'if "--version" in sys.argv and any(a.startswith("-l") for a in sys.argv): sys.exit(42)\n'
+                            'if sys.argv[0].endswith("widl") and "--version" in sys.argv: sys.exit(43)\n'
+                            'print("fixture compiler/tool version")\n')
+            tool.chmod(0o755)
+        for arch in ['x86_64-unix', 'x86_64-windows']:
+            for name in wine_sdk.LIBRARIES:
+                library = obj / 'dlls' / name
+                if arch.endswith('-windows'):
+                    library /= arch
+                library.mkdir(parents=True, exist_ok=True)
+                (library / ('lib' + name + '.a')).write_bytes(b'!<arch>\n')
+        return build, sdk
+
+    def test_sdk_tools_probe_without_link_flags_and_retain_cross_link_contract(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source_fixture(root / 'source')
+            build, sdk = self.sdk_fixture(root)
+            cross = source / 'nvcuda/build-wine64.txt'
+            # A previous SDK may contain symlinks. Replacing one must not
+            # overwrite the object-tree executable through that symlink.
+            (sdk / 'bin').mkdir(parents=True)
+            (sdk / 'bin/winebuild').symlink_to(build / 'obj-x86_64/tools/winebuild/winebuild')
+            original = (sdk / 'bin/winebuild').read_bytes()
+            record = wine_sdk.prepare(build, sdk, cross)
+            self.assertEqual((build / 'obj-x86_64/tools/winebuild/winebuild').read_bytes(), original)
+            env = dict(os.environ, TRACE=str(root / 'trace'))
+            for name in wine_sdk.TOOLS:
+                subprocess.run([str(sdk / 'bin' / name), '--version'], env=env, check=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            calls = [json.loads(line) for line in (root / 'trace').read_text().splitlines()]
+            self.assertTrue(all(not any(arg.startswith('-l') for arg in args) for _, args in calls))
+            self.assertIn('-V', calls[-1][1])
+            self.assertIn('-I' + str(build / 'obj-x86_64/include'), calls[0][1])
+            old = subprocess.run([str(build / 'obj-x86_64/tools/winegcc/winegcc'),
+                                  '-lwinecrt0', '-lkernel32', '-lntdll', '--version'], env=env,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(old.returncode, 42)
+            addon = bridge_tools.cross_file(sdk / 'nvcuda-wine64.ini')
+            import ast
+            self.assertEqual(ast.literal_eval(addon.get('binaries', 'c')), str(sdk / 'bin/winegcc'))
+            self.assertEqual(ast.literal_eval(addon.get('built-in options', 'c_link_args')),
+                             ['-m64', '-mwindows', '-lwinecrt0', '-lkernel32', '-lntdll'])
+            for arch in ['x86_64-unix', 'x86_64-windows']:
+                for name in wine_sdk.LIBRARIES:
+                    self.assertTrue((sdk / 'lib/wine' / arch / ('lib' + name + '.a')).is_file())
+            self.assertTrue((sdk / 'include').is_dir())
+            self.assertTrue((sdk / 'include-generated').is_dir())
+            self.assertTrue(record['sha256'])
+
+    def test_missing_native_sdk_library_or_tool_fails_before_meson(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source_fixture(root / 'source')
+            build, sdk = self.sdk_fixture(root)
+            missing = build / 'obj-x86_64/dlls/kernel32/libkernel32.a'
+            missing.unlink()
+            with self.assertRaisesRegex(ValueError, 'SDK lacks: .*kernel32/libkernel32.a'):
+                wine_sdk.prepare(build, sdk, source / 'nvcuda/build-wine64.txt')
+            missing.write_bytes(b'!<arch>\n')
+            (build / 'obj-x86_64/tools/widl/widl').chmod(0o644)
+            with self.assertRaisesRegex(ValueError, 'tool is not executable: widl'):
+                wine_sdk.prepare(build, sdk, source / 'nvcuda/build-wine64.txt')
+
+    def test_every_cross_compiler_and_tool_gets_version_preflight(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source_fixture(root / 'source')
+            build, sdk = self.sdk_fixture(root)
+            wine_sdk.prepare(build, sdk, source / 'nvcuda/build-wine64.txt')
+            tools = root / 'bin'
+            tools.mkdir()
+            groups = bridge_tools.commands(source, sdk)
+            commands = {cmd[0] for values in groups.values() for cmd in values}
+            for bits in ['i686', 'x86_64']:
+                for suffix in ['gcc', 'g++', 'ar', 'strip', 'windres']:
+                    self.assertIn(bits + '-w64-mingw32-' + suffix, commands)
+            for command in commands:
+                if '/' in command:
+                    continue
+                path = tools / command
+                path.write_text('#!/bin/sh\ntest "$1" = --version || exit 45\nprintf "fixture version\\n"\n')
+                path.chmod(0o755)
+            with mock.patch.dict(os.environ, PATH=str(tools) + ':' + os.environ['PATH'], TRACE=str(root / 'trace')):
+                report = root / 'logs/preflight.json'
+                records = bridge_tools.preflight(source, report, sdk)
+                self.assertTrue(all(record['command'][-1] == '--version' for record in records))
+                self.assertEqual(json.loads(report.read_text()), records)
+                missing = tools / 'i686-w64-mingw32-g++'
+                missing.write_text('#!/bin/sh\nexit 46\n')
+                with self.assertRaisesRegex(ValueError, 'tool --version failed: i686-w64-mingw32-g[+][+]'):
+                    bridge_tools.preflight(source, report, sdk)
+                self.assertEqual(json.loads(report.read_text())[-1]['returncode'], 46)
+            script = (inputs.HERE / 'build-components.sh').read_text()
+            self.assertLess(script.index('bridge-tools-sdk.json'), script.index('meson setup'))
+            self.assertIn('--cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini"', script)
+            wine = (inputs.HERE / 'build-wine.sh').read_text()
+            self.assertLess(wine.index('bridge-tools-system.json'), wine.index('build x86_64'))
 
 
 class NativePlan(unittest.TestCase):

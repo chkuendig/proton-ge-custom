@@ -14,10 +14,13 @@ tools/wrc/all: tools/wrc/wrc
 tools/wmc/wmc:
 tools/wmc/all: tools/wmc/wmc
 dlls/winecrt0/x86_64-windows/libwinecrt0.a:
+dlls/winecrt0/libwinecrt0.a:
 dlls/kernel32/x86_64-windows/libkernel32.a:
+dlls/kernel32/libkernel32.a:
 dlls/kernel32/x86_64-windows/kernel32.dll:
 dlls/kernel32/all: dlls/kernel32/x86_64-windows/kernel32.dll
 dlls/ntdll/x86_64-windows/libntdll.a:
+dlls/ntdll/libntdll.a:
 dlls/ntdll/x86_64-windows/ntdll.dll:
 dlls/ntdll/ntdll.so:
 dlls/ntdll/all: dlls/ntdll/x86_64-windows/ntdll.dll dlls/ntdll/ntdll.so

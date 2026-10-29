@@ -1,0 +1,37 @@
+{
+  "nvcuda": {
+    "pin": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "files": {
+      "build-wine64.txt": {
+        "text": "[binaries]\nc = 'winegcc'\nar = 'ar'\nstrip = 'strip'\n\n[built-in options]\nc_args = ['-m64', '--no-gnu-unique', '-D__WINESRC__']\nc_link_args = ['-m64', '-mwindows']\n\n[properties]\nneeds_exe_wrapper = true\nwinelib = true\n\n[host_machine]\nsystem = 'linux'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'\n",
+        "sha256": "a2e59a40c9e32120b7a4bc8f38506440ad84ab2083ff85bce83d10351932abf3"
+      }
+    }
+  },
+  "dxvk": {
+    "pin": "601930949d111edbbcf9dd463948426d9f8f6ddd",
+    "files": {
+      "build-win64.txt": {
+        "text": "[binaries]\nc = 'x86_64-w64-mingw32-gcc'\ncpp = 'x86_64-w64-mingw32-g++'\nar = 'x86_64-w64-mingw32-ar'\nstrip = 'x86_64-w64-mingw32-strip'\nwindres = 'x86_64-w64-mingw32-windres'\n\n[properties]\nneeds_exe_wrapper = true\n\n[host_machine]\nsystem = 'windows'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'\n",
+        "sha256": "10d9ace1262115096a442763b15c6025539255f4a1f58cb44b4e4f2df2a1be47"
+      },
+      "build-win32.txt": {
+        "text": "[binaries]\nc = 'i686-w64-mingw32-gcc'\ncpp = 'i686-w64-mingw32-g++'\nar = 'i686-w64-mingw32-ar'\nstrip = 'i686-w64-mingw32-strip'\nwindres = 'i686-w64-mingw32-windres'\n\n[properties]\nneeds_exe_wrapper = true\n\n[host_machine]\nsystem = 'windows'\ncpu_family = 'x86'\ncpu = 'x86'\nendian = 'little'\n",
+        "sha256": "d71effabd525acd2a375a74802e243e14541d660bf1bf062bc98c14959d8393c"
+      }
+    }
+  },
+  "dxvk-nvapi": {
+    "pin": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+    "files": {
+      "build-win64.txt": {
+        "text": "[binaries]\ncpp = 'x86_64-w64-mingw32-g++'\nstrip = 'x86_64-w64-mingw32-strip'\nar = 'x86_64-w64-mingw32-ar'\n\n[built-in options]\ncpp_link_args = ['-static', '-static-libgcc', '-static-libstdc++']\n\n[properties]\nneeds_exe_wrapper = true\n\n[host_machine]\nsystem = 'windows'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'\n",
+        "sha256": "14fe323d9ba3b14133f3603937db77ff6febc923d216827b1cecb457e4bce06e"
+      },
+      "build-win32.txt": {
+        "text": "[binaries]\ncpp = 'i686-w64-mingw32-g++'\nstrip = 'i686-w64-mingw32-strip'\nar = 'i686-w64-mingw32-ar'\n\n[built-in options]\ncpp_args=['-msse', '-msse2']\ncpp_link_args = ['-static', '-static-libgcc', '-static-libstdc++']\n\n[properties]\nneeds_exe_wrapper = true\n\n[host_machine]\nsystem = 'windows'\ncpu_family = 'x86'\ncpu = 'x86'\nendian = 'little'\n",
+        "sha256": "235405fc85382e0945794be6f32b4c6b365de905fe26bb95dddb37adfe51dd4c"
+      }
+    }
+  }
+}

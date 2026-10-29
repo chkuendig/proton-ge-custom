@@ -16,6 +16,7 @@ full=0 rev=HEAD
 [[ $# == 0 ]] || { echo 'no arguments; use explicit environment inputs' >&2; exit 2; }
 mkdir -p "$out/log"
 exec > >(tee -a "$out/log/build-wine.log") 2>&1
+python3 "$here/bridge_tools.py" "$repo" "$out/log/bridge-tools-system.json"
 for tool in git patch python3 autoreconf bison flex perl gcc x86_64-w64-mingw32-gcc i686-w64-mingw32-gcc objcopy; do
     command -v "$tool" >/dev/null
 done
@@ -392,19 +393,5 @@ rm -rf "$ovl"; mv "$ovl.partial" "$ovl"
 cat "$ovl/OVERLAY"
 echo "== done $(date -Is): $ovl"
 
-# Expose the exact prepared Wine headers/tools for the external relay build.
-# --wine-objdir selects build-tree tools and import libraries, avoiding system Wine.
-mkdir -p "$WINE_SDK_ROOT/bin"
-python3 - "$out" "$WINE_SDK_ROOT" <<'PYSDK'
-import pathlib, shlex, sys
-out, sdk = map(pathlib.Path, sys.argv[1:])
-obj, src = out / 'obj-x86_64', out / 'src/wine'
-command = [str(obj / 'tools/winegcc/winegcc'), '--wine-objdir=' + str(obj),
-           '-I' + str(src / 'include'), '-fshort-wchar', '-DWINE_UNICODE_NATIVE', '-lwinecrt0', '-lkernel32', '-lntdll']
-(sdk / 'bin/winegcc').write_text('#!/bin/sh\nexec ' + shlex.join(command) + ' "$@"\n')
-(sdk / 'bin/winegcc').chmod(0o755)
-for name in ['winebuild', 'wrc']:
-    path = sdk / 'bin' / name
-    path.unlink(missing_ok=True)
-    path.symlink_to(obj / 'tools' / name / name)
-PYSDK
+# Expose both Unix and PE SDK archives plus the exact prepared headers/tools.
+python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" "$repo/nvcuda/build-wine64.txt"
