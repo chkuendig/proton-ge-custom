@@ -50,7 +50,7 @@ def pe_info(path):
     return {'machine': machine, 'named_exports': count}
 
 
-def elf_info(path):
+def elf_info(path, require_wow64=True):
     data = path.read_bytes()
     if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != 62:
         raise ValueError('Unix CUDA bridge must be ELF64 x86_64')
@@ -77,14 +77,43 @@ def elf_info(path):
         if section[1] == 6:  # SHT_DYNAMIC
             table = content(sections[section[6]])
             needed += [string(table, value) for tag, value in struct.iter_unpack('<qQ', content(section)) if tag == 1]
-    required = {'__wine_unix_call_funcs', '__wine_unix_call_wow64_funcs'}
+    tables = {'__wine_unix_call_funcs', '__wine_unix_call_wow64_funcs'}
+    required = tables if require_wow64 else {'__wine_unix_call_funcs'}
     if not required <= symbols:
         raise ValueError('Unix CUDA bridge missing native/WoW64 call tables')
     allowed = {'libc.so.6', 'libgcc_s.so.1', 'libdl.so.2', 'libpthread.so.0',
                'librt.so.1', 'libm.so.6', 'ld-linux-x86-64.so.2'}
     if set(needed) - allowed:
         raise ValueError('unexpected bridge dependency: ' + ', '.join(sorted(set(needed) - allowed)))
-    return {'needed': needed, 'call_tables': sorted(required)}
+    return {'needed': needed, 'call_tables': sorted(tables & symbols)}
+
+
+def inspect_draft(artifacts, commit):
+    """Inspect x64 compile outputs without installing or certifying a package."""
+    names = {'nvcuda.dll', 'nvcuda.so'}
+    checksums = {}
+    for line in (artifacts / 'SHA256SUMS').read_text().splitlines():
+        expected, name = line.split('  ', 1)
+        if name in checksums or name not in names or not re.fullmatch('[0-9a-f]{64}', expected):
+            raise ValueError('invalid x64 draft checksum entry')
+        checksums[name] = expected
+    if set(checksums) != names:
+        raise ValueError('incomplete x64 draft output inventory')
+    for name, expected in checksums.items():
+        path = artifacts / name
+        if path.is_symlink() or digest(path) != expected:
+            raise ValueError('x64 draft checksum/regular-file failure: ' + name)
+    pe = pe_info(artifacts / 'nvcuda.dll')
+    if pe['machine'] != 0x8664:
+        raise ValueError('x64 draft PE machine mismatch')
+    native = elf_info(artifacts / 'nvcuda.so', require_wow64=False)
+    record = {'format': 'zluda-wine-x64-compile-draft-1', 'source_commit': commit,
+              'sha256': checksums, 'pe': pe, 'unix': native,
+              'x64_export_count': 'matches' if pe['named_exports'] == 788 else 'review-required',
+              'full_packaging_gate': 'NOT RUN: PE32/three-module/WoW64 contract is separate',
+              'qualification': 'UNQUALIFIED: compile evidence only; no packaging or ABI/runtime parity'}
+    (artifacts / 'X64-COMPILE-DRAFT.json').write_text(json.dumps(record, indent=2) + '\n')
+    return record
 
 
 def install_bridge(artifacts, tool, commit):
@@ -226,14 +255,16 @@ def audit(tool):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('command', choices=['install', 'stubs', 'template', 'clean', 'audit', 'archive-stubs', 'licenses'])
+    parser.add_argument('command', choices=['install', 'stubs', 'template', 'clean', 'audit', 'archive-stubs', 'licenses', 'draft'])
     parser.add_argument('tool', type=Path)
     parser.add_argument('--artifacts', type=Path)
     parser.add_argument('--commit')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--source', type=Path)
     args = parser.parse_args()
-    if args.command == 'archive-stubs':
+    if args.command == 'draft':
+        inspect_draft(args.tool, args.commit)
+    elif args.command == 'archive-stubs':
         archive_stubs(args.archive, args.tool)
     elif args.command == 'licenses':
         from overlay import collect_licenses

@@ -2,6 +2,14 @@ name: ZLUDA overlay (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: Full overlay or unqualified x64 bridge compile only
+        type: choice
+        default: overlay
+        options:
+          - overlay
+          - x64-draft
 
 permissions:
   contents: read
@@ -15,13 +23,13 @@ env:
 
 jobs:
   components:
-    name: Build ${{ matrix.part }}
+    name: Build ${{ inputs.profile == 'x64-draft' && 'unqualified x64 draft' || matrix.part }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
-        part: [zluda, bridges]
+        part: ${{ fromJSON(inputs.profile == 'x64-draft' && '["bridges"]' || '["zluda", "bridges"]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -72,6 +80,7 @@ jobs:
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
+          PROFILE: ${{ inputs.profile || 'overlay' }}
         run: |
           set -euo pipefail
           mkdir -p /work/logs
@@ -83,7 +92,7 @@ jobs:
             -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build \
             -e SDK_ROOT=/work/sdk/opt/rocm-7.2.4 -e DOWNLOAD_ROOT=/work/downloads \
             -e WINE_SDK_ROOT=/work/wine-sdk -e DESTDIR=/work/overlay \
-            -e BUILD_PART="$PART" -e JOBS=3 -e CARGO_HOME=/work/cargo \
+            -e BUILD_PART="$PART" -e BUILD_PROFILE="$PROFILE" -e JOBS=3 -e CARGO_HOME=/work/cargo \
             -e CCACHE_DIR=/work/ccache -e CCACHE_BASEDIR=/src \
             "$SDK_IMAGE" bash /src/packaging/zluda-overlay/ci-build.sh \
             2>&1 | tee /work/logs/build.log
@@ -105,6 +114,7 @@ jobs:
             /work/cargo/git
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.profile != 'x64-draft'
         with:
           name: overlay-${{ matrix.part }}
           path: |
@@ -112,6 +122,16 @@ jobs:
             /work/${{ matrix.part }}.MANIFEST
           if-no-files-found: error
           compression-level: 0
+          retention-days: 7
+      - name: Upload unqualified x64 compile draft
+        if: inputs.profile == 'x64-draft'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zluda-wine-x64-draft
+          path: |
+            /work/build/zluda-wine-draft/artifacts
+            /work/build/zluda-wine-draft/x86_64-native-libs.log
+          if-no-files-found: error
           retention-days: 7
       - name: Upload build and Wine logs
         if: always()
@@ -124,12 +144,15 @@ jobs:
             /work/build/wine/changed-sources.txt
             /work/build/log
             /work/build/zluda-wine/artifacts
+            /work/build/zluda-wine-draft/artifacts
+            /work/build/zluda-wine-draft/x86_64-native-libs.log
             /work/overlay/provenance/ZLUDA-WINE.json
             /work/build/native
           if-no-files-found: warn
           retention-days: 14
 
   assemble:
+    if: inputs.profile != 'x64-draft'
     needs: components
     runs-on: ubuntu-24.04
     timeout-minutes: 90

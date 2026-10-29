@@ -1,6 +1,8 @@
 """Contract and namespace fixtures; no bridge is executed or qualified here."""
 import hashlib
 import json
+import os
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -121,6 +123,57 @@ class CudaPackage(unittest.TestCase):
                 path.write_bytes(original)
                 native.write_bytes(saved_native)
                 self.checksums()
+
+    def test_x64_draft_inspection_is_separate_from_complete_package_contract(self):
+        draft = self.root / 'draft'
+        draft.mkdir()
+        (draft / 'nvcuda.dll').write_bytes(pe(0x8664, 788))
+        (draft / 'nvcuda.so').write_bytes(elf(wow64=False))
+        def checksums():
+            (draft / 'SHA256SUMS').write_text(''.join(package.digest(draft / name) + '  ' + name + '\n'
+                                                   for name in ['nvcuda.dll', 'nvcuda.so']))
+        checksums()
+        record = package.inspect_draft(draft, self.commit)
+        self.assertIn('UNQUALIFIED', record['qualification'])
+        self.assertIn('NOT RUN', record['full_packaging_gate'])
+        self.assertEqual(record['unix']['call_tables'], ['__wine_unix_call_funcs'])
+        with self.assertRaisesRegex(ValueError, 'native/WoW64'):
+            package.elf_info(draft / 'nvcuda.so')  # full packaging stays fail-closed
+        self.assertFalse((self.tool / 'files/lib/wine-cuda/zluda').exists())
+        (draft / 'nvcuda.dll').write_bytes(pe(0x8664, 787))
+        checksums()
+        self.assertEqual(package.inspect_draft(draft, self.commit)['x64_export_count'], 'review-required')
+        (draft / 'nvcuda.so').write_bytes(b'corrupted')
+        with self.assertRaisesRegex(ValueError, 'checksum'):
+            package.inspect_draft(draft, self.commit)
+
+    def test_ci_draft_route_cannot_package_overlay_or_run_wrong_part(self):
+        source = self.root / 'source'
+        scripts = source / 'packaging/zluda-overlay'
+        scripts.mkdir(parents=True)
+        trace = self.root / 'trace'
+        (scripts / 'build-draft.sh').write_text('echo draft >> "$TRACE"\n')
+        (scripts / 'build-components.sh').write_text('echo overlay >> "$TRACE"\nexit 91\n')
+        tools = self.root / 'tools'
+        tools.mkdir()
+        for name, text in [('git', 'exit 0'), ('df', "printf 'Avail\\n40000000000\\n'")]:
+            path = tools / name
+            path.write_text('#!/bin/sh\n' + text + '\n')
+            path.chmod(0o755)
+        env = dict(os.environ, PATH=str(tools) + ':' + os.environ['PATH'], TRACE=str(trace),
+                   SOURCE_ROOT=str(source), BUILD_ROOT=str(self.root / 'build'),
+                   DOWNLOAD_ROOT=str(self.root / 'downloads'), SDK_ROOT='/unused',
+                   WINE_SDK_ROOT='/unused', DESTDIR=str(self.tool))
+        for profile, part, expected, lines in [('x64-draft', 'bridges', 0, ['draft']),
+                  ('x64-draft', 'zluda', 2, []), ('invalid', 'bridges', 2, []),
+                  ('overlay', 'bridges', 91, ['overlay'])]:
+            trace.unlink(missing_ok=True)
+            result = subprocess.run(['bash', str(ROOT / 'packaging/zluda-overlay/ci-build.sh')],
+                       env=dict(env, BUILD_PROFILE=profile, BUILD_PART=part),
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.assertEqual(result.returncode, expected, result.stderr)
+            self.assertEqual(trace.read_text().splitlines() if trace.exists() else [], lines)
+            self.assertFalse((self.tool / 'MANIFEST').exists())
 
     def test_source_archive_stubs_verify_checksum_members_and_exact_hashes(self):
         archive = self.root / 'ge.tar.gz'

@@ -256,3 +256,20 @@ it is not permission to increase local build concurrency. First CI must establis
 SDK package layouts/notices, Wine/MinGW compatibility, duration, disk/RAM use,
 loader output, and archive sizes. Target-runtime and game qualification follow
 separately when the device is available.
+
+## Focused x64 compile draft
+
+Manual dispatch `profile=x64-draft` runs only the bridges job. It prepares the
+same pinned Wine SDK and Rust toolchains, then invokes ZLUDA's `build-pilot.sh`
+with a fresh `PILOT_BUILD_ROOT`. It uploads `zluda-wine-x64-draft` containing
+only builtin PE64, native Unixlib, hashes, the explicit linker dependency log
+and `X64-COMPILE-DRAFT.json`. Normal build and Wine logs remain separate.
+A successful draft records compilation and basic file checks, not packaging
+or ABI/runtime parity. Export-count differences are recorded for review;
+PE32 and the WoW64 table are not required for this draft. The complete package
+validator still requires all three modules, 788/690 exports and both tables.
+
+Draft mode does not build the native CUDA/LLVM backend, generate an overlay
+tarball, install modules into a tool or run the assembly job. Default dispatch
+`profile=overlay` retains that full three-module path; with this incomplete
+source it is expected to fail rather than ship a pilot or C fallback.

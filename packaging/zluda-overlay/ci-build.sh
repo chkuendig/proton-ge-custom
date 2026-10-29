@@ -12,6 +12,14 @@ df -h /work
 export PATH="/usr/lib/ccache:/opt/rust/bin:$PATH"
 # A GitHub checkout is owned by the runner, while SDK commands run as root.
 git config --global --add safe.directory '*'
+case ${BUILD_PROFILE:-overlay} in
+    x64-draft)
+        [[ $BUILD_PART == bridges ]] || { echo 'x64-draft requires bridges only' >&2; exit 2; }
+        bash "$here/build-draft.sh"
+        exit 0 ;;
+    overlay) ;;
+    *) echo 'unknown BUILD_PROFILE' >&2; exit 2 ;;
+esac
 bash "$here/build-components.sh"
 python3 "$here/inputs.py" verify "$DESTDIR"
 tar --sort=name --mtime="@$(git -C "$SOURCE_ROOT" show -s --format=%ct HEAD)" \
