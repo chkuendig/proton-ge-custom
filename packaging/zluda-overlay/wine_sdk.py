@@ -46,18 +46,23 @@ def prepare(build, sdk, cross):
         link(sdk / 'lib/wine' / arch / ('lib' + name + '.a'), path)
     for name in TOOLS:
         command = [str(obj / 'tools' / name / name)]
+        headers = []
         if name == 'winegcc':
             # Never inject -l flags here: winegcc treats them as file inputs,
             # converting --version/-E probes into link attempts. Meson owns links.
-            command += ['--wine-objdir=' + str(obj), '-I' + str(generated),
-                        '-I' + str(include), '-fshort-wchar', '-DWINE_UNICODE_NATIVE']
+            # Match installed winegcc: project -I paths precede Wine headers.
+            # winegcc itself appends obj/include after the caller's arguments.
+            # Prepending it would shadow nvcuda/include/config.h with Wine's.
+            command += ['--wine-objdir=' + str(obj), '-fshort-wchar', '-DWINE_UNICODE_NATIVE']
+            headers = ['-isystem', str(include)]
         elif name in ['wrc', 'widl']:
-            command += ['-I' + str(generated), '-I' + str(include)]
+            headers = ['-I' + str(generated), '-I' + str(include)]
         wrapper = sdk / 'bin' / name
         wrapper.unlink(missing_ok=True)
         version_alias = ('case "${1:-}" in --version) shift; set -- -V "$@" ;; esac\n'
                          if name == 'widl' else '')
-        wrapper.write_text('#!/bin/sh\n' + version_alias + 'exec ' + shlex.join(command) + ' "$@"\n')
+        wrapper.write_text('#!/bin/sh\n' + version_alias + 'exec ' + shlex.join(command) +
+                           ' "$@" ' + shlex.join(headers) + '\n')
         wrapper.chmod(0o755)
     original = cross_file(cross)
     link_args = ast.literal_eval(original.get('built-in options', 'c_link_args'))

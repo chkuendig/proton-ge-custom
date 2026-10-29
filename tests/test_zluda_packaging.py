@@ -622,7 +622,8 @@ class BridgeSDK(unittest.TestCase):
             calls = [json.loads(line) for line in (root / 'trace').read_text().splitlines()]
             self.assertTrue(all(not any(arg.startswith('-l') for arg in args) for _, args in calls))
             self.assertIn('-V', calls[-1][1])
-            self.assertIn('-I' + str(build / 'obj-x86_64/include'), calls[0][1])
+            self.assertIn('-isystem', calls[0][1])
+            self.assertNotIn('-I' + str(build / 'obj-x86_64/include'), calls[0][1])
             old = subprocess.run([str(build / 'obj-x86_64/tools/winegcc/winegcc'),
                                   '-lwinecrt0', '-lkernel32', '-lntdll', '--version'], env=env,
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -638,6 +639,88 @@ class BridgeSDK(unittest.TestCase):
             self.assertTrue((sdk / 'include').is_dir())
             self.assertTrue((sdk / 'include-generated').is_dir())
             self.assertTrue(record['sha256'])
+
+    def test_deck_winelib_flags_preserve_relay_config_before_wine_headers(self):
+        import ast
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source_fixture(root / 'source')
+            fixture = json.loads((ROOT / 'tests/fixtures/deck-winelib.json').read_text())
+            self.assertEqual(fixture['nvcuda'], inputs.LOCK['components']['nvcuda'])
+            self.assertEqual(fixture['wine'], inputs.LOCK['components']['wine'])
+            if (ROOT / 'wine/tools/winegcc/winegcc.c').is_file():
+                self.assertEqual(inputs.sha256(ROOT / 'wine/tools/winegcc/winegcc.c'), fixture['winegcc_sha256'])
+            cross = source / 'nvcuda/build-wine64.txt'
+            self.assertEqual(inputs.sha256(cross), fixture['deck']['cross_file_sha256'])
+            self.assertIn('Linking target dlls/nvcuda/nvcuda.dll.so', fixture['deck']['excerpt'])
+            # The archived relay compile_commands was not copied to this host.
+            # Compare the recorded recipe's identical cross-file flags instead.
+            self.assertFalse(fixture['deck']['compile_commands_available'])
+            build, sdk = self.sdk_fixture(root)
+            include = source / 'nvcuda/include'
+            include.mkdir()
+            config = include / 'config.h'
+            config.write_text(fixture['config']['text'])
+            self.assertEqual(inputs.sha256(config), fixture['config']['sha256'])
+            generated = build / 'obj-x86_64/include'
+            # GE's generated config.h lacks HAVE_PTHREAD_H. Its include guard
+            # is identical to the relay's, reproducing run 7's harmful shadow.
+            (generated / 'config.h').write_text('#ifndef __WINE_CONFIG_H\n#define __WINE_CONFIG_H\n#endif\n')
+            wine_sdk.prepare(build, sdk, cross)
+            parser = bridge_tools.cross_file(cross)
+            flags = ast.literal_eval(parser.get('built-in options', 'c_args'))
+            env = dict(os.environ, TRACE=str(root / 'trace'))
+            subprocess.run([str(sdk / 'bin/winegcc'), '-I' + str(include), *flags,
+                            '-pthread', '-c', 'nvcuda.c'], env=env, check=True, stdout=subprocess.PIPE)
+            argv = json.loads((root / 'trace').read_text().splitlines()[0])[1]
+            for flag in flags:
+                self.assertIn(flag, argv)
+            for flag in ['-mno-cygwin', '-D__MSVCRT__', '-DWINE_UNIX_LIB', '-nostdinc']:
+                self.assertNotIn(flag, argv)
+            self.assertNotIn('msvcrt', ' '.join(argv))
+            addon = bridge_tools.cross_file(sdk / 'nvcuda-wine64.ini')
+            self.assertFalse(addon.has_option('built-in options', 'c_args'))
+            self.assertEqual(ast.literal_eval(addon.get('built-in options', 'c_link_args'))[:2],
+                             ast.literal_eval(parser.get('built-in options', 'c_link_args')))
+            # Model the pinned winegcc source: its native obj/include -I is
+            # appended after compiler_args. All caller -I paths precede -isystem.
+            directories = [Path(arg[2:]) for arg in argv if arg.startswith('-I')]
+            directories.append(generated)
+            directories += [Path(argv[i + 1]) for i, arg in enumerate(argv) if arg == '-isystem']
+            selected = next(path / 'config.h' for path in directories if (path / 'config.h').is_file())
+            self.assertEqual(selected, config)
+            self.assertIn('#define HAVE_PTHREAD_H 1', selected.read_text())
+            self.assertIn('#undef _WIN32', selected.read_text())
+            old_directories = [generated, *directories]
+            old = next(path / 'config.h' for path in old_directories if (path / 'config.h').is_file())
+            self.assertNotIn('HAVE_PTHREAD_H', old.read_text())
+
+    def test_unix_header_preflight_records_command_and_rejects_wrong_modes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source_fixture(root / 'source')
+            sdk = root / 'sdk'
+            good = '#define HAVE_PTHREAD_H 1\n#define PTHREAD_MUTEX_INITIALIZER {}\n#define PTHREAD_COND_INITIALIZER {}\n'
+            outputs = [good, good.replace('#define HAVE_PTHREAD_H 1\n', ''),
+                       good + '#define __MSVCRT__ 1\n', good + '#define _WIN32 1\n']
+            for index, output in enumerate(outputs):
+                result = subprocess.CompletedProcess([], 0, output, 'recorded underlying gcc command')
+                with mock.patch.object(bridge_tools.subprocess, 'run', return_value=result) as run:
+                    report = root / 'log/unix-headers.json'
+                    if index:
+                        with self.assertRaisesRegex(ValueError, 'own config.h and Unix pthread headers'):
+                            bridge_tools.check_unix_headers(source, sdk, report)
+                    else:
+                        bridge_tools.check_unix_headers(source, sdk, report)
+                    args, kwargs = run.call_args
+                    self.assertIn('-I' + str(source / 'nvcuda/include'), args[0])
+                    self.assertIn('-E', args[0])
+                    self.assertIn('-H', args[0])
+                    self.assertEqual(kwargs['cwd'], source / 'nvcuda/dlls/nvcuda')
+                    self.assertNotIn('-c', args[0])
+                    self.assertIn('#include "config.h"', kwargs['input'])
+                    self.assertEqual(report.with_suffix('.macros').read_text(), output)
+                    self.assertEqual(json.loads(report.read_text())['stderr'], result.stderr)
 
     def test_missing_native_sdk_library_or_tool_fails_before_meson(self):
         with tempfile.TemporaryDirectory() as temporary:

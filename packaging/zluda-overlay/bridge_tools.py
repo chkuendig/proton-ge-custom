@@ -72,6 +72,30 @@ def preflight(source, report, sdk=None):
     return records
 
 
+def check_unix_headers(source, sdk, report):
+    """Preprocess in CI with the relay's actual flags; never compile or link."""
+    parser = cross_file(source / 'nvcuda/build-wine64.txt')
+    flags = ast.literal_eval(parser.get('built-in options', 'c_args'))
+    command = [str(sdk / 'bin/winegcc'), *flags, '-I' + str(source / 'nvcuda/include'),
+               '-pthread', '-v', '-H', '-E', '-dM', '-x', 'c', '-']
+    text = '#include "config.h"\n#include <pthread.h>\n'
+    result = subprocess.run(command, input=text, text=True, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=30, cwd=source / 'nvcuda/dlls/nvcuda')
+    macros = {line.split()[1] for line in result.stdout.splitlines()
+              if line.startswith('#define ') and len(line.split()) >= 2}
+    required = {'HAVE_PTHREAD_H', 'PTHREAD_MUTEX_INITIALIZER', 'PTHREAD_COND_INITIALIZER'}
+    forbidden = {'_WIN32', '__MSVCRT__', 'WINE_UNIX_LIB'}
+    record = {'command': command, 'returncode': result.returncode, 'stderr': result.stderr,
+              'required': sorted(required), 'missing': sorted(required - macros),
+              'forbidden': sorted(forbidden & macros)}
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.with_suffix('.macros').write_text(result.stdout)
+    report.write_text(json.dumps(record, indent=2) + '\n')
+    if result.returncode or record['missing'] or record['forbidden']:
+        raise ValueError('relay must use its own config.h and Unix pthread headers: ' + str(report))
+    return record
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('source', type=Path)
@@ -79,3 +103,5 @@ if __name__ == '__main__':
     parser.add_argument('--sdk', type=Path)
     args = parser.parse_args()
     preflight(args.source, args.report, args.sdk)
+    if args.sdk is not None:
+        check_unix_headers(args.source, args.sdk, args.report.with_name('wine-unix-headers.json'))

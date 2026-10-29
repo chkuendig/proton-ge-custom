@@ -110,6 +110,16 @@ winebuild for its builtin marker and host cc for the Unix library. DXVK/NVAPI
 use their pinned MinGW cross-files. `log/bridge-tools-{system,sdk}.json` records
 resolved executable paths, exit status and version output, including failures.
 
+For the relay compiler, caller `-I` paths take precedence over Wine headers, as
+with the Deck's installed winegcc. Winegcc appends its generated include path
+itself, and the SDK wrapper supplies the source headers with `-isystem`. This
+keeps nvcuda's `config.h` (including HAVE_PTHREAD_H and its _WIN32 undefinition)
+ahead of Wine's unrelated generated `config.h`. Neither CRT mode nor the pinned
+cross-file's compile flags change. The SDK preflight also preprocesses config.h
+and pthread.h using those flags and rejects missing pthread initializers or
+MSVCRT/Unixlib mode. `log/wine-unix-headers.json` and `.macros` record the actual
+command, underlying compiler/include trace and macros before Meson configure.
+
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private
 prefixes, and inherited staging would prepend the overlay path a second time.

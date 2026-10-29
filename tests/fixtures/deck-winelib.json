@@ -1,0 +1,21 @@
+{
+  "nvcuda": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+  "config": {
+    "path": "include/config.h",
+    "sha256": "e538799b41adad6a73496ee61861fc10c4a3483583ffc17854fe39460182543d",
+    "text": "#ifndef __WINE_CONFIG_H\n#define __WINE_CONFIG_H\n\n#undef _WIN32\n\n#define HAVE_UNISTD_H 1\n#define HAVE_PTHREAD_H 1\n\n#endif /* __WINE_CONFIG_H */\n"
+  },
+  "deck": {
+    "log": "evidence/host-interop-20261017/logs/build-relay.log",
+    "log_sha256": "b25ad1260a5100f0c40bd3f48ba8b5652fb23a652bb8e827d0f78e41ff4af077",
+    "excerpt": "C compiler for the host machine: winegcc (gcc 16.2.1 \"gcc (GCC) 16.2.1 20260810\")\nC linker for the host machine: winegcc ld.bfd 2.47\nWARNING: No include directory found parsing \"winegcc -xc -E -v -\" output\nProgram winegcc found: YES (/usr/sbin/winegcc)\n[8/9] Compiling C object dlls/nvcuda/nvcuda.dll.so.p/nvcuda.c.o\n[9/9] Linking target dlls/nvcuda/nvcuda.dll.so\n",
+    "recipe": "zluda-proton-hub/runbooks/install-zluda-ge11-relay.sh",
+    "recipe_source": "e903f13c9303d3744afe56d96eebab4543f78495",
+    "cross_file_sha256": "a2e59a40c9e32120b7a4bc8f38506440ad84ab2083ff85bce83d10351932abf3",
+    "cross_file_text": "[binaries]\nc = 'winegcc'\nar = 'ar'\nstrip = 'strip'\n\n[built-in options]\nc_args = ['-m64', '--no-gnu-unique', '-D__WINESRC__']\nc_link_args = ['-m64', '-mwindows']\n\n[properties]\nneeds_exe_wrapper = true\nwinelib = true\n\n[host_machine]\nsystem = 'linux'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'\n",
+    "compile_commands_available": false,
+    "method": "Recorded successful Deck log plus immutable cross file from the source pin in the relay installer; byte-identical to current pin. Not a captured full compile command."
+  },
+  "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
+  "winegcc_sha256": "3069c8340bb95f37557e35264d24db3ea3487786c14620c8e286f8fe015cc213"
+}
