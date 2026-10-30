@@ -1,0 +1,49 @@
+From cc4540d93efe0d50ce36c8115ec0f0f683894d28 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sat, 30 May 2026 19:28:43 +0200
+Subject: [PATCH 1/2] zluda-physx: honor DXVK_NVAPI_ALLOW_OTHER_DRIVERS in
+ CudaEnumComputeCapableGpus
+
+NvAPI_GPU_CudaEnumComputeCapableGpus filters adapters by
+HasNvProprietaryDriver(); when ZLUDA exposes an AMD GPU as a CUDA
+provider, this filter hides the GPU from the NVAPI compute topology
+even though the adapter is otherwise admitted to the registry via
+DXVK_NVAPI_ALLOW_OTHER_DRIVERS=1.
+
+Batman: Arkham Knight's PhysXDevice64 probe greys out the in-game PhysX
+option when CudaEnumComputeCapableGpus returns an empty topology. Honor
+the same env-var the registry already consults, so non-NVIDIA adapters
+backed by ZLUDA show up.
+
+Ported to GE-Proton11-7's dxvk-nvapi (fd105c0d). The GE-Proton10-9 line
+carried this as a parentless snapshot of v0.9.2 (9ee7d01).
+
+Assisted-by: Claude:claude-opus-5.5
+Assisted-by: Codex:gpt-6.1-sol
+---
+ src/nvapi_gpu.cpp | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/nvapi_gpu.cpp b/src/nvapi_gpu.cpp
+index 1525ba7..812bfbe 100644
+--- a/src/nvapi_gpu.cpp
++++ b/src/nvapi_gpu.cpp
+@@ -678,10 +678,17 @@ NVAPI_FUNCTION NvAPI_GPU_CudaEnumComputeCapableGpus(NV_COMPUTE_GPU_TOPOLOGY* pCo
+     if (pComputeTopo->version != NV_COMPUTE_GPU_TOPOLOGY_VER1)
+         return IncompatibleStructVersion(n, pComputeTopo->version);
+ 
++    // ZLUDA-Physx: When DXVK_NVAPI_ALLOW_OTHER_DRIVERS=1, non-NVIDIA
++    // adapters are already in the registry (filtered by NvapiAdapter init)
++    // and report a Pascal architecture by default — they are CUDA-capable
++    // via ZLUDA, so include them. Batman: Arkham Knight's PhysXDevice64
++    // probe greys out the in-game PhysX option when this list is empty.
++    auto allowOtherDrivers = env::getEnvVariable("DXVK_NVAPI_ALLOW_OTHER_DRIVERS") == "1";
+     auto cudaCapableGpus = std::vector<NvPhysicalGpuHandle>(0);
+     for (auto i = 0U; i < nvapiAdapterRegistry->GetAdapterCount(); i++) {
+         auto adapter = nvapiAdapterRegistry->GetAdapter(i);
+-        if (!adapter->HasNvProprietaryDriver() || adapter->GetArchitectureId() < NV_GPU_ARCHITECTURE_GM000) // Maxwell is the oldest generation we can detect
++        auto driverOk = adapter->HasNvProprietaryDriver() || allowOtherDrivers;
++        if (!driverOk || adapter->GetArchitectureId() < NV_GPU_ARCHITECTURE_GM000) // Maxwell is the oldest generation we can detect
+             continue;
+ 
+         cudaCapableGpus.push_back(reinterpret_cast<NvPhysicalGpuHandle>(adapter));

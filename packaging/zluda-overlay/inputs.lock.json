@@ -14,8 +14,8 @@
   "components": {
     "zluda": "6e3ff59ac33d6d9058709e1a3d003819c95ee121",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
-    "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
-    "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
+    "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
+    "protonfixes": "27f5c708ec4d4150fbff97acb30a5b21ad893994",
     "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
     "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300",
     "ffmpeg": "9047fa1b084f76b1b4d065af2d743df1b40dfb56",
@@ -259,5 +259,68 @@
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "cb1a7c7a302647f7b58894146f9ece90b1c35816daf78f4e996a72274666cb68",
     "qualification": "PENDING: combined hosted PE64 and PE32/WoW64 CPU execution for new ports/interop; earlier PE64 cleanup gate passed at 2e955425; GPU, full ABI/lifetime/interop and device adoption remain unqualified"
+  },
+  "component_patches": {
+    "dxvk-nvapi": {
+      "upstream_tree": "c18f660124c0ebcc3a134a697a83cad392154e61",
+      "fork_commit": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+      "fork_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
+      "prepared_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
+      "patches": [
+        {
+          "path": "patches/dxvk-nvapi/0001-zluda-physx-honor-DXVK_NVAPI_ALLOW_OTHER_DRIVERS-in-.patch",
+          "sha256": "5b6fe887cfa84f9f8cebe29b749dd572cb0c85b4840e3847b2dab56950704f35",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0002-Handle-the-legacy-PhysX-compute-topology-V2-query-Ar.patch",
+          "sha256": "8dbd3b387fbaa96d749b407e1d2591d1848e0e1b5b68664833cb48c77310f893",
+          "fork_change": true
+        }
+      ]
+    },
+    "protonfixes": {
+      "upstream_tree": "7acdf2b4786395e2e634e133b8d628e4fe3203b1",
+      "fork_commit": "63f5d6760c18d921263b692b7afe25f977ba7afa",
+      "fork_tree": "e911f5989a822d8572d91ee228ef1cdfafb2a16a",
+      "prepared_tree": "b62aa45352c982b40c2f03448573fe053361a65c",
+      "patches": [
+        {
+          "path": "patches/protonfixes/0001-upscalers-add-optiscaler-downloader.patch",
+          "sha256": "7d497cac30195c0d06a59d4154fd160de41c246bac18bb451bc69e06573b4d76",
+          "fork_change": false
+        },
+        {
+          "path": "patches/protonfixes/0002-upscalers-control-ffx4-version-through-fsr4-version-.patch",
+          "sha256": "7905d65d2d825fe4caaf9f525f7826ba29b83a3d15e0322ec07bcd5d80edc827",
+          "fork_change": false
+        },
+        {
+          "path": "patches/protonfixes/0003-Enable-GPU-PhysX-through-ZLUDA-for-Batman-Arkham-Kni.patch",
+          "sha256": "f9aa20c7803c350ca04e241b61b14711d82c915cf35baa581f5ad791b0d396dd",
+          "fork_change": true
+        },
+        {
+          "path": "patches/protonfixes/0004-Enable-GPU-PhysX-through-ZLUDA-for-Batman-Arkham-Asy.patch",
+          "sha256": "3fb210b83283b5e231251dbaf92f01221e914210f6e54e5060feb87eedd1583d",
+          "fork_change": true
+        },
+        {
+          "path": "patches/protonfixes/0005-Enable-GPU-PhysX-through-ZLUDA-for-Mafia-II-Classic.patch",
+          "sha256": "9b61198451d8d8d71ad3b515e4252a784faff8f4aec340f9c6e322fbee87bf1a",
+          "fork_change": true
+        },
+        {
+          "path": "patches/protonfixes/0006-Enable-GPU-PhysX-through-ZLUDA-for-Mirror-s-Edge.patch",
+          "sha256": "15a707559d9b88c8151c8e6e6f9c04f496e643f13166fd624934f82fdd2bb825",
+          "fork_change": true
+        },
+        {
+          "path": "patches/protonfixes/0007-Mafia-II-keep-Wine-s-WINESTEAMNOEXEC-1.patch",
+          "sha256": "0fea21aa4ba0a95f084e2486c2992ead0d10271d688e82ba5b18c99ce6c8e94c",
+          "fork_change": true
+        }
+      ]
+    }
   }
 }

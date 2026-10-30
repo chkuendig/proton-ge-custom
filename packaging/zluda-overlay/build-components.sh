@@ -65,6 +65,11 @@ if [[ $part == zluda || $part == all ]]; then
 fi
 
 if [[ $part == bridges || $part == all ]]; then
+    mkdir -p "$BUILD_ROOT/log"
+    # Admit and patch before Wine's expensive prerequisites; original gitlinks
+    # remain clean upstream checkouts throughout the CI build.
+    python3 "$here/component_patches.py" prepare "$SOURCE_ROOT" \
+        "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi > "$BUILD_ROOT/log/dxvk-nvapi-patches.json"
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group bridges
     BUILD_PART=bridges bash "$here/install-rust.sh"
     export PATH="$BUILD_ROOT/rust/bin:$PATH"
@@ -78,7 +83,7 @@ if [[ $part == bridges || $part == all ]]; then
     BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
-        a=$SOURCE_ROOT/dxvk-nvapi
+        a=$BUILD_ROOT/patched/dxvk-nvapi
         ab=$BUILD_ROOT/nvapi-$bits
         meson setup "$ab" "$a" --cross-file "$a/build-win$bits.txt" --buildtype release -Denable_tests=false
         ninja -C "$ab" -j"$JOBS"
@@ -110,6 +115,8 @@ if [[ $part == bridges || $part == all ]]; then
     # Backend-refusal attestation reads exactly these two backend source files.
     git -C "$SOURCE_ROOT/zluda" archive HEAD wine cuda_types cuda_macros dark_api \
         zluda/src/lib.rs zluda/src/impl/mod.rs | gzip -n > "$DESTDIR/sources/zluda-wine.tar.gz"
+    python3 "$here/component_patches.py" stage "$SOURCE_ROOT" \
+        "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi --dest "$DESTDIR"
 fi
 DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"

@@ -73,6 +73,18 @@ HEAD to equal its parent gitlink. Unrelated full-Proton inputs are not checked o
 or rebuilt. Assembly checks pinned protonfixes and both intermediate manifests and
 requires both overlays to come from the same Proton commit and input lock.
 
+The dxvk-nvapi and protonfixes gitlinks use GE's upstream repositories and pins.
+GE preparation applies `patches/dxvk-nvapi/*.patch` and
+`patches/protonfixes/*.patch` in filename order. The overlay builder applies the
+same checksum-locked series in private source copies, leaving checkout HEADs
+at their admitted upstream pins. Patch failures and differing resulting trees
+are fatal. Offline fixtures prove that our two NVAPI and five game-fix patches
+reproduce the original fork trees exactly, and that GE's two OptiScaler patches
+commute with the game fixes. Prepared source archives include expanded recursive
+submodules, the applied patch files, and upstream/prepared tree provenance.
+NVAPI's generated VCS description now identifies the upstream pin with a dirty
+suffix; its recorded prepared tree identifies the exact patched source.
+
 ## Local interface
 
 Use a clean, committed recursive checkout and a suitable Linux x86_64 build SDK.

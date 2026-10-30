@@ -1286,6 +1286,8 @@ class AssemblyFixture(unittest.TestCase):
             (pf / 'deleted.py').write_text('old')
             run(pf, 'add', '.')
             run(pf, 'commit', '-qm', 'base')
+            pf_base = run(pf, 'rev-parse', 'HEAD')
+            pf_base_tree = run(pf, 'write-tree')
             run(source, 'add', '.')
             run(source, 'commit', '-qm', 'base tool')
             base = run(source, 'rev-parse', 'HEAD')
@@ -1293,11 +1295,21 @@ class AssemblyFixture(unittest.TestCase):
             (pf / 'deleted.py').unlink()
             run(pf, 'add', '-A')
             run(pf, 'commit', '-qm', 'new fixes')
-            run(source, 'add', 'protonfixes')
+            pf_fork = run(pf, 'rev-parse', 'HEAD')
+            pf_tree = run(pf, 'write-tree')
+            patch = source / 'patches/protonfixes/0001-fixture.patch'
+            patch.parent.mkdir(parents=True)
+            patch.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'format-patch', '-1', '--stdout']))
+            run(pf, 'reset', '--hard', pf_base)
+            run(source, 'add', '.')
             run(source, 'commit', '-qm', 'new tool')
             commit = run(source, 'rev-parse', 'HEAD')
             lock = copy.deepcopy(inputs.LOCK)
-            lock['components']['protonfixes'] = run(pf, 'rev-parse', 'HEAD')
+            lock['components']['protonfixes'] = pf_base
+            lock['component_patches'] = {'protonfixes': {
+                'upstream_tree': pf_base_tree, 'fork_commit': pf_fork, 'fork_tree': pf_tree,
+                'prepared_tree': pf_tree, 'patches': [{'path': patch.relative_to(source).as_posix(),
+                    'sha256': inputs.sha256(patch), 'fork_change': True}]}}
             lock['ge_source'] = base
             ge = root / 'ge'
             ge.mkdir()

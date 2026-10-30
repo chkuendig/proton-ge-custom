@@ -1,0 +1,33 @@
+From 16a01844e1bfbeee13adfa703b2b37e8a22850b8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Wed, 14 Oct 2026 23:10:17 +0200
+Subject: [PATCH 3/7] Enable GPU PhysX through ZLUDA for Batman: Arkham Knight
+
+Enable ZLUDA and the validated D3D11 CPU-copy path with multithread protection.
+
+Historical AI assistance (model not recorded): Copilot.
+
+Assisted-by: Claude:claude-fable-5
+Assisted-by: Claude:claude-opus-4.6
+Assisted-by: Claude:claude-opus-4.7
+Assisted-by: Claude:claude-opus-4.8
+Assisted-by: Claude:claude-opus-5.5
+Assisted-by: Codex:gpt-6.1-sol
+---
+ gamefixes-steam/208650.py | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/gamefixes-steam/208650.py b/gamefixes-steam/208650.py
+index 21d4ca9..088804e 100755
+--- a/gamefixes-steam/208650.py
++++ b/gamefixes-steam/208650.py
+@@ -7,3 +7,9 @@ def main() -> None:
+     """NVIDIA PhysX support."""
+     # Enables NVIDIA PhysX in Batman Arkham Knight.
+     util.protontricks('physx')
++    # GPU PhysX through ZLUDA: Proton's ZLUDA block routes nvcuda to ZLUDA
++    # and makes NVAPI report a CUDA-capable GPU, so PhysX picks its GPU path.
++    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
++    # Use the validated D3D11 texture-copy path for GPU PhysX output.
++    util.set_environment('ZLUDA_D3D11_CPU_COPY', '1')
++    util.set_environment('ZLUDA_D3D11_CPU_COPY_ENABLE_MT', '1')

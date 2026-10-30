@@ -1,0 +1,64 @@
+From 63f5d6760c18d921263b692b7afe25f977ba7afa Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Thu, 15 Oct 2026 11:51:58 +0200
+Subject: [PATCH 7/7] Mafia II: keep Wine's WINESTEAMNOEXEC=1
+
+Restore the change from 042cf1f, which the 10-14 release missed. That
+commit lived only on GE-Proton11-7-zluda-mafia2-fs. The qualified 10-11
+tool pinned it directly, but the release was assembled from this line,
+which still forced WINESTEAMNOEXEC=0.
+
+With 0, Wine writes jumps into the game's steamclient.dll code. Under new
+WoW64 the game then reaches its menus but quits cleanly (exit code 0, no
+exception) as soon as the built-in benchmark starts, with CPU PhysX too.
+
+The override was only a workaround for Wine's steamclient fault redirect
+skipping the 32-bit FS restore under new WoW64. GE's patch set fixes that
+redirect (ntdll-restore-thread-state-after-steamclient-fault-redirect),
+so the game runs with the NOEXEC=1 Wine sets for CEG titles. Its
+steamclient.dll code then stays unmodified, and the hook no longer sets an
+environment variable.
+
+On GE-Proton11-7-zluda with only this hook changed, APEX High completed
+the benchmark at 27.7 FPS average. The game environment had
+WINESTEAMNOEXEC=1, with no GPU fault and no core dump.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ gamefixes-steam/50130.py | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/gamefixes-steam/50130.py b/gamefixes-steam/50130.py
+index 9b5c815..01d5ef0 100644
+--- a/gamefixes-steam/50130.py
++++ b/gamefixes-steam/50130.py
+@@ -1,24 +1,20 @@
+ """Game fix for Mafia II (Classic): GPU PhysX through ZLUDA"""
+ 
+-import os
+-
+ from protonfixes import util
+ 
+ 
+ def early() -> None:
+     # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
+     # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
++    # Wine's own WINESTEAMNOEXEC=1 for this CEG title stays: with 0, Wine
++    # writes jumps into the game's steamclient.dll code instead.
+     util.set_environment('PROTON_USE_WOW64', '1')
+-    # Wine sets WINESTEAMNOEXEC=1 for this game (CEG). Its steamclient fault
+-    # redirect then returns without restoring the 32-bit FS selector, which
+-    # crashes under new WoW64. Wine only sets it when unset, so this wins.
+-    if 'WINESTEAMNOEXEC' not in os.environ:
+-        util.set_environment('WINESTEAMNOEXEC', '0')
+ 
+ 
+ def main() -> None:
+     util.set_environment('PROTON_ENABLE_ZLUDA', '1')
+-    # The executable imports d3dx9_42. Steam's installscript installs the
+-    # game's own PhysX System Software (3rd/PhysX_9.10.0513).
++    # The executable imports d3dx9_42. Steam installs the PhysX System
++    # Software: the game's 3rd/PhysX_9.10.0513 and the Steamworks common
++    # redistributable 9.14.0702, which wins.
+     if not util.checkinstalled('d3dx9') and not util.protontricks('d3dx9'):
+         raise RuntimeError('d3dx9 installation failed; inspect Protonfixes log')

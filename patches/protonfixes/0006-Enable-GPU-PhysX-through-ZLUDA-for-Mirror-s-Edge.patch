@@ -1,0 +1,59 @@
+From 19b99abfc92ab135347c34397911e3cf2d42ed1c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Wed, 14 Oct 2026 23:10:17 +0200
+Subject: [PATCH 6/7] Enable GPU PhysX through ZLUDA for Mirror's Edge
+
+Select WoW64 and the system PhysX runtime; move bundled PhysX files aside in a way Steam verification can restore.
+
+Assisted-by: Claude:claude-opus-5.5
+Assisted-by: Codex:gpt-6.1-sol
+---
+ gamefixes-steam/17410.py | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+ create mode 100644 gamefixes-steam/17410.py
+
+diff --git a/gamefixes-steam/17410.py b/gamefixes-steam/17410.py
+new file mode 100644
+index 0000000..4e8e951
+--- /dev/null
++++ b/gamefixes-steam/17410.py
+@@ -0,0 +1,39 @@
++"""Game fix for Mirror's Edge: GPU PhysX through ZLUDA"""
++
++import shutil
++from pathlib import Path
++
++from protonfixes import util
++from protonfixes.logger import log
++
++# The game ships PhysX 2.8.0.7 next to its executable. That PhysXCore has
++# no GPU code (PTX), so PhysX initialises CUDA and silently falls back to
++# the CPU. Moved aside, the game loads the PhysX System Software in the
++# prefix, whose PhysXCore 2.8.0.46 has it.
++BUNDLED_PHYSX = ('PhysXCore.dll', 'PhysXDevice.dll', 'PhysXLocal')
++
++
++def early() -> None:
++    # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
++    # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
++    util.set_environment('PROTON_USE_WOW64', '1')
++
++
++def main() -> None:
++    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
++    for verb in ('d3dx9', 'd3dcompiler_43', 'physx'):
++        if not util.checkinstalled(verb) and not util.protontricks(verb):
++            raise RuntimeError(f'{verb} installation failed; inspect Protonfixes log')
++    # Only once the system runtime is installed. Steam's file verification
++    # restores the bundled copies; the next launch moves them aside again.
++    binaries = Path(util.get_game_install_path()) / 'Binaries'
++    for name in BUNDLED_PHYSX:
++        bundled, moved = binaries / name, binaries / f'{name}.bak'
++        if not bundled.exists():
++            continue
++        if moved.is_dir():
++            shutil.rmtree(moved)
++        elif moved.exists():
++            moved.unlink()
++        bundled.rename(moved)
++        log.info(f'Moved bundled {name} aside so the system PhysX runtime loads')

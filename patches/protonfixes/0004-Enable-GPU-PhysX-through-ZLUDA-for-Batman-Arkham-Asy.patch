@@ -1,0 +1,39 @@
+From c7cf69017fd2e43c470532379f412e72ac5c6163 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Wed, 14 Oct 2026 23:10:17 +0200
+Subject: [PATCH 4/7] Enable GPU PhysX through ZLUDA for Batman: Arkham Asylum
+
+Select WoW64 early and install the PhysX, D3DX9 and shader-compiler prerequisites.
+
+Assisted-by: Claude:claude-fable-5.1
+Assisted-by: Claude:claude-opus-5.5
+Assisted-by: Codex:gpt-6.1-sol
+---
+ gamefixes-steam/35140.py | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+ create mode 100644 gamefixes-steam/35140.py
+
+diff --git a/gamefixes-steam/35140.py b/gamefixes-steam/35140.py
+new file mode 100644
+index 0000000..ced39b2
+--- /dev/null
++++ b/gamefixes-steam/35140.py
+@@ -0,0 +1,18 @@
++"""Game fix for Batman: Arkham Asylum GOTY: GPU PhysX through ZLUDA"""
++
++from protonfixes import util
++
++
++def early() -> None:
++    # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
++    # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
++    util.set_environment('PROTON_USE_WOW64', '1')
++
++
++def main() -> None:
++    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
++    # Unreal Engine 3 needs native D3DX9 and its shader compiler; PhysX 2.8
++    # loads from the PhysX System Software.
++    for verb in ('d3dx9', 'd3dcompiler_43', 'physx'):
++        if not util.checkinstalled(verb) and not util.protontricks(verb):
++            raise RuntimeError(f'{verb} installation failed; inspect Protonfixes log')

@@ -22,7 +22,7 @@
     }
   },
   "dxvk-nvapi": {
-    "pin": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+    "pin": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "files": {
       "build-win64.txt": {
         "text": "[binaries]\ncpp = 'x86_64-w64-mingw32-g++'\nstrip = 'x86_64-w64-mingw32-strip'\nar = 'x86_64-w64-mingw32-ar'\n\n[built-in options]\ncpp_link_args = ['-static', '-static-libgcc', '-static-libstdc++']\n\n[properties]\nneeds_exe_wrapper = true\n\n[host_machine]\nsystem = 'windows'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'\n",

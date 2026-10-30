@@ -12,6 +12,7 @@ import tarfile
 from inputs import HERE, LOCK, components_for_part, git, manifest, sha256, verify_manifest
 import wine_scope
 import cuda_package
+import component_patches
 
 
 def environment(name):
@@ -116,6 +117,8 @@ def metadata(part):
               'proton': git(source, 'rev-parse', 'HEAD'),
               'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
               'components': {n: LOCK['components'][n] for n in names},
+              'component_patches': {n: LOCK['component_patches'][n] for n in names
+                                    if n in LOCK.get('component_patches', {})},
               'wine_bridge': LOCK['wine_bridge'],
               'sdk_image': LOCK['sdk_image'], 'rust': LOCK['rust_version'],
               'llvm': LOCK['llvm'], 'architecture': LOCK['architecture'],
@@ -172,10 +175,10 @@ def extract(archive, target, ge_base=False):
 
 def assemble(overlays):
     source, cache, dest, build = map(environment, ['SOURCE_ROOT', 'DOWNLOAD_ROOT', 'DESTDIR', 'BUILD_ROOT'])
-    # Assembly only consumes the protonfixes submodule; verify its parent gitlink.
-    expected = LOCK['components']['protonfixes']
-    assert git(source, 'rev-parse', 'HEAD:protonfixes') == expected
-    assert git(source / 'protonfixes', 'rev-parse', 'HEAD') == expected
+    # Keep source submodules at their upstream gitlinks. Runtime Python files
+    # come from the same locked GE-plus-ZLUDA patch series as a full GE build.
+    pf = build / 'patched/protonfixes'
+    component_patches.prepare(source, pf, 'protonfixes', LOCK)
     ge = next(x for x in LOCK['downloads'] if x['id'] == 'ge')
     archive = cache / ge['url'].rsplit('/', 1)[1]
     assert sha256(archive) == ge['sha256']
@@ -209,9 +212,8 @@ def assemble(overlays):
     for name in ['proton', 'proton_zluda.py']:
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
     (dest / 'proton').chmod(0o755)
-    pf = source / 'protonfixes'
     base = git(source, 'rev-parse', LOCK['ge_source'] + ':protonfixes')
-    for line in git(pf, 'diff', '--name-status', '--no-renames', base, 'HEAD').splitlines():
+    for line in git(pf, 'diff', '--cached', '--name-status', '--no-renames', base).splitlines():
         status, name = line.split('\t', 1)
         path = dest / 'protonfixes' / name
         assert path.resolve().is_relative_to((dest / 'protonfixes').resolve())
@@ -219,7 +221,10 @@ def assemble(overlays):
             path.unlink(missing_ok=True)
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'show', 'HEAD:' + name]))
+            path.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'show', ':' + name]))
+            mode = git(pf, 'ls-files', '--stage', '--', name).split()[0]
+            path.chmod(0o755 if mode == '100755' else 0o644)
+    patches_record = component_patches.stage_sources(source, pf, 'protonfixes', dest, LOCK)
     for path in (dest / 'protonfixes').rglob('*.pyc'):
         path.unlink()
     vdf = dest / 'compatibilitytool.vdf'
@@ -236,6 +241,8 @@ def assemble(overlays):
         assert (dest / name).is_file() and (dest / name).stat().st_size, name
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
+                  'component_patches': LOCK['component_patches'],
+                  'protonfixes_prepared_tree': patches_record['prepared_tree'],
                   'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
                   'qualification': 'CI assembly is not target-runtime or GPU qualification'}
     (dest / 'provenance/PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')

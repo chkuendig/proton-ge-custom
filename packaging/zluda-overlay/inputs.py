@@ -113,6 +113,33 @@ def components_for_part(part):
     return LOCK['build_parts'][part]
 
 
+def check_bridge_sources(root):
+    """Full GE prep intentionally patches other components and main-tree files.
+
+    The independent Wine bridge consumes the exact clean ZLUDA checkout and
+    committed lock/patch inputs, rather than those unrelated prepared trees.
+    """
+    git(root, 'merge-base', '--is-ancestor', LOCK['proton_base'], 'HEAD')
+    path = 'packaging/zluda-overlay/inputs.lock.json'
+    if (root / path).read_bytes() != subprocess.check_output(['git', '-C', str(root), 'show', 'HEAD:' + path]):
+        raise ValueError('dirty bridge input lock')
+    child = root / 'zluda'
+    pin = LOCK['components']['zluda']
+    if git(root, 'rev-parse', 'HEAD:zluda') != pin or git(child, 'rev-parse', 'HEAD') != pin:
+        raise ValueError('locked Wine bridge gitlink mismatch')
+    if git(child, 'status', '--porcelain', '--untracked-files=no'):
+        raise ValueError('dirty Wine bridge component')
+    check_tree(child)
+    bridge = LOCK['wine_bridge']
+    if (git(child, 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree'] or
+            sha256(child / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']):
+        raise ValueError('locked Wine bridge tree/lock mismatch')
+    from component_patches import series
+    for name in LOCK.get('component_patches', {}):
+        series(root, name, LOCK)
+    print('checked immutable ZLUDA bridge and committed patch inputs')
+
+
 def check_sources(root, part):
     git(root, 'merge-base', '--is-ancestor', LOCK['proton_base'], 'HEAD')
     if git(root, 'status', '--porcelain', '--untracked-files=no', '--ignore-submodules=all'):
@@ -126,6 +153,9 @@ def check_sources(root, part):
         if git(child, 'status', '--porcelain', '--untracked-files=no'):
             raise ValueError('dirty component: ' + name)
         check_tree(child)
+        if name in LOCK.get('component_patches', {}):
+            from component_patches import series
+            series(root, name, LOCK)
     if part in ('bridges', 'all'):
         bridge = LOCK['wine_bridge']
         if git(root / 'zluda', 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree']:
@@ -213,13 +243,15 @@ def verify_manifest(root):
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'manifest', 'verify', 'wine-base', 'checkout-paths'])
+    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'bridge-check', 'manifest', 'verify', 'wine-base', 'checkout-paths'])
     parser.add_argument('directory', type=Path)
     parser.add_argument('--part', choices=['all', 'zluda', 'bridges'], default='all')
     parser.add_argument('--group', choices=['all', 'zluda', 'bridges', 'ge'], default='all')
     args = parser.parse_args()
     if args.command == 'check':
         check_sources(args.directory, args.part)
+    elif args.command == 'bridge-check':
+        check_bridge_sources(args.directory)
     elif args.command == 'wine-base':
         print(*wine_base(args.directory))
     elif args.command == 'checkout-paths':
