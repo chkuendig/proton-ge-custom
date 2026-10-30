@@ -230,6 +230,10 @@ def run(source, tool, fixtures, work, a1_tool=None):
                                       (a1_tool / 'files/lib/wine/i386-windows/nvcuda.dll' if a1_tool else disposable / 'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll'))
                             shutil.copyfile(legacy, path)
                             seeded[directory_name] = sha256(path)
+                            expected = disposable / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll'
+                            if (seeded[directory_name] == proton_zluda.STUB_SHA256[arch] or
+                                    seeded[directory_name] == sha256(expected)):
+                                raise ValueError('A1 seed already matches transition output: ' + directory_name)
                     local_decoy = directory / 'game/nvcuda.dll'
                     local_decoy.unlink(missing_ok=True)
                     decoy = fixtures / ('nvcuda-decoy32.dll' if winearch == 'wow64' else 'nvcuda-decoy64.dll')
@@ -268,6 +272,9 @@ def run(source, tool, fixtures, work, a1_tool=None):
                         result = admit_case(directory / phase, phase, winearch, disposable, runner, code)
                     result['policy'] = admit_policy(directory / phase, phase, disposable, prefix)
                     result['seeded_files'] = seeded
+                    if phase in ('off-a1', 'on-a1'):
+                        result['upgrade_fixture'] = ('CI-built A1 (run 40906607864), not the Deck-installed bytes'
+                                                     if a1_tool else 'A1-layout (stand-in modules)')
                     if phase == 'off-after':
                         if before_timestamp != (timestamp.read_bytes(), timestamp.stat().st_mtime_ns):
                             raise ValueError('on-to-off launch unexpectedly updated the Wine timestamp')

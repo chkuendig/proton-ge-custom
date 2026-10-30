@@ -61,7 +61,7 @@ class LauncherCpu(unittest.TestCase):
                 hashes[arch] = gate.sha256(path)
                 active = tool / 'files/lib/wine-cuda/zluda' / arch / 'nvcuda.dll'
                 active.parent.mkdir(parents=True)
-                active.write_bytes(b'active builtin')
+                active.write_bytes(arch.encode() if failure == 'seed-noop' else b'active builtin')
             def command(argv, env, log, timeout, accepted=(0,)):
                 log.parent.mkdir(parents=True, exist_ok=True); log.write_text('launcher fixture')
                 if argv[0] == 'cp':
@@ -108,6 +108,10 @@ class LauncherCpu(unittest.TestCase):
                          for arch in ['win64', 'wow64'] for phase in gate.PHASES])
                     self.assertEqual([p['phase'] for p in record['profiles']['wow64']['cases']],
                                      gate.PHASES)
+                    for profile in record['profiles'].values():
+                        for case in profile['cases']:
+                            if case['phase'] in ('off-a1', 'on-a1'):
+                                self.assertEqual(case['upgrade_fixture'], 'A1-layout (stand-in modules)')
             self.assertEqual((tool / 'files/lib64/libcuda.so.1').read_bytes(), b'production backend')
             self.assertGreaterEqual(len(cleaned), 1)
             self.assertEqual(json.loads((work / 'INTEGRATION.json').read_text())['status'],
@@ -121,7 +125,7 @@ class LauncherCpu(unittest.TestCase):
         self.exercise()
 
     def test_timeout_migration_and_prefix_mismatch_fail_and_cleanup(self):
-        for mode in ['timeout', 'policy']:
+        for mode in ['timeout', 'policy', 'seed-noop']:
             with self.subTest(mode=mode):
                 self.exercise(mode)
 
