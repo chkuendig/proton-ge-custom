@@ -27,7 +27,8 @@ class CpuFixtures(unittest.TestCase):
         return source,build,sdk,dest,path
 
     def test_sdk_archive_admits_only_same_checkout_lock_source_and_exact_bytes(self):
-        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(gate,'git',return_value='a'*40):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(gate,'git',return_value='a'*40), \
+                mock.patch.object(gate.reuse_components, 'expected_commit', return_value='a'*40):
             root=Path(temporary)
             source,build,sdk,dest,path=self.fixture(root)
             record=gate.package(source,build,sdk,dest)
@@ -45,7 +46,8 @@ class CpuFixtures(unittest.TestCase):
                 gate.admit(source,dest,root/'bad-source')
 
     def test_missing_source_inventory_and_unsafe_archive_member_fail(self):
-        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(gate,'git',return_value='a'*40):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(gate,'git',return_value='a'*40), \
+                mock.patch.object(gate.reuse_components, 'expected_commit', return_value='a'*40):
             root=Path(temporary)
             source,build,sdk,dest,path=self.fixture(root)
             saved=(build/'SOURCE-SHA256SUMS').read_text()

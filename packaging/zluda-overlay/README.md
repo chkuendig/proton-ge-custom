@@ -183,8 +183,8 @@ x86_64 Unix steamclient fault redirect, `wine_scope.py` selects a native-only
 profile. It skips i386 Wine/prerequisites, removes Kaldi's now-unneeded cross-arch
 serialization, and overlays only `x86_64-unix/ntdll.so`. Both PE ntdlls and the
 classic i386 Unix ntdll come from the locked GE archive. Assembly verifies their
-hashes and all other GE i386 Wine files/links; the canonical PE32 CUDA stub is intentionally removed after its bytes are
-verified and retained in the separate stub root. `provenance/WINE-SCOPE.json` records that inventory. Any different
+hashes and all other GE i386 Wine files/links, including the canonical PE32 CUDA stub.
+The same verified stub bytes are retained in the separate stub root. `provenance/WINE-SCOPE.json` records that inventory. Any different
 prepared-source transformation retains the original two-architecture graph.
 The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
 
@@ -348,7 +348,7 @@ fixture in place of its bundled native backend; the release tool remains
 unchanged. No WINEDLLPATH, CUDA override or prefix-stub repair is supplied by the
 harness. It observes the final environment at Wine’s process boundary and checks GE
 stub prefix/template bytes, native-NVIDIA copies/overrides, and on-mode NVIDIA
-flag warnings across five phases per architecture. The native-NVIDIA off phase
+flag warnings across nine phases per architecture. The native-NVIDIA off phase
 checks files/overrides only and never executes the relay without a GPU. PE32 uses the actual 35140 early/main protonfix via
 `waitforexitandrun`; installed-verb log fixtures prevent installer/network use.
 Both ordinary probes/events and every server cleanup remain mandatory. Hosted execution gates this launcher policy. `wine-cpu-evidence` always
@@ -436,3 +436,12 @@ prefixes with that tool's own launcher, then upgrades them off/on. Receipts
 identify all four original module hashes and the template links. Those are
 CI-built A1 bytes, not the Deck-installed bytes. This optional input expires with
 the historical artifact; the default gate retains its independent layout cases.
+
+Manual harness iterations may set `components_run` to a previous work-branch run ID.
+It defaults to empty (full rebuild) and has no release/default path. Admission rejects
+changes to compiled sources, pins, locks or build recipes. The assembled tool records
+the originating run, commit, artifact digests and downloaded archive hashes in
+`provenance/COMPONENT-REUSE.json`; component provenance retains its original commit.
+A frozen W1 candidate must use a full rebuild with reuse off, after the licence-lane
+gitlink update. The pinned ABI/lifecycle fixtures run unchanged except for canonical
+namespace admission: only the two exact GE PE stub hashes are allowed.

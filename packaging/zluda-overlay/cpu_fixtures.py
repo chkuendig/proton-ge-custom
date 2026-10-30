@@ -10,6 +10,7 @@ import shutil
 import tarfile
 
 from inputs import HERE, LOCK, git, manifest, sha256, verify_manifest
+import reuse_components
 
 REQUIRED = {'probe.exe', 'probe32.exe', 'libcuda.so.1', 'libcuda-wow64.so.1',
             'lifecycle.exe', 'lifecycle-helper.dll', 'transition.exe', 'nvcuda-decoy64.dll', 'nvcuda-decoy32.dll'}
@@ -64,7 +65,7 @@ def admit(source, directory, dest):
     record = json.loads((directory / 'cpu-fixtures.json').read_text())
     archive = directory / 'cpu-fixtures.tar.gz'
     if (record.get('format') != 'pinned-sdk-cpu-fixtures-1' or
-            record.get('proton') != git(source, 'rev-parse', 'HEAD') or
+            record.get('proton') != reuse_components.expected_commit(source) or
             record.get('source_pin') != LOCK['components']['zluda'] or
             record.get('sdk_image') != LOCK['sdk_image'] or
             record.get('input_lock_sha256') != sha256(HERE / 'inputs.lock.json') or

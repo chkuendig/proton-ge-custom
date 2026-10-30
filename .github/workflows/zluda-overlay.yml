@@ -14,6 +14,10 @@ on:
         description: Also create upgrade prefixes with CI-built A1 from run 40906607864 (expires 2026-11-12)
         type: boolean
         default: false
+      components_run:
+        description: 'Iteration only: reuse components from this run ID (empty = full rebuild; required for frozen W1)'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -28,6 +32,7 @@ env:
 
 jobs:
   components:
+    if: inputs.components_run == ''
     name: Build ${{ inputs.profile == 'x64-draft' && 'unqualified x64 draft' || matrix.part }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350
@@ -194,7 +199,7 @@ jobs:
           retention-days: 14
 
   assemble:
-    if: inputs.profile != 'x64-draft'
+    if: always() && inputs.profile != 'x64-draft' && (inputs.components_run != '' || needs.components.result == 'success')
     needs: components
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -211,9 +216,24 @@ jobs:
           [[ $(df -B1 --output=avail "$RUNNER_TEMP" | tail -1) -ge 20000000000 ]]
       - name: Checkout pinned protonfixes
         run: git submodule update --init --recursive -- protonfixes
+      - name: Admit explicitly requested component reuse
+        if: inputs.components_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENTS_RUN: ${{ inputs.components_run }}
+        run: |
+          set -euo pipefail
+          [[ $COMPONENTS_RUN =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN" > "$RUNNER_TEMP/component-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/component-artifacts.json"
+          python3 packaging/zluda-overlay/reuse_components.py --source "$GITHUB_WORKSPACE" \
+            --run "$RUNNER_TEMP/component-run.json" --artifacts "$RUNNER_TEMP/component-artifacts.json" \
+            --output "$RUNNER_TEMP/COMPONENT-REUSE.json"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: overlay-*
+          run-id: ${{ inputs.components_run || github.run_id }}
+          github-token: ${{ github.token }}
           merge-multiple: true
           path: ${{ runner.temp }}/overlays
       - name: Assemble GE plus verified overlays
@@ -242,6 +262,8 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: wine-cpu-fixtures
+          run-id: ${{ inputs.components_run || github.run_id }}
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/cpu-fixtures
       - name: Download historical CI-built A1 for upgrade evidence
         if: inputs.historical_a1
@@ -276,6 +298,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
             -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" \
             -v "$RUNNER_TEMP/a1-tool:/a1-tool:ro" -e JOBS=3 \
+            -e REUSE_COMPONENTS_COMMIT \
             "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
             --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures --a1-tool /a1-tool \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"

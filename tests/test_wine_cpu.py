@@ -135,8 +135,8 @@ class WineCpu(unittest.TestCase):
             argv = [str(value) for value in argv]
             commands.append((argv, env, timeout))
             log.write_text('orchestration fixture\n')
-            if 'run-fixtures.py' in argv[1]:
-                options = dict(zip(argv[2::2], argv[3::2]))
+            if 'pinned_fixture_runner.py' in argv[1]:
+                options = dict(zip(argv[6::2], argv[7::2]))
                 arch = options['--winearch']
                 Path(options['--prefix']).mkdir()
                 if mode == 'timeout' or mode == 'wow64-timeout' and arch == 'wow64':
@@ -184,10 +184,10 @@ class WineCpu(unittest.TestCase):
 
     def test_real_runner_contract_and_outer_cleanup(self):
         commands = self.exercise()
-        runners = [(argv, env) for argv, env, _ in commands if 'run-fixtures.py' in argv[1]]
+        runners = [(argv, env) for argv, env, _ in commands if 'pinned_fixture_runner.py' in argv[1]]
         self.assertEqual([env['WINEARCH'] for _, env in runners], ['win64', 'wow64'])
         for (argv, env), (arch, profile) in zip(runners, gate.PROFILES.items()):
-            options = dict(zip(argv[2::2], argv[3::2]))
+            options = dict(zip(argv[6::2], argv[7::2]))
             self.assertEqual(options, {'--wine': str(self.wine), '--wineserver': str(self.server),
                 '--winearch': arch, '--dll-dir': str(self.tool / 'files/lib/wine'),
                 '--on-root': str(self.tool / 'files/lib/wine-cuda/zluda'),
@@ -200,7 +200,7 @@ class WineCpu(unittest.TestCase):
         # The first prefix is independently gone before the second starts.
         first_cleanup = next(i for i, (argv, _, _) in enumerate(commands) if argv[-1] == '-k0')
         second_runner = next(i for i, (argv, env, _) in enumerate(commands)
-                             if 'run-fixtures.py' in argv[1] and env['WINEARCH'] == 'wow64')
+                             if 'pinned_fixture_runner.py' in argv[1] and env['WINEARCH'] == 'wow64')
         self.assertLess(first_cleanup, second_runner)
 
     def test_prebuilt_sdk_fixtures_are_admitted_without_an_assembly_compiler(self):

@@ -13,6 +13,7 @@ from inputs import HERE, LOCK, components_for_part, git, manifest, sha256, verif
 import wine_scope
 import cuda_package
 import component_patches
+import reuse_components
 
 
 def environment(name):
@@ -176,6 +177,13 @@ def extract(archive, target, ge_base=False):
 
 def assemble(overlays):
     source, cache, dest, build = map(environment, ['SOURCE_ROOT', 'DOWNLOAD_ROOT', 'DESTDIR', 'BUILD_ROOT'])
+    component_commit = reuse_components.expected_commit(source)
+    reuse = None
+    if os.environ.get('REUSE_COMPONENTS_COMMIT'):
+        reuse = json.loads(Path(os.environ['COMPONENT_REUSE_RECEIPT']).read_text())
+        if reuse['commit'] != component_commit:
+            raise ValueError('component reuse receipt commit mismatch')
+        reuse['downloaded_archives'] = {p.name: sha256(p) for p in sorted(overlays.glob('*.tar.gz'))}
     # Keep source submodules at their upstream gitlinks. Runtime Python files
     # come from the same locked GE-plus-ZLUDA patch series as a full GE build.
     pf = build / 'patched/protonfixes'
@@ -205,7 +213,7 @@ def assemble(overlays):
         extract(overlays / (part + '.tar.gz'), overlay)
         verify_manifest(overlay)
         record = json.loads((overlay / 'provenance' / (part + '.json')).read_text())
-        if not (record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')):
+        if not (record['part'] == part and record['proton'] == component_commit):
             raise ValueError("overlay.py integrity gate failed: record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')")
         if not (record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')):
             raise ValueError("overlay.py integrity gate failed: record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')")
@@ -213,6 +221,10 @@ def assemble(overlays):
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
     scope = dest / 'provenance/WINE-SCOPE.json'
+    if reuse:
+        (dest / 'provenance/COMPONENT-REUSE.json').write_text(json.dumps(reuse, indent=2) + '\n')
+        shutil.copytree(HERE, dest / 'sources/overlay-recipes', dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns('__pycache__'))
     wine_scope.verify(dest, json.loads(scope.read_text()))
     for name in ['proton', 'proton_zluda.py']:
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
@@ -249,6 +261,7 @@ def assemble(overlays):
         if not ((dest / name).is_file() and (dest / name).stat().st_size):
             raise ValueError(name)
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
+                  'component_build_proton': component_commit, 'component_reuse': reuse,
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'component_patches': LOCK['component_patches'],
                   'protonfixes_prepared_tree': patches_record['prepared_tree'],
