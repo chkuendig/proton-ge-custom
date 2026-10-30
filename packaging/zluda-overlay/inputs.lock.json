@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "51ec74f1d9a5b0c3455c20bdb77c7c82329ee3b9",
+    "zluda": "1d893643a2cc8dd693fb77fc061cced015698a5d",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "27f5c708ec4d4150fbff97acb30a5b21ad893994",
@@ -253,7 +253,7 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "67ab17d0e2486ef8c9c59840526dbf3e244cec22",
+    "tree": "377c4826f1af08e455e141edd589935750835d48",
     "origin": "https://github.com/chkuendig/nvcuda",
     "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
     "contract": "zluda-wine-packaging-1",

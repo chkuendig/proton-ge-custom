@@ -1,6 +1,6 @@
 {
   "zluda": {
-    "pin": "51ec74f1d9a5b0c3455c20bdb77c7c82329ee3b9",
+    "pin": "1d893643a2cc8dd693fb77fc061cced015698a5d",
     "files": {
       "wine/nvcuda/build-wine64.txt": {
         "text": "[binaries]\nc = 'winegcc'\nar = 'ar'\nstrip = 'strip'\n\n[built-in options]\nc_args = ['-m64', '--no-gnu-unique', '-D__WINESRC__']\nc_link_args = ['-m64', '-mwindows']\n\n[properties]\nneeds_exe_wrapper = true\nwinelib = true\n\n[host_machine]\nsystem = 'linux'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'\n",
