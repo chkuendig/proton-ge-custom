@@ -84,6 +84,11 @@ if [[ $part == bridges || $part == all ]]; then
     # transition.exe needs this exact prepared Wine SDK; assembly has only
     # the runtime tool, so compile fixtures here and bind their provenance.
     FIXTURE_BUILD_ROOT=$BUILD_ROOT/wine-cpu-fixtures bash "$n/tests/abi/build-fixtures.sh"
+    for spec in 'x86_64 64' 'i686 32'; do
+        read -r triplet bits <<< "$spec"
+        "$triplet-w64-mingw32-gcc" -O2 -Wall -Wextra -Werror -shared -static-libgcc \
+            "$here/nvcuda-decoy.c" -o "$BUILD_ROOT/wine-cpu-fixtures/nvcuda-decoy$bits.dll"
+    done
     python3 "$here/cpu_fixtures.py" --source "$SOURCE_ROOT" --build "$BUILD_ROOT/wine-cpu-fixtures" \
         --sdk-receipt "$BUILD_ROOT/wine/log/wine-sdk.json" --dest "$BUILD_ROOT/cpu-fixtures-package"
     for spec in '64 x86_64-windows' '32 i386-windows'; do

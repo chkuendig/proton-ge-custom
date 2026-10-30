@@ -197,12 +197,17 @@ def write_stubs(tool, originals):
         out.unlink(missing_ok=True)
         out.write_bytes(data)
         out.chmod(0o644)
+        canonical = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        canonical.unlink(missing_ok=True)
+        canonical.write_bytes(data)
+        canonical.chmod(0o644)
         info = pe_info(out)
         if (info['machine'], info['named_exports']) != (0x8664 if arch.startswith('x86_64') else 0x14c, 0):
             raise ValueError('GE stub is not an empty builtin PE: ' + arch)
     (cuda / 'stubs.json').write_text(json.dumps(
         {'ge_archive_sha256': policy.GE_ARCHIVE_SHA256, 'sha256': policy.STUB_SHA256,
-         'migration_policy': 'Wine builtin/placeholder PE, ELF and managed module symlinks'}, indent=2) + '\n')
+         'prefix_policy': 'stock GE off; GE placeholders with builtin override on'}, indent=2) + '\n')
 
 
 def prepare_stubs(tool):
@@ -214,7 +219,6 @@ def prepare_stubs(tool):
             raise ValueError('GE stub must be a regular file: ' + str(original))
         originals[arch] = original.read_bytes()
     write_stubs(tool, originals)
-    materialize_template(tool)
 
 
 def archive_stubs(archive, tool):
@@ -236,21 +240,22 @@ def archive_stubs(archive, tool):
 
 
 def materialize_template(tool):
-    policy.materialize_default_prefix(tool, tool / 'files/share/default_pfx')
+    policy.validate_default_prefix(tool, tool / 'files/share/default_pfx')
+
+
+def ge_cuda_path(path, canonical):
+    relative = path.relative_to(canonical)
+    return relative.as_posix() in {arch + '/nvcuda.dll' for arch in policy.STUB_SHA256} or (
+        relative.parts[:2] == ('nvidia-libs', 'nvcuda') and path.name == 'nvcuda.dll.so')
 
 
 def remove_canonical(tool):
     canonical = tool / 'files/lib/wine'
     for path in canonical.rglob('*'):
-        if path.name.lower() in CANONICAL_NAMES:
+        if path.name.lower() in CANONICAL_NAMES and not ge_cuda_path(path, canonical):
             if path.is_dir() and not path.is_symlink():
                 raise ValueError('unexpected canonical CUDA directory: ' + str(path))
             path.unlink()
-    legacy = canonical / 'nvidia-libs/nvcuda'
-    if legacy.is_symlink():
-        legacy.unlink()
-    elif legacy.exists():
-        shutil.rmtree(legacy)
 
 
 def audit(tool):
@@ -261,8 +266,12 @@ def audit(tool):
     for canonical in [tool / 'files/lib/wine', tool / 'files/lib64/wine']:
         if not canonical.resolve().is_relative_to(tool.resolve()):
             raise ValueError('canonical Wine alias leaves tool')
-        if any(p.name.lower() in CANONICAL_NAMES for p in canonical.rglob('*')):
+        if any(p.name.lower() in CANONICAL_NAMES and not ge_cuda_path(p, canonical) for p in canonical.rglob('*')):
             raise ValueError('canonical nvcuda remains: ' + str(canonical))
+    for arch, expected in policy.STUB_SHA256.items():
+        original = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
+        if original.is_symlink() or not original.is_file() or digest(original) != expected:
+            raise ValueError('canonical GE CUDA stub differs: ' + str(original))
     expected_on = {cuda / 'zluda' / name for name in MODULES}
     expected_on |= {p.parent for p in expected_on}
     if (cuda / 'zluda').is_symlink() or set((cuda / 'zluda').rglob('*')) != expected_on:

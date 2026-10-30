@@ -1,0 +1,118 @@
+From: Christian Kündig <christian@kuendig.info>
+Subject: [PATCH] Select CUDA policy before prefix setup and respect explicit opt-out
+
+Assisted-by: codex:gpt-6.1-sol
+
+diff --git a/gamefixes-steam/17410.py b/gamefixes-steam/17410.py
+index 4e8e951..fca6c88 100644
+--- a/gamefixes-steam/17410.py
++++ b/gamefixes-steam/17410.py
+@@ -3,6 +3,8 @@
+ import shutil
+ from pathlib import Path
+ 
++import os
++
+ from protonfixes import util
+ from protonfixes.logger import log
+ 
+@@ -14,13 +16,14 @@ BUNDLED_PHYSX = ('PhysXCore.dll', 'PhysXDevice.dll', 'PhysXLocal')
+ 
+ 
+ def early() -> None:
++    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
+     # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
+     # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
+-    util.set_environment('PROTON_USE_WOW64', '1')
++    if os.environ['PROTON_ENABLE_ZLUDA'] == '1':
++        util.set_environment('PROTON_USE_WOW64', '1')
+ 
+ 
+ def main() -> None:
+-    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
+     for verb in ('d3dx9', 'd3dcompiler_43', 'physx'):
+         if not util.checkinstalled(verb) and not util.protontricks(verb):
+             raise RuntimeError(f'{verb} installation failed; inspect Protonfixes log')
+diff --git a/gamefixes-steam/208650.py b/gamefixes-steam/208650.py
+index 088804e..992adf3 100755
+--- a/gamefixes-steam/208650.py
++++ b/gamefixes-steam/208650.py
+@@ -1,15 +1,21 @@
+ """Game fix for Batman Arkham Knight"""
+ 
++import os
++
+ from protonfixes import util
+ 
+ 
++def early() -> None:
++    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
++
++
+ def main() -> None:
+     """NVIDIA PhysX support."""
+     # Enables NVIDIA PhysX in Batman Arkham Knight.
+     util.protontricks('physx')
+     # GPU PhysX through ZLUDA: Proton's ZLUDA block routes nvcuda to ZLUDA
+     # and makes NVAPI report a CUDA-capable GPU, so PhysX picks its GPU path.
+-    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
+     # Use the validated D3D11 texture-copy path for GPU PhysX output.
+-    util.set_environment('ZLUDA_D3D11_CPU_COPY', '1')
+-    util.set_environment('ZLUDA_D3D11_CPU_COPY_ENABLE_MT', '1')
++    if os.environ.get('PROTON_ENABLE_ZLUDA') == '1':
++        util.set_environment('ZLUDA_D3D11_CPU_COPY', '1')
++        util.set_environment('ZLUDA_D3D11_CPU_COPY_ENABLE_MT', '1')
+diff --git a/gamefixes-steam/35140.py b/gamefixes-steam/35140.py
+index ced39b2..2db1277 100644
+--- a/gamefixes-steam/35140.py
++++ b/gamefixes-steam/35140.py
+@@ -1,16 +1,19 @@
+ """Game fix for Batman: Arkham Asylum GOTY: GPU PhysX through ZLUDA"""
+ 
++import os
++
+ from protonfixes import util
+ 
+ 
+ def early() -> None:
++    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
+     # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
+     # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
+-    util.set_environment('PROTON_USE_WOW64', '1')
++    if os.environ['PROTON_ENABLE_ZLUDA'] == '1':
++        util.set_environment('PROTON_USE_WOW64', '1')
+ 
+ 
+ def main() -> None:
+-    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
+     # Unreal Engine 3 needs native D3DX9 and its shader compiler; PhysX 2.8
+     # loads from the PhysX System Software.
+     for verb in ('d3dx9', 'd3dcompiler_43', 'physx'):
+diff --git a/gamefixes-steam/50130.py b/gamefixes-steam/50130.py
+index 01d5ef0..ac47588 100644
+--- a/gamefixes-steam/50130.py
++++ b/gamefixes-steam/50130.py
+@@ -1,18 +1,21 @@
+ """Game fix for Mafia II (Classic): GPU PhysX through ZLUDA"""
+ 
++import os
++
+ from protonfixes import util
+ 
+ 
+ def early() -> None:
++    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
+     # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
+     # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
+     # Wine's own WINESTEAMNOEXEC=1 for this CEG title stays: with 0, Wine
+     # writes jumps into the game's steamclient.dll code instead.
+-    util.set_environment('PROTON_USE_WOW64', '1')
++    if os.environ['PROTON_ENABLE_ZLUDA'] == '1':
++        util.set_environment('PROTON_USE_WOW64', '1')
+ 
+ 
+ def main() -> None:
+-    util.set_environment('PROTON_ENABLE_ZLUDA', '1')
+     # The executable imports d3dx9_42. Steam installs the PhysX System
+     # Software: the game's 3rd/PhysX_9.10.0513 and the Steamworks common
+     # redistributable 9.14.0702, which wins.

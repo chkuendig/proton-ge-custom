@@ -7,7 +7,6 @@
 import os
 import subprocess
 import re
-from pathlib import Path
 
 def file_is_wine_builtin_dll(path):
     if not os.path.exists(path):
@@ -53,8 +52,6 @@ def make_relative_symlink(target, linkname):
 
 def setup_dll_symlinks(default_pfx_dir, dist_dir, arm64):
     skip_dlls = [ 'amd_ags_x64.dll', 'comctl32.dll', 'comctl32_v6.dll' ]
-    if not arm64 and (Path(dist_dir) / 'lib/wine-cuda/stubs.json').is_file():
-        skip_dlls.append('nvcuda.dll')
     for walk_dir, dirs, files in os.walk(default_pfx_dir):
         for file_ in files:
             filename = os.path.join(walk_dir, file_)
@@ -140,10 +137,6 @@ def make_default_pfx(default_pfx_dir, dist_dir, arm64):
     local_env["WINEPREFIX"] = default_pfx_dir
     local_env["WINEDEBUG"] = "-all"
     local_env["WINEDLLPATH"] = libdir + "vkd3d"
-    cuda_roots = not arm64 and (Path(dist_dir) / 'lib/wine-cuda/stubs.json').is_file()
-    if cuda_roots:
-        from proton_zluda import select_root
-        select_root(local_env, Path(dist_dir).resolve().parent, bootstrap=True)
     runtime_args = []
 
 
@@ -154,10 +147,6 @@ def make_default_pfx(default_pfx_dir, dist_dir, arm64):
 
         env=local_env, check=True)
     setup_dll_symlinks(default_pfx_dir, dist_dir, arm64)
-    if cuda_roots:
-        # Wineboot can create module links; templates always ship regular stubs.
-        from proton_zluda import materialize_default_prefix
-        materialize_default_prefix(Path(dist_dir).resolve().parent, default_pfx_dir)
     fixup_drive_links(default_pfx_dir)
 
     filter_registry(os.path.join(default_pfx_dir, 'user.reg'))

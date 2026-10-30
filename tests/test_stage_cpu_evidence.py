@@ -32,8 +32,7 @@ class CpuEvidence(unittest.TestCase):
             self.write(outside, 'host-secret.log', 'MUST NOT BE READ')
             for arch in gate.PROFILES:
                 base = f'wine-cpu/run/launcher/{arch}'
-                expected += [f'wine-cpu/run/{arch}/results/RESULT.json',
-                             f'{base}/compatdata/zluda-cuda-roots-v1.json']
+                expected += [f'wine-cpu/run/{arch}/results/RESULT.json']
                 for phase in gate.PHASES:
                     expected += [f'{base}/{phase}/launcher.log', f'{base}/{phase}/backend.json']
                 prefix = root/base/'compatdata/pfx'

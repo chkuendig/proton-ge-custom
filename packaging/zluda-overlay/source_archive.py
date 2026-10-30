@@ -155,9 +155,62 @@ def create(source, build, output, cargo='cargo'):
     return receipt
 
 
+def rebuild(archive_path, work, cargo='cargo'):
+    """Build all three bridge targets offline from shipped sources in a fresh tree."""
+    work.mkdir(parents=True, exist_ok=False)
+    root = work / 'source'
+    root.mkdir()
+    with tarfile.open(archive_path) as archive:
+        for member in archive:
+            target = (root / member.name).resolve()
+            if not target.is_relative_to(root) or not (member.isfile() or member.isdir() or member.issym()):
+                raise ValueError('unsafe source archive member: ' + member.name)
+            if member.issym() and not (target.parent / member.linkname).resolve().is_relative_to(root):
+                raise ValueError('source archive link escapes extraction')
+        archive.extractall(root)
+    env = dict(os.environ, CARGO_TARGET_DIR=str(work / 'target'), CARGO_BUILD_JOBS='3',
+               WINE_SOURCE_ROOT=str(root / 'external/wine-source'))
+    sdk = Path(env['WINE_SDK_ROOT'])
+    env['ZLUDA_WINE_WINE_INCLUDE'] = str(sdk / 'include')
+    env['ZLUDA_WINE_WINE_GENERATED'] = str(sdk / 'include-generated')
+    record = {'archive_sha256': sha256(archive_path), 'status': 'running', 'targets': {}}
+    try:
+        for target, triplet, artifact in [
+            ('x86_64-unknown-linux-gnu', None, 'libnvcuda.so'),
+            ('x86_64-pc-windows-gnu', 'x86_64', 'libnvcuda.a'),
+            ('i686-pc-windows-gnu', 'i686', 'libnvcuda.a')]:
+            local = dict(env)
+            if triplet:
+                local.update(ZLUDA_WINE_PE_CC=triplet + '-w64-mingw32-gcc',
+                             ZLUDA_WINE_PE_AR=triplet + '-w64-mingw32-ar')
+            command = [cargo, 'build', '--locked', '--offline', '--release', '--lib', '--target', target,
+                       '--manifest-path', str(root / 'wine/zluda_wine/Cargo.toml')]
+            with (work / (target + '.log')).open('w') as log:
+                subprocess.run(command, cwd=root / 'wine/zluda_wine', env=local,
+                               stdout=log, stderr=subprocess.STDOUT, check=True)
+            output = work / 'target' / target / 'release' / artifact
+            if not output.is_file() or not output.stat().st_size:
+                raise ValueError('offline build artifact missing: ' + str(output))
+            record['targets'][target] = {'status': 'passed', 'artifact_sha256': sha256(output),
+                                         'command': command}
+        record['status'] = 'passed'
+    finally:
+        (work / 'REBUILD.json').write_text(json.dumps(record, indent=2) + '\n')
+    return record
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument('--rebuild-archive', type=Path)
+    parser.add_argument('--work', type=Path)
     for name in ['source', 'build', 'output']:
-        parser.add_argument('--' + name, type=Path, required=True)
+        parser.add_argument('--' + name, type=Path)
     args = parser.parse_args()
-    create(args.source, args.build, args.output)
+    if args.rebuild_archive:
+        if args.work is None:
+            parser.error('--work required with --rebuild-archive')
+        rebuild(args.rebuild_archive, args.work)
+    else:
+        if any(value is None for value in (args.source, args.build, args.output)):
+            parser.error('--source, --build and --output required')
+        create(args.source, args.build, args.output)

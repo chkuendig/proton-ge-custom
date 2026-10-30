@@ -40,18 +40,21 @@ contract, checksums, inspection results and pending qualification statement.
 Assembly copies the exact two empty builtin stubs from the checksum-locked GE
 archive into `files/lib/wine-cuda/stub/{x86_64-windows,i386-windows}/nvcuda.dll`.
 Their independently pinned hashes must match. The off root contains only those
-regular PEs, with no Unixlib/backend alias. All nvcuda forms are removed from
-canonical `files/lib/wine`, including its optional `nvidia-libs/nvcuda` tree and
-`lib64/wine` alias. Both default-prefix nvcuda placeholders become regular stub
-bytes, avoiding GE's now-dangling relative symlinks. A namespace audit runs
-before manifests/archive generation; any extra or missing module fails.
+regular PEs, with no Unixlib/backend alias. GE's canonical PE stubs, template
+symlinks and unmodified SveSop nvidia-libs tree remain intact. Only obsolete
+canonical bridge Unixlibs/backend aliases are removed. The namespace audit
+checks canonical stub hashes as well as the two immutable roots.
 
-Proton bootstraps Wineboot/prefix setup using only the stub root. Immediately
-before game launch, PROTON_ENABLE_ZLUDA=1 selects only the generated root;
-otherwise the stub root remains selected. Inherited managed roots are removed,
-one builtin CUDA override is merged, and only enabled processes receive the
-bundled backend's absolute filename internally. That filename is implementation
-state, not a user setting. The published dc2db071/e4dcac96 NVAPI timing is retained:
+Proton has three integration calls: bootstrap selects the stub root; one guard
+around GE's unchanged nvcuda block restores template placeholders for ZLUDA-on
+under the prefix lock; final configuration selects the launch root and applies
+hardware/NVAPI policy after protonfixes. Off mode executes GE's block unchanged.
+The four title fixes opt in during early(), before prefix setup, and respect an
+explicit `PROTON_ENABLE_ZLUDA=0` (including on NVIDIA). In that case they also
+leave the WoW64 choice to GE/the user. No automatic GPU-vendor probe is added.
+Inherited managed roots are removed and exactly one root is placed first on
+WINEDLLPATH. Only active ZLUDA forces nvcuda=b and receives the backend path.
+The published dc2db071/e4dcac96 NVAPI timing is retained:
 ZLUDA-on sets PROTON_FORCE_NVAPI, DXVK_NVAPI_ALLOW_OTHER_DRIVERS and
 DXVK_ENABLE_NVAPI only after prefix setup. It does not insert `forcenvapi`, spoof
 AMD as an NVIDIA GPU, change the driver version, undo `hidenvgpu` or repeat
@@ -60,23 +63,22 @@ policy, including its GPU spoof. Published `disablenvapi` without an early
 explicit force skips NVAPI DLL copies/native overrides even though ZLUDA-on
 sets DXVK_ENABLE_NVAPI later; this behavior is deliberately preserved. Off-mode
 NVAPI policy also matches the published launcher, including late game-fix behavior.
-The managed CUDA namespace always forces nvcuda=b, including off mode; user CUDA
-load-order overrides are replaced. Known managed
-prefix PE placeholders, ELF copies and tool symlinks migrate once under the
-prefix lock; native unmarked user DLLs/unknown files are preserved and logged.
+Off-mode overrides, prefix copies and native-NVIDIA flags follow stock GE.
+With ZLUDA on, the guard skips only GE's nvcuda copies/override; conflicts with
+PROTON_NVIDIA_NVCUDA/LIBS/NVOPTIX log one warning to stderr and the Proton log.
+NVML/NVENC/NVOptiX retain GE policy, but CUDA-dependent combinations with ZLUDA
+remain unqualified. Classic 32-bit ZLUDA launches warn that WoW64 is required.
+A missing bundled backend falls back to GE. Corrupt stubs fail closed.
 
-`PROTON_NVIDIA_NVCUDA`, `PROTON_NVIDIA_LIBS` and `PROTON_NVIDIA_NVOPTIX` no
-longer provide CUDA/NVENC-CUDA/OptiX through nvidia-libs. Each requested launch
-logs an explicit warning to stderr and the enabled Proton log. NVML/NVENC/NVOptiX
-copy policy otherwise stays GE's; those CUDA-dependent paths are unsupported.
-A 32-bit ZLUDA game requires PROTON_USE_WOW64=1; classic i386 launches log a
-warning. A make-built tool without the bundled backend falls back to off mode
-with a log message. Corrupt stub assets still fail closed.
 
-Default-prefix creation and validation share the distribution lock. Under the
-prefix lock, a changed Wine update timestamp runs Wineboot with only the stub
-root before final game selection. The gate checks the resulting prefix bytes;
-it does not rewrite them after Wineboot.
+GE's original default-prefix creation and symlink handling are restored. There
+is no custom Wineboot update or compatdata migration marker: GE's existing copy
+block repairs every off launch, and the guarded on path restores placeholders
+on each enabled launch. A real launcher transition checks both directions.
+The remaining off-mode difference is the additional immutable stub root on
+WINEDLLPATH, required to keep bootstrap and game namespace selection explicit;
+it contains the same two byte-exact GE PEs and adds no override or Unix module.
+
 
 `sources/zluda-wine.tar.gz` contains the full tracked ZLUDA superproject at its
 pin, including cuda_macros' `ext/*-sys/src/lib.rs` inputs and backend attestation
@@ -344,12 +346,12 @@ the actual assembled `proton` script off/on/off on one fresh compatdata per
 architecture. Its disposable tool copy has no default_pfx initially and uses a
 fixture in place of its bundled native backend; the release tool remains
 unchanged. No WINEDLLPATH, CUDA override or prefix-stub repair is supplied by the
-harness. The on transition seeds a managed legacy ELF and stale Wine timestamp.
-It requires migration receipts and exact regular GE template/prefix stubs after
-every launch. PE32 uses the actual 35140 early/main protonfix via
+harness. It observes the final environment at Wine’s process boundary and checks GE
+stub prefix/template bytes, native-NVIDIA copies/overrides, and on-mode NVIDIA
+flag warnings across five phases per architecture. The native-NVIDIA off phase
+checks files/overrides only and never executes the relay without a GPU. PE32 uses the actual 35140 early/main protonfix via
 `waitforexitandrun`; installed-verb log fixtures prevent installer/network use.
-Both ordinary probes/events and every server cleanup remain mandatory. This
-new real-launcher gate awaits hosted execution. `wine-cpu-evidence` always
+Both ordinary probes/events and every server cleanup remain mandatory. Hosted execution gates this launcher policy. `wine-cpu-evidence` always
 retains its logs/results plus the exact three assembled production bridge
 modules, BUILD-CONTRACT.json, SHA256SUMS and source-pin receipt, even on failure.
 Evidence artifacts from failed runs are not release artifacts.
@@ -416,3 +418,21 @@ Original-C dispatcher CPU comparisons and hosted ordinary PE32/PE64 Wine
 execution are recorded in the evidence. Full GPU/private-table/callback parity
 and target-game adoption remain pending. The package gate rejects missing or partial output without a C fallback;
 passing compilation/assembly alone does not qualify adoption.
+
+The workflow separately extracts the shipped `sources/zluda-wine.tar.gz` into a
+fresh directory and runs locked, offline release Cargo builds for ELF64, PE64
+staticlib and PE32 staticlib inside the pinned SDK with `--network=none`.
+`REBUILD.json` binds the archive hash and all three output hashes; per-target
+logs are retained in logs-bridges. Build scripts read the archive's Wine ABI
+capsule and the prepared SDK, without a ZLUDA checkout mount.
+
+Upgrade coverage also seeds both DLL locations in the A1 global-module layout,
+with seed module hashes retained in each case receipt. Native DLL tripwires in
+the game directory and prefix must lose to the selected ZLUDA builtin. The final
+on-to-off launch requires Wine's existing update timestamp to be current and
+unchanged; it must restore GE stub bytes without a prefix update. The optional
+`historical_a1` workflow input downloads CI-built A1 from run 40906607864, creates
+prefixes with that tool's own launcher, then upgrades them off/on. Receipts
+identify all four original module hashes and the template links. Those are
+CI-built A1 bytes, not the Deck-installed bytes. This optional input expires with
+the historical artifact; the default gate retains its independent layout cases.

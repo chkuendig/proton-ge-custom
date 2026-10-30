@@ -10,6 +10,10 @@ on:
         options:
           - overlay
           - x64-draft
+      historical_a1:
+        description: Also create upgrade prefixes with CI-built A1 from run 40906607864 (expires 2026-11-12)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -99,6 +103,16 @@ jobs:
             -e CCACHE_DIR=/work/ccache -e CCACHE_BASEDIR=/src \
             "$SDK_IMAGE" bash /src/packaging/zluda-overlay/ci-build.sh \
             2>&1 | tee /work/logs/build.log
+      - name: Rebuild shipped bridge sources offline in the SDK
+        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        run: |
+          set -euo pipefail
+          docker run --rm --init --pull=never --network=none --cpus=3 --memory=6g \
+            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" -v /work:/work \
+            -e CARGO_HOME=/work/cargo -e WINE_SDK_ROOT=/work/wine-sdk \
+            -e PATH=/work/build/rust/bin:/work/wine-sdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            "$SDK_IMAGE" python3 /recipes/source_archive.py \
+            --rebuild-archive /work/overlay/sources/zluda-wine.tar.gz --work /work/archive-rebuild
       - name: Preserve caches with runner ownership
         if: always()
         run: sudo chown -R "$USER:$USER" /work/cargo /work/ccache 2>/dev/null || true
@@ -173,6 +187,8 @@ jobs:
             /work/overlay/sources/zluda-wine.tar.gz.check.log
             /work/overlay/sources/zluda-wine.tar.gz.json
             /work/build/native
+            /work/archive-rebuild/REBUILD.json
+            /work/archive-rebuild/*.log
           if-no-files-found: warn
           retention-days: 14
 
@@ -226,6 +242,26 @@ jobs:
         with:
           name: wine-cpu-fixtures
           path: ${{ runner.temp }}/cpu-fixtures
+      - name: Download historical CI-built A1 for upgrade evidence
+        if: inputs.historical_a1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: GE-Proton11-7-zluda
+          run-id: 40906607864
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/a1-download
+      - name: Prepare optional historical A1 tool
+        env:
+          HISTORICAL_A1: ${{ inputs.historical_a1 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/a1-tool"
+          if [[ $HISTORICAL_A1 == true ]]; then
+            mapfile -t archives < <(find "$RUNNER_TEMP/a1-download" -name '*.tar.gz' -type f)
+            [[ ${#archives[@]} == 1 ]]
+            tar -xf "${archives[0]}" --strip-components=1 -C "$RUNNER_TEMP/a1-tool"
+            [[ -x $RUNNER_TEMP/a1-tool/proton ]]
+          fi
       - name: Run headless Wine CPU gate without network or GPU
         timeout-minutes: 40
         run: |
@@ -237,9 +273,10 @@ jobs:
             --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
-            -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" -e JOBS=3 \
+            -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" \
+            -v "$RUNNER_TEMP/a1-tool:/a1-tool:ro" -e JOBS=3 \
             "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
-            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures \
+            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures --a1-tool /a1-tool \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
       - name: Stage bounded CPU evidence without prefix traversal
         if: always()

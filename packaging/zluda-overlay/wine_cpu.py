@@ -369,6 +369,7 @@ if __name__ == '__main__':
     for name in ['source', 'tool', 'work']:
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--prepared-fixtures', type=Path)
+    parser.add_argument('--a1-tool', type=Path)
     args = parser.parse_args()
     def terminate(signum, frame):
         raise RuntimeError('Wine CPU gate interrupted by signal ' + str(signum))
@@ -377,4 +378,4 @@ if __name__ == '__main__':
     import lifecycle_cpu
     lifecycle_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'lifecycle')
     import launcher_cpu
-    launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher')
+    launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher', args.a1_tool if args.a1_tool and (args.a1_tool / 'proton').is_file() else None)

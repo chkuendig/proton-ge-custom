@@ -64,7 +64,7 @@ class CudaPackage(unittest.TestCase):
         (self.tool / 'files/lib64/wine').symlink_to('../lib/wine')
         package.audit(self.tool)
 
-    def test_exact_roots_and_regular_default_stubs_without_canonical_or_alias(self):
+    def test_roots_keep_ge_template_links_canonical_stubs_and_svesop(self):
         canonical = self.tool / 'files/lib/wine'
         for name in ['x86_64-unix/nvcuda.dll.so', 'x86_64-unix/nvcuda.so', 'x86_64-unix/libcuda.so', 'x86_64-unix/libcuda.so.1',
                      'nvidia-libs/nvcuda/i386-windows/nvcuda.dll.so']:
@@ -75,7 +75,10 @@ class CudaPackage(unittest.TestCase):
         for name in package.MODULES:
             self.assertEqual((self.tool / 'files/lib/wine-cuda/zluda' / name).read_bytes(),
                              (self.artifacts / name).read_bytes())
-        self.assertFalse(any(p.name in package.CANONICAL_NAMES for p in canonical.rglob('*')))
+        self.assertEqual((canonical / 'nvidia-libs/nvcuda/i386-windows/nvcuda.dll.so').read_bytes(), b'legacy')
+        for directory, arch in policy.ARCHES.items():
+            self.assertTrue((self.tool / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll').is_symlink())
+            self.assertEqual(package.digest(canonical / arch / 'nvcuda.dll'), policy.STUB_SHA256[arch])
         policy.validate_default_prefix(self.tool, self.tool / 'files/share/default_pfx')
         prov = json.loads((self.tool / 'provenance/ZLUDA-WINE.json').read_text())
         self.assertIn('PENDING', prov['qualification'])

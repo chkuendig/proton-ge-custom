@@ -12,7 +12,7 @@ import tarfile
 from inputs import HERE, LOCK, git, manifest, sha256, verify_manifest
 
 REQUIRED = {'probe.exe', 'probe32.exe', 'libcuda.so.1', 'libcuda-wow64.so.1',
-            'lifecycle.exe', 'lifecycle-helper.dll', 'transition.exe'}
+            'lifecycle.exe', 'lifecycle-helper.dll', 'transition.exe', 'nvcuda-decoy64.dll', 'nvcuda-decoy32.dll'}
 
 
 def check_source_hashes(source, build):
@@ -52,6 +52,7 @@ def package(source, build, sdk_receipt, dest):
     record = {'format': 'pinned-sdk-cpu-fixtures-1', 'proton': git(source, 'rev-parse', 'HEAD'),
               'source_pin': LOCK['components']['zluda'], 'sdk_image': LOCK['sdk_image'],
               'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
+              'decoy_source_sha256': sha256(HERE / 'nvcuda-decoy.c'),
               'manifest_sha256': sha256(build / 'MANIFEST'), 'archive_sha256': sha256(archive),
               'wine_sdk_receipt_sha256': sha256(sdk_receipt),
               'qualification': 'SDK compile evidence only; Wine/Proton execution required'}
@@ -67,6 +68,7 @@ def admit(source, directory, dest):
             record.get('source_pin') != LOCK['components']['zluda'] or
             record.get('sdk_image') != LOCK['sdk_image'] or
             record.get('input_lock_sha256') != sha256(HERE / 'inputs.lock.json') or
+            record.get('decoy_source_sha256') != sha256(HERE / 'nvcuda-decoy.c') or
             record.get('archive_sha256') != sha256(archive)):
         raise ValueError('CPU fixture provenance/archive mismatch')
     if dest.exists():

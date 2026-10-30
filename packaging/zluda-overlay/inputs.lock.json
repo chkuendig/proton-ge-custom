@@ -283,7 +283,7 @@
       "upstream_tree": "7acdf2b4786395e2e634e133b8d628e4fe3203b1",
       "fork_commit": "63f5d6760c18d921263b692b7afe25f977ba7afa",
       "fork_tree": "e911f5989a822d8572d91ee228ef1cdfafb2a16a",
-      "prepared_tree": "b62aa45352c982b40c2f03448573fe053361a65c",
+      "prepared_tree": "54959591d74d70fafc7b93d0207c504ae7bce49c",
       "patches": [
         {
           "path": "patches/protonfixes/0001-upscalers-add-optiscaler-downloader.patch",
@@ -319,6 +319,12 @@
           "path": "patches/protonfixes/0007-Mafia-II-keep-Wine-s-WINESTEAMNOEXEC-1.patch",
           "sha256": "0fea21aa4ba0a95f084e2486c2992ead0d10271d688e82ba5b18c99ce6c8e94c",
           "fork_change": true
+        },
+        {
+          "path": "patches/protonfixes/0008-Select-ZLUDA-early-and-respect-explicit-opt-out.patch",
+          "sha256": "64d0cf7810749a559cc4a891c23ae6aa88ee92417cca9a350822d89a2c788641",
+          "fork_change": true,
+          "post_fork": true
         }
       ]
     }

@@ -43,8 +43,8 @@ class ComponentPatches(unittest.TestCase):
                 self.assertEqual((spec['fork_commit'], spec['fork_tree']),
                                  (snapshot['fork_commit'], snapshot['fork_tree']))
                 series = patches.series(ROOT, name)
-                own = [entry for entry in series if entry['fork_change']]
-                ge = [entry for entry in series if not entry['fork_change']]
+                own = [entry for entry in series if entry['fork_change'] and not entry.get('post_fork')]
+                ge = [entry for entry in series if not entry['fork_change'] or entry.get('post_fork')]
                 patches.apply_series(repo, ROOT, own, cached=True)
                 self.assertEqual(git(repo, 'write-tree', '--missing-ok'), snapshot['fork_tree'])
                 # Preserve GE's OptiScaler patches too. Applying GE then our
@@ -55,6 +55,24 @@ class ComponentPatches(unittest.TestCase):
                 git(repo, 'read-tree', snapshot['upstream_tree'])
                 patches.apply_series(repo, ROOT, series, cached=True)
                 self.assertEqual(git(repo, 'write-tree', '--missing-ok'), expected)
+                if name == 'protonfixes':
+                    import types
+                    for app in ('208650', '35140', '50130', '17410'):
+                        code = git(repo, 'show', ':gamefixes-steam/' + app + '.py')
+                        for requested in (None, '0', '1'):
+                            env = {} if requested is None else {'PROTON_ENABLE_ZLUDA': requested}
+                            def set_environment(key, value):
+                                os.environ[key] = value
+                            util = types.SimpleNamespace(set_environment=set_environment)
+                            modules = {'protonfixes': types.SimpleNamespace(util=util),
+                                       'protonfixes.logger': types.SimpleNamespace(log=None)}
+                            with mock.patch.dict(os.environ, env, clear=True), mock.patch.dict(sys.modules, modules):
+                                namespace = {}
+                                exec(code, namespace)
+                                namespace['early']()
+                                self.assertEqual(os.environ['PROTON_ENABLE_ZLUDA'], requested or '1')
+                                self.assertEqual(os.environ.get('PROTON_USE_WOW64'),
+                                                 '1' if app != '208650' and requested != '0' else None)
 
     def test_patch_hash_inventory_is_closed_and_ordered(self):
         with tempfile.TemporaryDirectory() as temporary:

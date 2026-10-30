@@ -9,16 +9,16 @@ from pathlib import Path
 import stat
 
 PROFILES = ('win64', 'wow64')
-PHASES = ('off-before', 'on', 'off-after')
+PHASES = ('off-before', 'off-a1', 'on-a1', 'off-nvidia', 'on', 'on-local', 'on-prefix', 'on-nvidia', 'off-after')
 EXCLUDED = {'dosdevices', 'drive_c', 'pfx', 'prefix', 'compatdata', 'tool'}
 DIRECTORIES = ['wine-cpu/run', 'wine-cpu/run/launcher', 'wine-cpu/run/lifecycle']
 DIRECTORIES += [f'wine-cpu/run/{arch}' for arch in PROFILES]
 DIRECTORIES += [f'wine-cpu/run/launcher/{arch}' for arch in PROFILES]
+DIRECTORIES += [f'wine-cpu/run/launcher/{arch}/a1-create' for arch in PROFILES]
 DIRECTORIES += [f'wine-cpu/run/launcher/{arch}/{phase}' for arch in PROFILES for phase in PHASES]
 TREES = ['wine-cpu/run/build', 'wine-cpu/run/production', 'wine-cpu/run/lifecycle/results']
 TREES += [f'wine-cpu/run/{arch}/results' for arch in PROFILES]
 FILES = ['wine-cpu.log']
-FILES += [f'wine-cpu/run/launcher/{arch}/compatdata/zluda-cuda-roots-v1.json' for arch in PROFILES]
 DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 
 

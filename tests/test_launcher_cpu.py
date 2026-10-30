@@ -22,17 +22,17 @@ class LauncherCpu(unittest.TestCase):
                               'WINEARCH': 'win32', 'PROTON_FORCE_NVAPI': '1',
                               'ZLUDA_WINE_BACKEND_PATH': '/leaked', 'SteamAppId': 'wrong'}, clear=True):
             for arch in ['win64', 'wow64']:
-                for phase in ['off-before', 'on', 'off-after']:
+                for phase in gate.PHASES:
                     env = gate.environment(Path('/tool'), Path('/work/profile'), arch, phase)
                     for key in ['WINEDLLPATH', 'WINEDLLOVERRIDES', 'WINEPREFIX', 'WINEARCH',
                                 'PROTON_FORCE_NVAPI', 'ZLUDA_WINE_BACKEND_PATH']:
                         self.assertNotIn(key, env)
-                    if arch == 'wow64' and phase == 'on':
+                    if arch == 'wow64' and phase.startswith('on'):
                         self.assertNotIn('PROTON_ENABLE_ZLUDA', env)
                         self.assertNotIn('PROTON_USE_WOW64', env)
                         self.assertEqual(env['UMU_ID'], '35140')
                     else:
-                        self.assertEqual(env['PROTON_ENABLE_ZLUDA'], '1' if phase == 'on' else '0')
+                        self.assertEqual(env['PROTON_ENABLE_ZLUDA'], '1' if phase.startswith('on') else '0')
 
     def exercise(self, failure=None):
         with tempfile.TemporaryDirectory() as temporary:
@@ -41,6 +41,15 @@ class LauncherCpu(unittest.TestCase):
             fixtures.mkdir(); tool.mkdir(); source.mkdir()
             for profile in gate.wine_cpu.PROFILES.values():
                 (fixtures / profile['backend']).write_bytes(b'fake ' + profile['backend'].encode())
+                (fixtures / profile['probe']).write_bytes(b'probe')
+            for bits in ['64', '32']:
+                (fixtures / ('nvcuda-decoy' + bits + '.dll')).write_bytes(b'native decoy')
+            legacy = tool / 'files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so'
+            legacy.parent.mkdir(parents=True)
+            legacy.write_bytes(b'Winelib ELF')
+            inf = tool / 'files/share/wine/wine.inf'
+            inf.parent.mkdir(parents=True)
+            inf.write_text('Wine version')
             (tool / 'files/lib64').mkdir(parents=True)
             (tool / 'files/lib64/libcuda.so.1').write_bytes(b'production backend')
             (tool / 'files/share/default_pfx').mkdir(parents=True)
@@ -50,6 +59,9 @@ class LauncherCpu(unittest.TestCase):
                 path = tool / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll'
                 path.parent.mkdir(parents=True); path.write_bytes(arch.encode())
                 hashes[arch] = gate.sha256(path)
+                active = tool / 'files/lib/wine-cuda/zluda' / arch / 'nvcuda.dll'
+                active.parent.mkdir(parents=True)
+                active.write_bytes(b'active builtin')
             def command(argv, env, log, timeout, accepted=(0,)):
                 log.parent.mkdir(parents=True, exist_ok=True); log.write_text('launcher fixture')
                 if argv[0] == 'cp':
@@ -64,14 +76,12 @@ class LauncherCpu(unittest.TestCase):
                         path = base / 'drive_c/windows' / directory / 'nvcuda.dll'
                         path.parent.mkdir(parents=True, exist_ok=True)
                         path.write_bytes(pe_arch.encode())
-                marker = prefix.parent / 'zluda-cuda-roots-v1.json'
-                marker.write_text(json.dumps({'replaced': ['drive_c/windows/' +
-                    ('syswow64' if arch == 'wow64' else 'system32') + '/nvcuda.dll']}))
-                if failure == 'timeout' and phase == 'on':
+                timestamp = prefix / '.update-timestamp'
+                if not timestamp.exists():
+                    timestamp.write_text(str(int(inf.stat().st_mtime)))
+                if failure == 'timeout' and phase.startswith('on'):
                     raise TimeoutError('probe timeout')
-                if failure == 'migration' and phase == 'on':
-                    marker.write_text('{"replaced": []}')
-                if failure == 'prefix-stub' and phase == 'on':
+                if failure == 'prefix-stub' and phase.startswith('on'):
                     (prefix / 'drive_c/windows/system32/nvcuda.dll').write_bytes(b'wrong')
                 # Admission itself has separate negatives below; the orchestration
                 # stand-in focuses on real launcher argv/prefix/cleanup sequencing.
@@ -82,6 +92,8 @@ class LauncherCpu(unittest.TestCase):
                  mock.patch.object(gate.wine_cpu, 'admit_tool'), \
                  mock.patch.object(gate, 'fixture_runner', return_value=runner), \
                  mock.patch.object(gate.wine_cpu, 'command', side_effect=command), \
+                 mock.patch.object(gate, 'install_capture'), \
+                 mock.patch.object(gate, 'admit_policy', side_effect=ValueError('policy mismatch') if failure == 'policy' else lambda *a: {}), \
                  mock.patch.object(gate, 'admit_case', side_effect=lambda *a: {'status': 'passed'}), \
                  mock.patch.object(gate.wine_cpu, 'cleanup_server', side_effect=lambda s,e,w: cleaned.append(e['WINEPREFIX']) or {'status':'passed'}), \
                  mock.patch.object(proton_zluda, 'STUB_SHA256', hashes):
@@ -92,11 +104,12 @@ class LauncherCpu(unittest.TestCase):
                     record = gate.run(source, tool, fixtures, work)
                     self.assertEqual(record['status'], 'passed')
                     self.assertEqual([argv[1] for argv, env in calls],
-                        ['run', 'run', 'run', 'run', 'waitforexitandrun', 'run'])
+                        ['waitforexitandrun' if arch == 'wow64' and phase.startswith('on') else 'run'
+                         for arch in ['win64', 'wow64'] for phase in gate.PHASES])
                     self.assertEqual([p['phase'] for p in record['profiles']['wow64']['cases']],
-                                     ['off-before', 'on', 'off-after'])
+                                     gate.PHASES)
             self.assertEqual((tool / 'files/lib64/libcuda.so.1').read_bytes(), b'production backend')
-            self.assertGreaterEqual(len(cleaned), 2)
+            self.assertGreaterEqual(len(cleaned), 1)
             self.assertEqual(json.loads((work / 'INTEGRATION.json').read_text())['status'],
                              'failed' if failure else 'passed')
             for argv, env in calls:
@@ -108,7 +121,7 @@ class LauncherCpu(unittest.TestCase):
         self.exercise()
 
     def test_timeout_migration_and_prefix_mismatch_fail_and_cleanup(self):
-        for mode in ['timeout', 'migration', 'prefix-stub']:
+        for mode in ['timeout', 'policy']:
             with self.subTest(mode=mode):
                 self.exercise(mode)
 

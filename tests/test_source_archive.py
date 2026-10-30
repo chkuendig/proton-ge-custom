@@ -90,3 +90,38 @@ class SourceArchive(unittest.TestCase):
             (build / 'fixture.d').write_text('out: ' + str(source / 'untracked'))
             with self.assertRaisesRegex(ValueError, 'untracked build source'):
                 source_archive.create(source, build, root / 'source.tar.gz')
+
+    def test_offline_rebuild_uses_extracted_source_for_all_three_targets(self):
+        import io
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / 'source.tar.gz'
+            with tarfile.open(archive, 'w:gz') as output:
+                for name, value in {'wine/zluda_wine/Cargo.toml': b'fixture',
+                                    'external/wine-source/include/ntuser.h': b'Wine ABI'}.items():
+                    info = tarfile.TarInfo(name)
+                    info.size = len(value)
+                    output.addfile(info, io.BytesIO(value))
+            calls = []
+            def build(command, **kw):
+                self.assertEqual(command[1], 'build')
+                self.assertTrue({'--locked', '--offline', '--release', '--lib'} <= set(command))
+                env = kw['env']
+                self.assertEqual(env['CARGO_BUILD_JOBS'], '3')
+                self.assertEqual((Path(env['WINE_SOURCE_ROOT']) / 'include/ntuser.h').read_bytes(), b'Wine ABI')
+                self.assertEqual(kw['cwd'], root / 'rebuild/source/wine/zluda_wine')
+                target = command[command.index('--target') + 1]
+                if 'windows' in target:
+                    self.assertIn('ZLUDA_WINE_PE_CC', env)
+                    self.assertIn('ZLUDA_WINE_PE_AR', env)
+                artifact = Path(env['CARGO_TARGET_DIR']) / target / 'release' / (
+                    'libnvcuda.so' if 'linux' in target else 'libnvcuda.a')
+                artifact.parent.mkdir(parents=True)
+                artifact.write_bytes(target.encode())
+                calls.append(target)
+            with mock.patch.dict(os.environ, {'WINE_SDK_ROOT': '/prepared-sdk'}), \
+                 mock.patch.object(source_archive.subprocess, 'run', side_effect=build):
+                record = source_archive.rebuild(archive, root / 'rebuild')
+            self.assertEqual(record['status'], 'passed')
+            self.assertEqual(set(calls), {'x86_64-unknown-linux-gnu', 'x86_64-pc-windows-gnu', 'i686-pc-windows-gnu'})
+            self.assertEqual(json.loads((root / 'rebuild/REBUILD.json').read_text()), record)

@@ -10,18 +10,18 @@
 
 # GE-Proton
 
-This compatibility tool currently targets AMD GPUs only.
+ZLUDA targets AMD GPUs only. Set `PROTON_ENABLE_ZLUDA=1` to select its bundled
+Wine CUDA bridge; 32-bit CUDA games also require `PROTON_USE_WOW64=1`.
+The four supported PhysX title fixes enable ZLUDA early by default. NVIDIA users
+can opt out with `PROTON_ENABLE_ZLUDA=0 %command%`; the same knob disables the
+fixes' automatic WoW64 choice.
 
-This ZLUDA fork selects its bundled Wine CUDA bridge with
-`PROTON_ENABLE_ZLUDA=1`; 32-bit CUDA games also require WoW64. ZLUDA-on retains
-the published launcher's late NVAPI environment writes and does not implicitly
-spoof AMD as NVIDIA. An explicit early `PROTON_FORCE_NVAPI=1` still follows GE's
-force policy. With NVAPI disabled and no early force, the published route skips
-prefix NVAPI copies; this fork preserves that behavior.
-
-The SveSop native CUDA relay has been removed. `PROTON_NVIDIA_NVCUDA`,
-`PROTON_NVIDIA_LIBS` and `PROTON_NVIDIA_NVOPTIX` do not provide
-CUDA/NVENC-CUDA/OptiX via nvidia-libs in this tool and trigger a launch warning.
+With ZLUDA off, CUDA prefix files and DLL overrides follow stock GE, including
+its unmodified SveSop relay and `PROTON_NVIDIA_*` flags. With ZLUDA on, one guard
+skips GE's nvcuda copies and selects the ZLUDA root; conflicting NVIDIA CUDA
+flags produce one warning. ZLUDA-on retains the published launcher's late NVAPI
+environment writes. An explicit early `PROTON_FORCE_NVAPI=1` still follows GE's
+force policy, including its GPU spoof.
 See the [ZLUDA packaging and qualification notes](packaging/zluda-overlay/README.md).
 
 > [!Warning]

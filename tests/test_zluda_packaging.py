@@ -252,9 +252,9 @@ class PackageContract(unittest.TestCase):
                     'SRCDIR := ' + str(root / 'source') + '\nDST_LIBDIR := ' + str(root / 'dist/files/lib') + '\n'
                     'DST_BASE := ' + str(root / 'dist') + '\n'
                     'WINE_SRC := prepared-source\nWINE_x86_64_OBJ := prepared-object\n'
-                    'define rules-source\nNVCUDA_SRC := $(2)\nendef\n'
+                    'define rules-source\nZLUDA_BRIDGE_SRC := $(2)\nendef\n'
                     'include ' + str(ROOT / 'make/zluda-wine-bridge.mk') + '\n')
-            for stamp in ['nvcuda-post-source', 'wine-x86_64-build', 'wine-x86_64-dist', 'wine-i386-dist']:
+            for stamp in ['zluda-bridge-post-source', 'wine-x86_64-build', 'wine-x86_64-dist', 'wine-i386-dist']:
                 text += str(root / ('.' + stamp)) + ':\n\t@echo gate-' + stamp + '\n'
             path = root / 'Makefile'
             path.write_text(text)
@@ -298,11 +298,14 @@ class PackageContract(unittest.TestCase):
             self.assertIn(name, required)
 
     def test_launcher_loader_order_is_preserved(self):
-        text = (ROOT / 'proton').read_text()
-        start = text.index('if zluda_enabled(g_session.env):')
-        block = text[start:text.index('#determine mode', start)]
-        self.assertLess(block.index('zluda_lib_dir, ":"'), block.index('wine/x86_64-unix'))
-        self.assertIn('g_proton.path("files/lib64/")', block)
+        import proton_zluda
+        from types import SimpleNamespace
+        env = {'PROTON_ENABLE_ZLUDA': '1', 'LD_LIBRARY_PATH': '/base'}
+        with mock.patch.object(proton_zluda, 'select_root'), mock.patch.object(proton_zluda, 'launch_warnings'):
+            proton_zluda.configure_launch(SimpleNamespace(env=env, log_file=None),
+                SimpleNamespace(base_dir='/tool', host_pe_arch='x86_64-windows'), [], 'LD_LIBRARY_PATH', lambda message: None)
+        self.assertEqual(env['LD_LIBRARY_PATH'], '/tool/files/lib64/wine/x86_64-unix:/tool/files/lib64:/base')
+
 
 
 class BootstrapFixtures(unittest.TestCase):
@@ -1387,7 +1390,7 @@ class AssemblyFixture(unittest.TestCase):
                 self.assertEqual((dest / 'protonfixes/changed.py').read_text(), 'new')
                 self.assertFalse((dest / 'protonfixes/deleted.py').exists())
                 self.assertEqual((dest / 'proton_zluda.py').read_text(), 'helper')
-                self.assertFalse((dest / 'files/lib/wine/nvidia-libs/nvcuda').exists())
+                self.assertTrue((dest / 'files/lib/wine/nvidia-libs/nvcuda').exists())
                 self.assertIn('GE-Proton11-7-zluda', (dest / 'compatibilitytool.vdf').read_text())
                 shutil.rmtree(dest)
                 shutil.rmtree(build)
