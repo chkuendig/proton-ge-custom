@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "0736c6042170f641b6d0227c8f48f88057492fdc",
+    "zluda": "1e0eb97ecb74ced95026ed271afdd90119a1b184",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
     "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
@@ -253,11 +253,11 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "d25bad9ba2f04c6e800d453f760b17fb197ebec7",
+    "tree": "c6ac5928bd75f7abcbe6418d414276e3d4d59941",
     "origin": "https://github.com/chkuendig/nvcuda",
     "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "cb1a7c7a302647f7b58894146f9ece90b1c35816daf78f4e996a72274666cb68",
-    "qualification": "PENDING: hosted PE64/PE32 build and Wine/runtime qualification; callback CPU fixtures and capture refusal do not establish graph/context/interop or runtime adoption"
+    "qualification": "PENDING: hosted real-Wine CPU gate and later PE32/GPU/runtime parity; headless fixture does not qualify graph/context/interop or device adoption"
   }
 }

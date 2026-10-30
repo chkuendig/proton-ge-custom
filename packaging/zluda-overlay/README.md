@@ -230,6 +230,26 @@ The final CI job checks transitive ELF dependencies inside the pinned SDK and
 records its output. The SDK has more libraries than a game runtime: this is not
 pressure-vessel, enabled/disabled launcher, or GPU qualification.
 
+After assembly, `profile=overlay` also compiles the pinned x64 PE CPU probe and
+fake SysV backend with the same SDK, then runs the tool's own `files/bin/wine`.
+This headless gate uses a fresh isolated prefix for off/on/off root selection,
+missing/relative backend refusal, proc-address versions, the five-argument dark
+slot and native-pthread callbacks invoking Windows TLS/heap APIs. It passes an
+explicit fake backend and excludes the tool's CUDA/ROCm library paths. The
+container has no network or GPU devices, read-only source/tool mounts and a
+private PID namespace and `/tmp`. Console/kernel APIs need no display; any
+Wineboot/display diagnostics remain in the logs for the first hosted run.
+
+`wine_cpu.py` admits the exact source and assembled provenance, checks fake
+backend dependencies and requires all six cases, their logs and successful
+cleanup. Its outer timeout/error guard always kills and waits for the
+prefix-local wineserver. Failures block final tool artifact upload;
+`wine-cpu-evidence` retains fixture sources/binary hashes, toolchain versions,
+probe binaries, bootstrap/case/cleanup logs and JSON results on either outcome.
+This gate has not yet executed under Wine. A future pass establishes only the
+tested x64 CPU behavior; PE32 execution, real GPU W1/W2, complete graph/context
+ownership, interop and game adoption remain separate gates.
+
 ```bash
 # Small metadata + HEAD requests only; no SDK layers or GE/Rust/ROCm payloads.
 python3 packaging/zluda-overlay/inputs.py resolve /tmp/overlay-pin-check

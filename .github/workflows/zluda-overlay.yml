@@ -195,6 +195,36 @@ jobs:
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
             -e DESTDIR=/tool "$SDK_IMAGE" bash /src/packaging/zluda-overlay/check-loader.sh \
             2>&1 | tee "$RUNNER_TEMP/loader.log"
+      - name: Checkout pinned CPU fixture sources
+        run: GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --filter=blob:none -- zluda
+      - name: Run headless Wine CPU gate without network or GPU
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wine-cpu"
+          # Sources/tool are immutable; only fixture build, prefix and logs write.
+          # Private PID namespace and /tmp keep wineserver isolated. No GPU devices.
+          docker run --rm --init --pull=never --network=none --cpus=3 --memory=6g --pids-limit=256 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$RUNNER_TEMP/wine-cpu:/work" -e JOBS=3 \
+            "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
+            --source /src --tool /tool --work /work/run \
+            2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
+      - name: Retain CPU fixture evidence on success or failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wine-cpu-evidence
+          path: |
+            ${{ runner.temp }}/wine-cpu.log
+            ${{ runner.temp }}/wine-cpu/run/INTEGRATION.json
+            ${{ runner.temp }}/wine-cpu/run/*.log
+            ${{ runner.temp }}/wine-cpu/run/build
+            ${{ runner.temp }}/wine-cpu/run/results
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: GE-Proton11-7-zluda
