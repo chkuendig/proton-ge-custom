@@ -2067,7 +2067,6 @@ class Session:
         if "WINEDLLPATH" in os.environ:
             dllpaths.append(os.environ["WINEDLLPATH"])
         self.env["WINEDLLPATH"] = ':'.join(dllpaths)
-        proton_zluda.bootstrap(self, g_proton, ld_path_var)
 
         if "STEAM_COMPAT_MEDIA_PATH" in os.environ:
             old_audiofoz_path = os.environ["STEAM_COMPAT_MEDIA_PATH"] + "/audio.foz"
@@ -2889,8 +2888,7 @@ if __name__ == "__main__":
 
     g_session.init_wine()
 
-    if g_proton.missing_default_prefix():
-        g_proton.make_default_prefix()
+    proton_zluda.bootstrap(g_session, g_proton, ld_path_var)
 
     g_session.init_session(sys.argv[1] != "runinprefix")
 

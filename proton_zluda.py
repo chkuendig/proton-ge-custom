@@ -115,6 +115,11 @@ def bootstrap(session, proton, ld_path_var):
     """Wineboot/installers always use GE stubs, before the final launch choice."""
     if proton.host_pe_arch != "aarch64-windows":
         select_root(session.env, proton.base_dir, bootstrap=True, ld_path_var=ld_path_var)
+    if proton.missing_default_prefix():
+        proton.make_default_prefix()
+    if proton.host_pe_arch != "aarch64-windows":
+        with proton.dist_lock:
+            materialize_default_prefix(proton.base_dir, proton.default_pfx_dir)
 
 
 def prepare_cuda_prefix(session, proton, compatdata, log=None):
@@ -140,12 +145,29 @@ def prepare_cuda_prefix(session, proton, compatdata, log=None):
 
 
 def validate_default_prefix(tool, prefix):
-    """GE's template links may resolve to its canonical, byte-exact stubs."""
+    """Canonical stubs cannot coexist with per-launch roots; template copies can."""
     root, record = stub_assets(tool)
     for directory, arch in ARCHES.items():
         path = Path(prefix) / "drive_c/windows" / directory / "nvcuda.dll"
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"][arch]:
-            raise ValueError("default_pfx must resolve to GE CUDA stubs: " + str(path))
+        if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"][arch]:
+            raise ValueError("default_pfx must contain regular GE CUDA stubs: " + str(path))
+
+
+def materialize_default_prefix(tool, prefix):
+    """After Wineboot has stopped, under Proton's dist lock (or during packaging)."""
+    root, record = stub_assets(tool)
+    prefix = Path(prefix).resolve()
+    for directory, arch in ARCHES.items():
+        path = prefix / 'drive_c/windows' / directory / 'nvcuda.dll'
+        if not path.parent.resolve().is_relative_to(prefix):
+            raise ValueError('default prefix CUDA parent leaves template')
+        if not path.is_symlink() and path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == record['sha256'][arch]:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+        path.write_bytes((root / 'stub' / arch / 'nvcuda.dll').read_bytes())
+        path.chmod(0o644)
+    validate_default_prefix(tool, prefix)
 
 
 def configure_launch(session, proton, arguments, ld_path_var, log):

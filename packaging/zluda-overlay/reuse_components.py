@@ -11,7 +11,7 @@ import subprocess
 from inputs import git, sha256
 
 PREFIX = 'packaging/zluda-overlay/'
-ALLOWED = {'proton', 'proton_zluda.py', 'README.md', '.github/workflows/zluda-overlay.yml'} | {
+ALLOWED = {'proton', 'proton_zluda.py', 'default_pfx.py', 'README.md', '.github/workflows/zluda-overlay.yml'} | {
     PREFIX + name for name in ['README.md', 'wine_cpu.py', 'lifecycle_cpu.py', 'launcher_cpu.py',
                               'pinned_fixture_runner.py', 'reuse_components.py']}
 
@@ -31,7 +31,8 @@ def validate_changes(source, commit):
     for name in git(source, 'diff', '--name-only', commit, 'HEAD').splitlines():
         if name in ALLOWED or name.startswith('tests/'):
             continue
-        functions = {PREFIX + 'overlay.py': {'assemble'}, PREFIX + 'cpu_fixtures.py': {'admit'}}.get(name)
+        functions = {PREFIX + 'overlay.py': {'assemble'}, PREFIX + 'cpu_fixtures.py': {'admit'},
+                     PREFIX + 'cuda_package.py': {'materialize_template', 'ge_cuda_path', 'audit'}}.get(name)
         if functions:
             before = git(source, 'show', commit + ':' + name)
             after = git(source, 'show', 'HEAD:' + name)

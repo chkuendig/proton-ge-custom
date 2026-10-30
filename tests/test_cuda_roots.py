@@ -1,5 +1,6 @@
 """CPU-only policy fixtures: no Wine process or compiled bridge is executed."""
 import ast
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -106,12 +107,31 @@ class CudaRoots(unittest.TestCase):
             session = SimpleNamespace(env={'PROTON_ENABLE_ZLUDA': '1', 'PROTON_USE_WOW64': '1'})
             method(session)
         self.assertEqual(session.env['WINEARCH'], 'wow64')
+        proton.default_pfx_dir = self.tool / 'files/share/default_pfx'
+        proton.dist_lock = nullcontext()
+        proton.missing_default_prefix = lambda: not proton.default_pfx_dir.exists()
+        creations = []
+        def create():
+            self.assertEqual(session.env['WINEDLLPATH'].split(':')[0], str(self.cuda / 'stub'))
+            self.assertNotIn('ZLUDA_WINE_BACKEND_PATH', session.env)
+            creations.append(True)
+            for directory, arch in policy.ARCHES.items():
+                path = proton.default_pfx_dir / 'drive_c/windows' / directory / 'nvcuda.dll'
+                path.parent.mkdir(parents=True)
+                path.symlink_to('/missing-canonical/' + arch + '/nvcuda.dll')
+        proton.make_default_prefix = create
+        policy.bootstrap(session, proton, 'LD_LIBRARY_PATH')
+        policy.validate_default_prefix(self.tool, proton.default_pfx_dir)
+        before = {p: p.stat().st_mtime_ns for p in proton.default_pfx_dir.rglob('nvcuda.dll')}
+        policy.bootstrap(session, proton, 'LD_LIBRARY_PATH')
+        self.assertEqual(creations, [True])
+        self.assertEqual(before, {p: p.stat().st_mtime_ns for p in before})
         self.assertEqual(session.env['WINEDLLPATH'].split(':'), [str(self.cuda / 'stub'),
                          str(self.tool / 'files/lib/vkd3d'), str(self.tool / 'files/lib/wine'), '/extra'])
         self.assertNotIn('ZLUDA_WINE_BACKEND_PATH', session.env)
         text = (ROOT / 'proton').read_text()
-        self.assertLess(text.index('g_session.init_wine()'), text.index('g_proton.make_default_prefix()'))
-        self.assertLess(text.index('g_proton.make_default_prefix()'), text.index('g_session.init_session(sys.argv'))
+        self.assertLess(text.index('g_session.init_wine()'), text.index('proton_zluda.bootstrap(g_session'))
+        self.assertLess(text.index('proton_zluda.bootstrap(g_session'), text.index('g_session.init_session(sys.argv'))
         self.assertGreater(text.index('proton_zluda.configure_launch('), text.index('protonfixes.execute()'))
         self.assertLess(text.index('proton_zluda.configure_launch('), text.index('#determine mode'))
 
@@ -166,7 +186,7 @@ class CudaRoots(unittest.TestCase):
         self.assertEqual(ast.dump(ast.Module(body=guard.body, type_ignores=[])), ast.dump(original))
         # No custom update process or compatdata bookkeeping survives.
         source = __import__('inspect').getsource(policy)
-        self.assertNotIn('wineboot', source.lower().replace('wineboot/installers', 'bootstrap'))
+        self.assertNotIn('.run_proc(', source)
         self.assertNotIn('zluda-cuda-roots-v1.json', source)
 
     def test_guard_cleans_native_copies_for_on_and_off_has_no_side_effects(self):

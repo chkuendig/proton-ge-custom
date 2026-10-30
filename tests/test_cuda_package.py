@@ -60,11 +60,12 @@ class CudaPackage(unittest.TestCase):
         package.prepare_stubs(self.tool)
         package.install_bridge(self.artifacts, self.tool, self.commit)
         package.remove_canonical(self.tool)
+        package.materialize_template(self.tool)
         (self.tool / 'files/lib64').mkdir(exist_ok=True)
         (self.tool / 'files/lib64/wine').symlink_to('../lib/wine')
         package.audit(self.tool)
 
-    def test_roots_keep_ge_template_links_canonical_stubs_and_svesop(self):
+    def test_roots_keep_svesop_and_regular_template_without_canonical_stubs(self):
         canonical = self.tool / 'files/lib/wine'
         for name in ['x86_64-unix/nvcuda.dll.so', 'x86_64-unix/nvcuda.so', 'x86_64-unix/libcuda.so', 'x86_64-unix/libcuda.so.1',
                      'nvidia-libs/nvcuda/i386-windows/nvcuda.dll.so']:
@@ -77,14 +78,15 @@ class CudaPackage(unittest.TestCase):
                              (self.artifacts / name).read_bytes())
         self.assertEqual((canonical / 'nvidia-libs/nvcuda/i386-windows/nvcuda.dll.so').read_bytes(), b'legacy')
         for directory, arch in policy.ARCHES.items():
-            self.assertTrue((self.tool / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll').is_symlink())
-            self.assertEqual(package.digest(canonical / arch / 'nvcuda.dll'), policy.STUB_SHA256[arch])
+            self.assertFalse((self.tool / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll').is_symlink())
+            self.assertFalse((canonical / arch / 'nvcuda.dll').exists())
         policy.validate_default_prefix(self.tool, self.tool / 'files/share/default_pfx')
         prov = json.loads((self.tool / 'provenance/ZLUDA-WINE.json').read_text())
         self.assertIn('PENDING', prov['qualification'])
         for name in ['files/lib/wine-cuda/stub/x86_64-unix/nvcuda.so',
                      'files/lib/wine-cuda/stub/x86_64-windows/libcuda.so.1',
-                     'files/lib/wine/x86_64-unix/nvcuda.so', 'files/lib/wine/x86_64-unix/libcuda.so.1']:
+                     'files/lib/wine/x86_64-unix/nvcuda.so', 'files/lib/wine/x86_64-unix/libcuda.so.1',
+                     'files/lib/wine/x86_64-windows/nvcuda.dll', 'files/lib/wine/i386-windows/nvcuda.dll']:
             path = self.tool / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'unexpected')

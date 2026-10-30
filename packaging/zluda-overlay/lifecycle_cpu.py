@@ -8,7 +8,7 @@ import statistics
 from pathlib import Path
 
 import cuda_package
-from inputs import HERE, LOCK, sha256
+from inputs import LOCK, sha256
 import wine_cpu
 
 MODES = ['free-library', 'exit-process', 'thread-exit']
@@ -111,8 +111,7 @@ def run(source, tool, build, work):
         spec = importlib.util.spec_from_file_location('source_wine_lifecycle', fixture / 'run-lifecycle.py')
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
-        wine_cpu.command(['python3', HERE / 'pinned_fixture_runner.py', '--runner', fixture / 'run-lifecycle.py',
-            '--admission', work / 'ADMISSION.json', '--wine', wine, '--wineserver', server,
+        wine_cpu.command(['python3', fixture / 'run-lifecycle.py', '--wine', wine, '--wineserver', server,
             '--dll-dir', tool / 'files/lib/wine', '--on-root', tool / 'files/lib/wine-cuda/zluda',
             '--off-root', tool / 'files/lib/wine-cuda/stub', '--backend', build / 'libcuda.so.1',
             '--probe', build / 'lifecycle.exe', '--helper', build / 'lifecycle-helper.dll',

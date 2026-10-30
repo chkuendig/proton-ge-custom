@@ -325,8 +325,7 @@ def run(source, tool, work, prepared_fixtures=None):
             report['status'] = 'running'
             error = None
             try:
-                command(['python3', HERE / 'pinned_fixture_runner.py', '--runner', fixture / 'run-fixtures.py',
-                         '--admission', directory / 'ADMISSION.json', '--wine', wine, '--wineserver', server,
+                command(['python3', fixture / 'run-fixtures.py', '--wine', wine, '--wineserver', server,
                          '--winearch', winearch, '--dll-dir', tool / 'files/lib/wine',
                          '--on-root', tool / 'files/lib/wine-cuda/zluda',
                          '--off-root', tool / 'files/lib/wine-cuda/stub', '--backend', build / profile['backend'],

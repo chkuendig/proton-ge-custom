@@ -40,10 +40,12 @@ contract, checksums, inspection results and pending qualification statement.
 Assembly copies the exact two empty builtin stubs from the checksum-locked GE
 archive into `files/lib/wine-cuda/stub/{x86_64-windows,i386-windows}/nvcuda.dll`.
 Their independently pinned hashes must match. The off root contains only those
-regular PEs, with no Unixlib/backend alias. GE's canonical PE stubs, template
-symlinks and unmodified SveSop nvidia-libs tree remain intact. Only obsolete
-canonical bridge Unixlibs/backend aliases are removed. The namespace audit
-checks canonical stub hashes as well as the two immutable roots.
+regular PEs, with no Unixlib/backend alias. The unmodified SveSop nvidia-libs tree remains intact. Canonical CUDA modules
+are excluded from Wine's dll_dir: Wine searches it before WINEDLLPATH, and the
+canonical GE stubs prevent an ON launch from reaching ZLUDA (hosted run
+41114561168). The default_pfx CUDA stubs are regular files, so GE's unchanged
+copy block has valid source bytes without canonical modules. These two required
+packaging residuals are audited along with both immutable roots.
 
 Proton has three integration calls: bootstrap selects the stub root; one guard
 around GE's unchanged nvcuda block restores template placeholders for ZLUDA-on
@@ -183,8 +185,8 @@ x86_64 Unix steamclient fault redirect, `wine_scope.py` selects a native-only
 profile. It skips i386 Wine/prerequisites, removes Kaldi's now-unneeded cross-arch
 serialization, and overlays only `x86_64-unix/ntdll.so`. Both PE ntdlls and the
 classic i386 Unix ntdll come from the locked GE archive. Assembly verifies their
-hashes and all other GE i386 Wine files/links, including the canonical PE32 CUDA stub.
-The same verified stub bytes are retained in the separate stub root. `provenance/WINE-SCOPE.json` records that inventory. Any different
+hashes and all other GE i386 Wine files/links; the canonical PE32 CUDA stub is
+excluded and its verified bytes live in the separate stub root and regular template. `provenance/WINE-SCOPE.json` records that inventory. Any different
 prepared-source transformation retains the original two-architecture graph.
 The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
 
@@ -443,5 +445,7 @@ changes to compiled sources, pins, locks or build recipes. The assembled tool re
 the originating run, commit, artifact digests and downloaded archive hashes in
 `provenance/COMPONENT-REUSE.json`; component provenance retains its original commit.
 A frozen W1 candidate must use a full rebuild with reuse off, after the licence-lane
-gitlink update. The pinned ABI/lifecycle fixtures run unchanged except for canonical
-namespace admission: only the two exact GE PE stub hashes are allowed.
+gitlink update. The pinned ABI/lifecycle fixtures run unchanged, including canonical namespace
+admission: no CUDA module may appear in dll_dir. The durable upgrade cases are
+labelled "A1-layout (stand-in modules)" and reject seeds already matching GE
+stubs or the expected transition output.
