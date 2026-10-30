@@ -126,6 +126,15 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
+      - name: Retain CPU fixtures compiled with the matching Wine SDK
+        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wine-cpu-fixtures
+          path: /work/build/cpu-fixtures-package
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Upload unqualified x64 compile draft
         if: inputs.profile == 'x64-draft'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -136,6 +145,14 @@ jobs:
             /work/build/zluda-wine-draft/x86_64-native-libs.log
           if-no-files-found: error
           retention-days: 7
+      - name: Retain compiler measurement capsule
+        if: always() && matrix.part == 'zluda'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zoc-measurement-capsule
+          path: /work/build/zoc-capsule
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload build and Wine logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -147,6 +164,7 @@ jobs:
             /work/build/wine/changed-sources.txt
             /work/build/log
             /work/build/zluda-wine/artifacts
+            /work/build/zluda-wine/WINE-CALLBACK-ATTESTATION.json
             /work/build/zluda-wine/*-native-libs.log
             /work/build/zluda-wine-draft/artifacts
             /work/build/zluda-wine-draft/x86_64-native-libs.log
@@ -202,6 +220,11 @@ jobs:
             2>&1 | tee "$RUNNER_TEMP/loader.log"
       - name: Checkout pinned CPU fixture sources
         run: GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --filter=blob:none -- zluda
+      - name: Download checksum-bound CPU fixtures from the bridges SDK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wine-cpu-fixtures
+          path: ${{ runner.temp }}/cpu-fixtures
       - name: Run headless Wine CPU gate without network or GPU
         timeout-minutes: 40
         run: |
@@ -213,9 +236,9 @@ jobs:
             --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
-            -v "$RUNNER_TEMP/wine-cpu:/work" -e JOBS=3 \
+            -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" -e JOBS=3 \
             "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
-            --source /src --tool /tool --work /work/run \
+            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
       - name: Retain CPU fixture evidence on success or failure
         if: always()
@@ -228,6 +251,9 @@ jobs:
             ${{ runner.temp }}/wine-cpu/run/*.log
             ${{ runner.temp }}/wine-cpu/run/build
             ${{ runner.temp }}/wine-cpu/run/production
+            ${{ runner.temp }}/wine-cpu/run/lifecycle/INTEGRATION.json
+            ${{ runner.temp }}/wine-cpu/run/lifecycle/*.log
+            ${{ runner.temp }}/wine-cpu/run/lifecycle/results
             ${{ runner.temp }}/wine-cpu/run/launcher/INTEGRATION.json
             ${{ runner.temp }}/wine-cpu/run/launcher/*.log
             ${{ runner.temp }}/wine-cpu/run/launcher/win64/**/*.log

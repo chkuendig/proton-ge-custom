@@ -15,7 +15,7 @@ import tempfile
 from inputs import git, sha256
 
 
-def observed_inputs(source, build):
+def observed_inputs(source, build, required=True):
     paths = set()
     records = []
     for path in sorted(build.rglob('*')):
@@ -29,7 +29,7 @@ def observed_inputs(source, build):
             tokens = list(lexer)
             candidates = [token.rstrip(':') for token in tokens]
         else:
-            candidates = re.findall(r'^cargo:(?:rerun-if-changed)=(.+)$', text, re.M)
+            candidates = re.findall(r'^cargo:{1,2}rerun-if-changed=(.+)$', text, re.M)
         accepted = []
         for value in candidates:
             candidate = Path(value)
@@ -44,7 +44,7 @@ def observed_inputs(source, build):
         if accepted:
             records.append({'dep_info': str(path.relative_to(build)), 'sha256': sha256(path),
                             'source_inputs': sorted(set(accepted))})
-    if not records:
+    if not records and required:
         raise ValueError('no Cargo dep-info/build-script source inputs observed')
     return paths, records
 
@@ -92,11 +92,18 @@ def create(source, build, output, cargo='cargo'):
         oid = git(repo, 'rev-parse', 'HEAD:' + relative)
         if git(repo, 'hash-object', '--', relative) != oid:
             raise ValueError('modified submodule build source: ' + name)
+    wine = Path(os.environ['WINE_SOURCE_ROOT']).resolve() if 'WINE_SOURCE_ROOT' in os.environ else None
+    wine_paths, wine_records = observed_inputs(wine, build, required=False) if wine is not None else (set(), [])
+    for name in wine_paths:
+        if 'external/wine-source/' + name in entries:
+            raise ValueError('external Wine input collides with tracked source: ' + name)
     raw = subprocess.check_output(['git', '-C', str(source), 'archive', 'HEAD'])
     output.parent.mkdir(parents=True, exist_ok=True)
     receipt = {'source_commit': git(source, 'rev-parse', 'HEAD'), 'source_tree': git(source, 'rev-parse', 'HEAD^{tree}'),
                'method': 'full tracked superproject plus Cargo-observed submodule files',
-               'cargo_inputs': records, 'extra_submodule_files': {name: sha256(source / name) for name in extras}}
+               'cargo_inputs': records, 'extra_submodule_files': {name: sha256(source / name) for name in extras},
+               'wine_source_inputs': wine_records,
+               'wine_source_files': {name: sha256(wine / name) for name in sorted(wine_paths)}}
     with output.open('wb') as stream, gzip.GzipFile(filename='', fileobj=stream, mode='wb', mtime=0) as zipped:
         with tarfile.open(fileobj=zipped, mode='w|') as archive, tarfile.open(fileobj=io.BytesIO(raw)) as original:
             for member in original:
@@ -105,6 +112,11 @@ def create(source, build, output, cargo='cargo'):
                 info = tarfile.TarInfo(name)
                 data = (source / name).read_bytes()
                 info.size, info.mode = len(data), (source / name).stat().st_mode & 0o777
+                archive.addfile(info, io.BytesIO(data))
+            for name in sorted(wine_paths):
+                data = (wine / name).read_bytes()
+                info = tarfile.TarInfo('external/wine-source/' + name)
+                info.size, info.mode = len(data), 0o644
                 archive.addfile(info, io.BytesIO(data))
     with tempfile.TemporaryDirectory(prefix='archive-check-', dir=build) as temporary:
         root = Path(temporary).resolve()
@@ -124,6 +136,8 @@ def create(source, build, output, cargo='cargo'):
         # the original checkout. This checks dynamic build.rs reads and
         # OUT_DIR includes in addition to literal source includes.
         env = dict(os.environ, CARGO_TARGET_DIR=str(root / 'target'), CARGO_BUILD_JOBS='3')
+        if wine is not None:
+            env['WINE_SOURCE_ROOT'] = str(root / 'external/wine-source')
         if 'WINE_SDK_ROOT' in env:
             env['ZLUDA_WINE_WINE_INCLUDE'] = str(Path(env['WINE_SDK_ROOT']) / 'include')
             env['ZLUDA_WINE_WINE_GENERATED'] = str(Path(env['WINE_SDK_ROOT']) / 'include-generated')

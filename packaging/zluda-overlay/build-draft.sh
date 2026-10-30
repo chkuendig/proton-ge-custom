@@ -15,6 +15,7 @@ BUILD_PART=bridges bash "$here/install-rust.sh"
 export PATH="$BUILD_ROOT/rust/bin:$PATH"
 export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
 bash "$here/build-wine.sh"
+export WINE_SOURCE_ROOT=$BUILD_ROOT/wine/src/wine
 export PATH="$WINE_SDK_ROOT/bin:$PATH"
 python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
 export PILOT_BUILD_ROOT=$BUILD_ROOT/zluda-wine-draft

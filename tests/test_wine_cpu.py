@@ -12,6 +12,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'packaging/zluda-overlay'))
 import wine_cpu as gate
+import cpu_fixtures
 
 
 class WineCpu(unittest.TestCase):
@@ -127,7 +128,7 @@ class WineCpu(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'log missing'):
             gate.check_result(results)
 
-    def exercise(self, mode='pass'):
+    def exercise(self, mode='pass', prepared=False):
         commands = []
 
         def command(argv, env, log, timeout, accepted=(0,)):
@@ -154,13 +155,19 @@ class WineCpu(unittest.TestCase):
              mock.patch.object(gate, 'retain_production'), \
              mock.patch.object(gate, 'inspect_backend', return_value=['libc.so.6']), \
              mock.patch.object(gate, 'inspect_probe', return_value={'sha256': 'fixture'}), \
+             mock.patch.object(cpu_fixtures, 'admit', return_value={'source_pin':'fixture'}) as admit, \
              mock.patch.object(gate, 'command', side_effect=command):
             if mode == 'pass':
-                record = gate.run(self.source, self.tool, self.work)
+                record = gate.run(self.source, self.tool, self.work,
+                                  self.root/'sdk-fixtures' if prepared else None)
                 self.assertEqual(record['status'], 'passed')
                 self.assertEqual(record['qualification'], gate.PASS)
                 self.assertEqual(record['case_count'], 12)
                 self.assertEqual(set(record['profiles']), {'win64', 'wow64'})
+                if prepared:
+                    admit.assert_called_once_with(self.source,self.root/'sdk-fixtures',self.work/'build')
+                    self.assertEqual(record['phases'], ['prepared-SDK-fixture-admission',
+                        'six-case-win64-Wine-execution', 'six-case-wow64-Wine-execution'])
             else:
                 with self.assertRaises((RuntimeError, ValueError, subprocess.TimeoutExpired, FileNotFoundError)):
                     gate.run(self.source, self.tool, self.work)
@@ -195,6 +202,10 @@ class WineCpu(unittest.TestCase):
         second_runner = next(i for i, (argv, env, _) in enumerate(commands)
                              if 'run-fixtures.py' in argv[1] and env['WINEARCH'] == 'wow64')
         self.assertLess(first_cleanup, second_runner)
+
+    def test_prebuilt_sdk_fixtures_are_admitted_without_an_assembly_compiler(self):
+        commands=self.exercise(prepared=True)
+        self.assertFalse(any('build-fixtures.sh' in value for argv,_,_ in commands for value in argv))
 
     def test_wow64_failure_cannot_be_hidden_by_x64_success(self):
         for mode in ['wow64-timeout', 'wow64-missing-result', 'wow64-wrong-profile', 'wow64-cleanup-failure']:

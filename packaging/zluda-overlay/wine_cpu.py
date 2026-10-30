@@ -265,13 +265,16 @@ def retain_production(tool, work):
         files[name] = sha256(dest)
     contract = tool / 'provenance/ZLUDA-WINE.json'
     shutil.copyfile(contract, target / 'ZLUDA-WINE.json')
+    attestation = tool / 'provenance/WINE-CALLBACK-ATTESTATION.json'
+    if attestation.is_file():
+        shutil.copyfile(attestation, target / attestation.name)
     (target / 'BUILD-CONTRACT.json').write_text(json.dumps(json.loads(contract.read_text())['contract'], indent=2) + '\n')
     (target / 'SHA256SUMS').write_text(''.join(value + '  ' + name + '\n' for name, value in files.items()))
     (target / 'RECEIPT.json').write_text(json.dumps({'kind': 'exact assembled production binaries; not a release artifact',
         'source_pin': LOCK['components']['zluda'], 'files': files, 'provenance_sha256': sha256(contract)}, indent=2) + '\n')
 
 
-def run(source, tool, work):
+def run(source, tool, work, prepared_fixtures=None):
     if not all(path.is_absolute() for path in [source, tool, work]):
         raise ValueError('Wine CPU paths must be absolute')
     if work.exists():
@@ -297,9 +300,18 @@ def run(source, tool, work):
             contexts[winearch] = (directory, environment(tool, directory, wine, server, winearch))
         env = contexts['win64'][1]
         build = work / 'build'
-        command(['bash', fixture / 'build-fixtures.sh'], dict(env, FIXTURE_BUILD_ROOT=str(build)),
-                work / 'compile.log', 180)
-        record['phases'].append('compile')
+        if prepared_fixtures is None:
+            compile_env = dict(env, FIXTURE_BUILD_ROOT=str(build))
+            if 'WINE_SDK_ROOT' in os.environ:
+                compile_env['WINE_SDK_ROOT'] = os.environ['WINE_SDK_ROOT']
+            command(['bash', fixture / 'build-fixtures.sh'], compile_env,
+                    work / 'compile.log', 180)
+            record['phases'].append('compile')
+        else:
+            import cpu_fixtures
+            record['prepared_fixtures'] = cpu_fixtures.admit(source, prepared_fixtures, build)
+            (work / 'compile.log').write_text('Admitted fixtures built in the pinned bridges SDK job\n')
+            record['phases'].append('prepared-SDK-fixture-admission')
         for winearch, profile in PROFILES.items():
             record['profiles'][winearch] = {
                 'status': 'pending', 'prefix': str(contexts[winearch][0] / 'prefix'),
@@ -356,10 +368,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(__doc__)
     for name in ['source', 'tool', 'work']:
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--prepared-fixtures', type=Path)
     args = parser.parse_args()
     def terminate(signum, frame):
         raise RuntimeError('Wine CPU gate interrupted by signal ' + str(signum))
     signal.signal(signal.SIGTERM, terminate)
-    run(args.source, args.tool, args.work)
+    run(args.source, args.tool, args.work, args.prepared_fixtures)
+    import lifecycle_cpu
+    lifecycle_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'lifecycle')
     import launcher_cpu
     launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher')

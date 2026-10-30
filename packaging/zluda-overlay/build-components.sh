@@ -44,6 +44,7 @@ if [[ $part == zluda || $part == all ]]; then
     SCCACHE_PATH=$(command -v ccache)
     ccache --max-size=4G
     bash "$here/build-native.sh"
+    bash "$here/build-zoc.sh"
     cp "$BUILD_ROOT/native/link-layout.json" "$DESTDIR/provenance/NATIVE-LINK-LAYOUT.json"
     objcopy --strip-debug "$SOURCE_ROOT/zluda/target/release/libnvcuda.so" "$lib64/libcuda.so.1"
     ln -s libcuda.so.1 "$lib64/libcuda.so"
@@ -75,10 +76,16 @@ if [[ $part == bridges || $part == all ]]; then
     # This source line changes ntdll relative to GE11-7. Build exactly the
     # changed Wine modules and retain the existing ELF dependency/version gate.
     bash "$here/build-wine.sh"
+    export WINE_SOURCE_ROOT=$BUILD_ROOT/wine/src/wine
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
     python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
     n=$SOURCE_ROOT/zluda/wine/zluda_wine
     BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
+    # transition.exe needs this exact prepared Wine SDK; assembly has only
+    # the runtime tool, so compile fixtures here and bind their provenance.
+    FIXTURE_BUILD_ROOT=$BUILD_ROOT/wine-cpu-fixtures bash "$n/tests/abi/build-fixtures.sh"
+    python3 "$here/cpu_fixtures.py" --source "$SOURCE_ROOT" --build "$BUILD_ROOT/wine-cpu-fixtures" \
+        --sdk-receipt "$BUILD_ROOT/wine/log/wine-sdk.json" --dest "$BUILD_ROOT/cpu-fixtures-package"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
         a=$BUILD_ROOT/patched/dxvk-nvapi

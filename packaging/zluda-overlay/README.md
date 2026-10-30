@@ -78,6 +78,12 @@ submodule files, never whole LLVM or other submodule trees. Both CI and make use
 literal includes, then run an offline native library Cargo check to execute the
 actual build-script/proc-macro regeneration from extracted sources alone. The
 receipt records the source tree, archive hash, observed files and resolved includes.
+Observed Wine callback-ABI inputs are included as a small `external/wine-source`
+capsule; extracted Cargo regeneration reads that capsule, not the original Wine
+checkout. WINE_SOURCE_ROOT identifies the same prepared source used for the SDK
+on overlay and make paths. Callback ABI fragments are gated as exact normalized
+tokens before the bridge build; the nine prepared-file hashes remain receipts.
+The attestation is retained with installed provenance and CPU module evidence.
 Root MIT/Apache, derived LGPL
 and per-file notices, the independent Cargo lock and downloaded dependency
 licenses are retained. Stage A comparison utilities remain available for source
@@ -275,9 +281,10 @@ The final CI job checks transitive ELF dependencies inside the pinned SDK and
 records its output. The SDK has more libraries than a game runtime: this is not
 pressure-vessel, enabled/disabled launcher, or GPU qualification.
 
-After assembly, `profile=overlay` also compiles the pinned PE64 and PE32 CPU
-probes and native ELF64 fake SysV backends with the same SDK, then runs the
-tool's own `files/bin/wine`. The profiles run sequentially with separate fresh
+The bridges job compiles the pinned PE64 and PE32 CPU probes, lifecycle and
+transition probes, and native ELF64 fake SysV backends with its prepared Wine
+SDK. Assembly admits their checksummed archive, exact Proton/ZLUDA pins, SDK
+receipt and source hashes before running the tool's own `files/bin/wine`. The profiles run sequentially with separate fresh
 prefixes: `WINEARCH=win64` and `WINEARCH=wow64`, matching the launcher's WoW64
 opt-in. Each profile runs six off/on/off and missing/relative backend modes.
 The PE64 probe checks proc-address versions, the five-argument dark slot and
@@ -300,11 +307,22 @@ Failures block final tool artifact upload;
 `wine-cpu-evidence` retains fixture source/binary hashes, toolchain versions,
 probe binaries and separate win64/wow64 bootstrap/case/cleanup logs and JSON
 results on either outcome. Each runner is bounded to 15 minutes; the combined
-step is capped at 40 minutes for compilation and both cleanup sequences.
+step is capped at 40 minutes for all runtime profiles and cleanup sequences.
 The PE64 gate and verified-absence cleanup passed hosted run 40994299565.
 Both profiles passed hosted run 41003314309 on the prior 0f529f9d/6e3ff59a pair. A direct-Wine pass establishes
 only the tested CPU behavior; real GPU W1/W2, all bounded opcodes under Wine,
 complete graph/context ownership, interop and game adoption remain separate gates.
+
+The same CPU step also requires a separate fresh-prefix PE64 lifecycle profile:
+FreeLibrary and ExitProcess destructors under the loader lock, plus TLS thread
+exit/self-removal. Its native event multiset and ordered PE callback trace must
+match the pinned fixture contract, with independent prefix/server cleanup.
+`lifecycle.exe`, its helper DLL, all three logs/traces and INTEGRATION.json are
+retained. A separate no-op Unix-call timing probe records eleven pairs of raw
+200,000-call QPC samples and a Windows indirect-call baseline; admission
+recomputes the statistics but applies no performance threshold. This measures
+only that pinned Wine transition, not CUDA or Deck performance. The ordinary
+twelve cases stay unchanged.
 
 The same 40-minute CPU step additionally invokes `launcher_cpu.py`, which runs
 the actual assembled `proton` script off/on/off on one fresh compatdata per
@@ -331,6 +349,16 @@ actionlint .github/workflows/zluda-overlay.yml
 # After extracting a produced tool:
 python3 packaging/zluda-overlay/inputs.py verify /path/to/GE-Proton11-7-zluda
 ```
+
+The native job also builds `compiler` offline after the backend/LLVM build and
+retains `zoc-measurement-capsule`: exact zoc bytes, its observed ELF interpreter
+and transitive SDK libraries, licenses, source/package receipts, and the public
+test-only stack preload with source/toolchain hashes. CI uses no PTX input and
+does not execute zoc. Later stack measurement needs a separately cleared local
+command, an explicitly hashed local PTX module and `--arch gfx1030`. Game or
+NVIDIA PTX must never enter GitHub artifacts or the source archive. The capsule
+wrapper preserves preload support; the measurement script invokes its retained
+loader explicitly. No Wine stack size override is applied.
 
 ## CI resources and first run
 

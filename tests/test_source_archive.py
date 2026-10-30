@@ -7,6 +7,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'packaging/zluda-overlay'))
@@ -47,15 +48,28 @@ class SourceArchive(unittest.TestCase):
             cargo = root / 'cargo'
             cargo.write_text('#!/usr/bin/env python3\nimport json,sys,pathlib\n'
                 'assert sys.argv[1] in ["metadata", "check"] and "--locked" in sys.argv and "--offline" in sys.argv\n'
+                'if sys.argv[1]=="check" and "WINE_SOURCE_ROOT" in __import__("os").environ:\n'
+                ' assert (pathlib.Path(__import__("os").environ["WINE_SOURCE_ROOT"])/"include/observed.h").read_text()=="prepared Wine ABI"\n'
+                ' assert "archive-check-" in __import__("os").environ["WINE_SOURCE_ROOT"]\n'
                 'print(json.dumps({"packages":[{"source":None,"manifest_path":sys.argv[-1]}]}))\n')
             cargo.chmod(0o755)
             output = root / 'archive.tar.gz'
-            record = source_archive.create(source, build, output, str(cargo))
+            wine = root / 'prepared-wine'
+            (wine / 'include').mkdir(parents=True)
+            (wine / 'include/observed.h').write_text('prepared Wine ABI')
+            (wine / 'unread.c').write_text('must not copy whole Wine')
+            with (build / 'output').open('a') as log:
+                log.write('cargo::rerun-if-changed=' + str(wine / 'include/observed.h') + '\n')
+            with mock.patch.dict(os.environ, {'WINE_SOURCE_ROOT': str(wine)}):
+                record = source_archive.create(source, build, output, str(cargo))
             with tarfile.open(output) as archive:
                 names = set(archive.getnames())
                 self.assertTrue(set(files) <= names)
                 self.assertIn('ext/nested/read.h', names)
                 self.assertNotIn('ext/nested/large-unread.h', names)
+                self.assertIn('external/wine-source/include/observed.h', names)
+                self.assertNotIn('external/wine-source/unread.c', names)
+            self.assertEqual(set(record['wine_source_files']), {'include/observed.h'})
             self.assertEqual(record['resolved_includes'], ['ext/fixture-sys/src/lib.rs'])
             self.assertEqual(set(record['extra_submodule_files']), {'ext/nested/read.h'})
             (source / 'wine/zluda_wine/src/lib.rs').write_text('include_str!("missing.rs");')

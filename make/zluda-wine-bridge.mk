@@ -24,7 +24,7 @@ $(OBJ)/.nvcuda-build:
 	# require the complete ZLUDA source layout, rather than a lone rsynced crate.
 	env BRIDGE_SOURCE="$(SRCDIR)/zluda/wine/zluda_wine" BUILD_ROOT="$(NVCUDA_BUILD)" BRIDGE_DEST="$(NVCUDA_PAYLOAD)" \
 	    PATH="$(NVCUDA_BUILD)/rust/bin:$(PATH)" CARGO_HOME="$(NVCUDA_BUILD)/cargo" \
-	    WINE_SDK_ROOT="$(NVCUDA_SDK)" JOBS=3 bash "$(NVCUDA_SCRIPTS)/build-bridge.sh"
+	    WINE_SDK_ROOT="$(NVCUDA_SDK)" WINE_SOURCE_ROOT="$(WINE_SRC)" JOBS=3 bash "$(NVCUDA_SCRIPTS)/build-bridge.sh"
 	touch $@
 
 # Both Wine dist targets must finish before removing canonical nvcuda files.
@@ -35,7 +35,7 @@ $(OBJ)/.nvcuda-dist: $(OBJ)/.nvcuda-build $(OBJ)/.wine-x86_64-dist $(OBJ)/.wine-
 	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" archive-stubs "$(DST_BASE)" --archive "$(NVCUDA_BUILD)/downloads/GE-Proton11-7-x86_64.tar.gz"
 	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" clean "$(DST_BASE)"
 	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" licenses "$(DST_BASE)" --source "$(SRCDIR)/zluda"
-	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" PATH="$(NVCUDA_BUILD)/rust/bin:$(PATH)" \
+	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" PATH="$(NVCUDA_BUILD)/rust/bin:$(PATH)" WINE_SOURCE_ROOT="$(WINE_SRC)" WINE_SDK_ROOT="$(NVCUDA_SDK)" \
 	    python3 "$(NVCUDA_SCRIPTS)/source_archive.py" --source "$(SRCDIR)/zluda" \
 	    --build "$(NVCUDA_BUILD)/zluda-wine/target" --output "$(DST_BASE)/sources/zluda-wine.tar.gz"
 	rm -rf "$(DST_BASE)/sources/overlay-recipes"
