@@ -101,38 +101,15 @@ def check_pe_imports(info):
 
 
 def elf_info(path, require_wow64=True):
-    data = path.read_bytes()
-    if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', data, 18)[0] != 62:
-        raise ValueError('Unix CUDA bridge must be ELF64 x86_64')
-    start, = struct.unpack_from('<Q', data, 40)
-    stride, count = struct.unpack_from('<HH', data, 58)
-    if stride != 64 or start + count * stride > len(data):
-        raise ValueError('invalid ELF section table')
-    sections = [struct.unpack_from('<IIQQQQIIQQ', data, start + i * stride) for i in range(count)]
-    def content(section):
-        position, size = section[4:6]
-        if position + size > len(data):
-            raise ValueError('ELF section outside file')
-        return data[position:position + size]
-    def string(table, offset):
-        return table[offset:table.index(b'\0', offset)].decode()
-    symbols, needed = set(), []
-    for section in sections:
-        if section[1] == 11:  # SHT_DYNSYM
-            table = content(sections[section[6]])
-            for record in struct.iter_unpack('<IBBHQQ', content(section)):
-                name, info, visibility, index, _, _ = record
-                if index and info >> 4 in (1, 2) and visibility & 3 == 0:
-                    symbols.add(string(table, name))
-        if section[1] == 6:  # SHT_DYNAMIC
-            table = content(sections[section[6]])
-            needed += [string(table, value) for tag, value in struct.iter_unpack('<qQ', content(section)) if tag == 1]
+    from wine_provider import elf_details
+    details = elf_details(path)
+    symbols, needed = details['symbols'], details['needed']
     tables = {'__wine_unix_call_funcs', '__wine_unix_call_wow64_funcs'}
     required = tables if require_wow64 else {'__wine_unix_call_funcs'}
     if not required <= symbols:
         raise ValueError('Unix CUDA bridge missing native/WoW64 call tables')
     allowed = {'libc.so.6', 'libgcc_s.so.1', 'libdl.so.2', 'libpthread.so.0',
-               'librt.so.1', 'libm.so.6', 'ld-linux-x86-64.so.2'}
+               'librt.so.1', 'libm.so.6', 'ld-linux-x86-64.so.2', 'ntdll.so'}
     if set(needed) - allowed:
         raise ValueError('unexpected bridge dependency: ' + ', '.join(sorted(set(needed) - allowed)))
     return {'needed': needed, 'call_tables': sorted(tables & symbols)}
@@ -301,7 +278,10 @@ def audit(tool):
             if (info['machine'], info['named_exports']) != expected:
                 raise ValueError('on CUDA PE architecture/export mismatch: ' + name)
         else:
-            elf_info(path)
+            info = elf_info(path)
+            if 'ntdll.so' in info['needed']:
+                from wine_provider import tool_provider
+                tool_provider(tool)
     policy.validate_default_prefix(tool, tool / 'files/share/default_pfx')
     return record
 

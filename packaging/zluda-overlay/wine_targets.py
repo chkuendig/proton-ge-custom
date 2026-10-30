@@ -76,9 +76,10 @@ def select(text, arch, profile, modules):
         # when only the Unix ntdll is overlaid. /all does not imply import libs.
         for library in ['winecrt0', 'kernel32', 'ntdll']:
             sdk_library('dlls/' + library)
-    if profile == 'x86_64-unix-ntdll':
+        # Generated bridges link the native callback provider even when the
+        # Wine delta concerns another module. Expose this exact object to SDK.
         require('dlls/ntdll/ntdll.so')
-    elif profile == 'both':
+    if profile == 'both':
         if not modules:
             raise ValueError('module-local Wine build has no modules')
         for module in modules:

@@ -1,6 +1,6 @@
 {
   "origin": {
-    "pin": "1d893643a2cc8dd693fb77fc061cced015698a5d",
+    "pin": "42b557a23c9c7868ee1fb736849451361a6e8893",
     "Cargo.lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
     "method": "Projected Linux normal/build graph: package identities and dependency edges from pinned Cargo.lock; curated active features from manifests. Not captured cargo output; unrelated nodes omitted.",
     "base_pin": "c60462dc06e9e4b4c3185464919eff5908e763e6"

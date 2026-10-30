@@ -20,7 +20,15 @@ Both overlay and full-source bridge targets install three unchanged modules:
 `files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so`. Both PEs must carry Wine's
 builtin marker, the matching machine and 788/690 named exports respectively;
 the ELF must expose native and WoW64 Unix-call tables and have no direct GPU
-library dependency. Ordinary PE imports must name allowed Windows system
+library dependency. Its direct `ntdll.so` dependency is a Wine provider: the
+generated SDK exposes the already-built native object as `lib/ntdll.so`, requiring
+ELF64 x86_64, SONAME `ntdll.so` and a defined `KeUserModeCallback` function.
+SDK receipts hash that provider. Assembly requires the corresponding provider
+under the tool's `files/lib/wine/x86_64-unix`, and the loader check rejects an
+SDK/system copy or unresolved dependency. CPU runs add only that Wine directory
+to the ordinary runtime paths; CUDA/ROCm directories stay excluded. Missing
+callback/provider bindings must fail Wine's eager load. No extra SDK build is
+needed. Ordinary PE imports must name allowed Windows system
 runtimes or API-set DLL basenames. Delay-import directories are rejected,
 as the pinned link contract never generates them. Declared PE directory
 extents must fit the optional header; unbundled MinGW DLL dependencies
@@ -181,17 +189,18 @@ The PE32 CUDA, DXVK and NVAPI builds are independent and remain enabled.
 After each Wine configure/tools stage, `wine_targets.py` reads the generated
 top-level Makefile and validates every requested goal. Header/tool/module
 aggregates are used only when declared; static and import SDK libraries use
-their declared PE and native Unix archive rules. The native-only profile requests
-the native `dlls/ntdll/ntdll.so` producer, alongside the separate SDK import
-libraries. It does not request PE ntdll module rebuilds for the overlay.
+their declared PE and native Unix archive rules. Every x86_64 profile requests
+the native `dlls/ntdll/ntdll.so` SDK provider, alongside the separate import
+libraries. The native-only profile does not rebuild PE ntdll modules for the overlay.
 `log/targets-<arch>.json` records the Makefile hash and chosen goals; a compressed
 copy of the actual Makefile is saved beside it even if goal validation fails. Target-name
 fixtures are generated without configure from the pinned Wine generator and
 Makefile.in inputs, including the absence of `winecrt0/all`.
 
 `wine_sdk.py --generated` validates matching prepared source/generated headers
-and executable Winebuild, then exports `include`, `include-generated` and
-`bin/winebuild`. It needs neither the retired Winelib cross-file nor winegcc
+and executable Winebuild plus the native callback provider, then exports
+`include`, `include-generated`, `bin/winebuild` and `lib/ntdll.so`.
+It needs neither the retired Winelib cross-file nor winegcc
 or relay import libraries. The original Winelib SDK mode and header probes
 remain covered by historical baseline fixtures. SDK file hashes are recorded
 in `log/wine-sdk.json`.

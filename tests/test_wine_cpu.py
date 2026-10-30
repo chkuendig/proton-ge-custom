@@ -67,7 +67,7 @@ class WineCpu(unittest.TestCase):
                      'CUDA_VISIBLE_DEVICES', 'HIP_VISIBLE_DEVICES']:
             self.assertNotIn(name, env)
         self.assertEqual(env['LD_LIBRARY_PATH'], ':'.join(str(self.tool / 'files/lib' / arch)
-                         for arch in ['x86_64-linux-gnu', 'i386-linux-gnu']))
+                         for arch in ['wine/x86_64-unix', 'x86_64-linux-gnu', 'i386-linux-gnu']))
         self.assertEqual(env['WINEPREFIX'], str(self.work / 'prefix'))
         self.assertEqual(env['WINESERVER'], str(self.server))
         self.assertEqual(env['WINEARCH'], 'win64')

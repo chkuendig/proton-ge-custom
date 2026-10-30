@@ -668,6 +668,7 @@ class WineTargets(unittest.TestCase):
             self.assertIn('server/all', targets)
             self.assertNotIn('dlls/winecrt0/all', targets)
             if arch == 'x86_64':
+                self.assertIn('dlls/ntdll/ntdll.so', targets)
                 for name in ['winecrt0', 'kernel32', 'ntdll']:
                     self.assertIn(f'dlls/{name}/x86_64-windows/lib{name}.a', targets)
                     self.assertIn(f'dlls/{name}/lib{name}.a', targets)
@@ -675,6 +676,8 @@ class WineTargets(unittest.TestCase):
                 self.assertFalse(any(target.startswith('tools/') for target in targets))
             all_targets = wine_targets.select(text, arch, 'all', [])
             self.assertIn('all', all_targets)
+            if arch == 'x86_64':
+                self.assertIn('dlls/ntdll/ntdll.so', all_targets)
             self.assertTrue(set(all_targets) <= wine_targets.declared_targets(text))
         targets = wine_targets.select(self.fixture('x86_64'), 'x86_64', 'x86_64-unix-ntdll', ['dlls/ntdll'])
         self.assertIn('dlls/ntdll/ntdll.so', targets)

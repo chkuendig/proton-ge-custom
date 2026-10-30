@@ -11,6 +11,7 @@ NVCUDA_SCRIPTS := $(SRC)/packaging/zluda-overlay
 
 $(OBJ)/.nvcuda-build: $(OBJ)/.nvcuda-post-source $(OBJ)/.wine-x86_64-build
 $(OBJ)/.nvcuda-build: $(NVCUDA_SCRIPTS)/build-bridge.sh $(NVCUDA_SCRIPTS)/wine_sdk.py $(NVCUDA_SCRIPTS)/cuda_package.py
+$(OBJ)/.nvcuda-build: $(NVCUDA_SCRIPTS)/wine_provider.py
 
 $(OBJ)/.nvcuda-build:
 	rm -rf "$(NVCUDA_BUILD)"

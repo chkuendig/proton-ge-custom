@@ -395,5 +395,5 @@ rm -rf "$ovl"; mv "$ovl.partial" "$ovl"
 cat "$ovl/OVERLAY"
 echo "== done $(date -Is): $ovl"
 
-# Expose both Unix and PE SDK archives plus the exact prepared headers/tools.
+# Expose exact prepared headers/tools and the native callback provider.
 python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" --generated

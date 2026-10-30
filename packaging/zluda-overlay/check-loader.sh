@@ -20,4 +20,7 @@ for file in "${files[@]}"; do
         echo "unresolved dependencies: $file" >&2
         exit 1
     fi
+    if [[ $file == "$DESTDIR/files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so" ]]; then
+        python3 "$(dirname -- "$0")/wine_provider.py" --tool "$DESTDIR" <<< "$output"
+    fi
 done

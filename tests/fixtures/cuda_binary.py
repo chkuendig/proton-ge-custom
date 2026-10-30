@@ -33,17 +33,21 @@ def pe(machine, exports=0, imports=(), delay_imports=()):
     return bytes(data)
 
 
-def elf(needed=('libc.so.6',), wow64=True):
-    names = ['__wine_unix_call_funcs'] + (['__wine_unix_call_wow64_funcs'] if wow64 else [])
+def elf(needed=('libc.so.6',), wow64=True, functions=(), soname=None):
+    names = ['__wine_unix_call_funcs'] + (['__wine_unix_call_wow64_funcs'] if wow64 else []) + list(functions)
     strings = b'\0'
     offsets = {}
-    for name in [*names, *needed]:
+    for name in [*names, *needed, *([soname] if soname else [])]:
         offsets[name] = len(strings)
         strings += name.encode() + b'\0'
-    symbols = bytes(24) + b''.join(struct.pack('<IBBHQQ', offsets[name], 0x11, 0, 1, 4096, 8) for name in names)
-    dynamic = b''.join(struct.pack('<qQ', 1, offsets[name]) for name in needed) + bytes(16)
+    symbols = bytes(24) + b''.join(struct.pack('<IBBHQQ', offsets[name], 0x12 if name in functions else 0x11, 0, 1, 4096, 8) for name in names)
+    dynamic = b''.join(struct.pack('<qQ', 1, offsets[name]) for name in needed)
+    if soname:
+        dynamic += struct.pack('<qQ', 14, offsets[soname])
+    dynamic += bytes(16)
     data = bytearray(64 + 4 * 64)
     data[:6] = b'\x7fELF\x02\x01'
+    struct.pack_into('<H', data, 16, 3)
     struct.pack_into('<H', data, 18, 62)
     struct.pack_into('<Q', data, 40, 64)
     struct.pack_into('<HH', data, 58, 64, 4)

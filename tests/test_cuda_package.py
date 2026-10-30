@@ -290,11 +290,38 @@ class CudaPackage(unittest.TestCase):
         tool.parent.mkdir(parents=True)
         tool.write_text('#!/bin/sh\nexit 0\n')
         tool.chmod(0o755)
+        native = obj / 'dlls/ntdll/ntdll.so'
+        native.parent.mkdir(parents=True)
+        native.write_bytes(elf(functions=['KeUserModeCallback'], soname='ntdll.so'))
         record = wine_sdk.prepare(build, sdk, generated_bridge=True)
         self.assertEqual(record['profile'], 'generated')
         self.assertEqual(list(record['wrappers']), ['winebuild'])
         self.assertFalse((sdk / 'bin/winegcc').exists())
         self.assertFalse((sdk / 'nvcuda-wine64.ini').exists())
+        self.assertEqual((sdk / 'lib/ntdll.so').resolve(), native)
+        self.assertEqual(record['native_provider']['callback'], 'KeUserModeCallback')
+        self.assertIn(str(native), record['sha256'])
+        for invalid in [elf(soname='ntdll.so'), elf(functions=['KeUserModeCallback'], soname='wrong.so')]:
+            native.write_bytes(invalid)
+            with self.assertRaisesRegex(ValueError, 'Wine ntdll provider'):
+                wine_sdk.prepare(build, sdk, generated_bridge=True)
+        native.unlink()
+        with self.assertRaisesRegex(ValueError, 'SDK lacks: .*ntdll.so'):
+            wine_sdk.prepare(build, sdk, generated_bridge=True)
+        native.write_bytes(elf(functions=['KeUserModeCallback'], soname='ntdll.so'))
         tool.unlink()
         with self.assertRaisesRegex(ValueError, 'prepared Wine SDK lacks'):
             wine_sdk.prepare(build, sdk, generated_bridge=True)
+
+    def test_direct_wine_dependency_requires_the_assembled_callback_provider(self):
+        (self.artifacts / 'x86_64-unix/nvcuda.so').write_bytes(elf(needed=['libc.so.6','ntdll.so']))
+        self.checksums()
+        with self.assertRaisesRegex(ValueError, 'provider missing'):
+            self.install()
+        native = self.tool / 'files/lib/wine/x86_64-unix/ntdll.so'
+        native.parent.mkdir(parents=True, exist_ok=True)
+        native.write_bytes(elf(functions=['KeUserModeCallback'], soname='ntdll.so'))
+        package.audit(self.tool)
+        native.write_bytes(elf(soname='ntdll.so'))
+        with self.assertRaisesRegex(ValueError, 'must export KeUserModeCallback'):
+            package.audit(self.tool)

@@ -69,7 +69,7 @@ def environment(tool, work, wine, server, winearch='win64'):
             env.pop(key, None)
     # Match ordinary GE runtime paths, excluding bundled lib64 CUDA/ROCm.
     env.update(LD_LIBRARY_PATH=':'.join(str(tool / 'files/lib' / arch)
-                                      for arch in ['x86_64-linux-gnu', 'i386-linux-gnu']),
+                                      for arch in ['wine/x86_64-unix', 'x86_64-linux-gnu', 'i386-linux-gnu']),
                WINEPREFIX=str(work / 'prefix'), WINEARCH=winearch, WINEDEBUG='-all',
                WINELOADER=str(wine), WINESERVER=str(server), WINEESYNC='0', WINEFSYNC='0',
                PATH=str(tool / 'files/bin') + ':' + env.get('PATH', '/usr/bin:/bin'),

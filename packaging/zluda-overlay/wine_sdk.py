@@ -9,6 +9,7 @@ from pathlib import Path
 import shlex
 
 from bridge_tools import cross_file
+import wine_provider
 
 TOOLS = ['winegcc', 'winebuild', 'wrc', 'widl']
 LIBRARIES = ['winecrt0', 'kernel32', 'ntdll']
@@ -29,12 +30,16 @@ def prepare(build, sdk, cross=None, obj=None, src=None, generated_bridge=False):
                 relative /= arch
             libraries[(arch, name)] = obj / relative / ('lib' + name + '.a')
     required += list(libraries.values())
+    native = obj / 'dlls/ntdll/ntdll.so' if generated_bridge else None
+    if native is not None:
+        required.append(native)
     for path in required:
         if not path.is_file():
             raise ValueError('prepared Wine SDK lacks: ' + str(path))
     for name in tools:
         if not os.access(obj / 'tools' / name / name, os.X_OK):
             raise ValueError('prepared Wine SDK tool is not executable: ' + name)
+    provider = wine_provider.inspect(native) if native is not None else None
     (sdk / 'bin').mkdir(parents=True, exist_ok=True)
 
     def link(path, target):
@@ -44,6 +49,8 @@ def prepare(build, sdk, cross=None, obj=None, src=None, generated_bridge=False):
 
     link(sdk / 'include', include)
     link(sdk / 'include-generated', generated)
+    if native is not None:
+        link(sdk / 'lib/ntdll.so', native)
     for (arch, name), path in libraries.items():
         link(sdk / 'lib/wine' / arch / ('lib' + name + '.a'), path)
     for name in tools:
@@ -77,6 +84,7 @@ def prepare(build, sdk, cross=None, obj=None, src=None, generated_bridge=False):
             '[binaries]\nc = ' + repr(str(sdk / 'bin/winegcc')) + '\n\n[built-in options]\n'
             'c_link_args = ' + repr(link_args + ['-l' + name for name in LIBRARIES]) + '\n')
     record = {'profile': 'generated' if generated_bridge else 'winelib',
+              'native_provider': provider,
               'cross_sha256': hashlib.sha256(cross.read_bytes()).hexdigest() if cross else None,
               'generated_cross': (sdk / 'nvcuda-wine64.ini').read_text() if not generated_bridge else None,
               'wrappers': {name: (sdk / 'bin' / name).read_text() for name in tools},
