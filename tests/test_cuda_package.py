@@ -181,16 +181,21 @@ class CudaPackage(unittest.TestCase):
                    'dbghelp.dll', 'advapi32.dll', 'ucrtbase.dll']
         for machine in [0x14c, 0x8664]:
             path = self.root / 'dependency.dll'
-            path.write_bytes(pe(machine, imports=allowed, delay_imports=['api-ms-win-core-synch-l1-2-0.dll']))
+            path.write_bytes(pe(machine, imports=allowed))
             info = package.pe_info(path)
             self.assertEqual(info['imports'], allowed)
             package.check_pe_imports(info)
             for name in ['libgcc_s_seh-1.dll', 'libgcc_s_dw2-1.dll', 'libstdc++-6.dll',
-                         'libwinpthread-1.dll', 'nvcuda.dll', '../kernel32.dll']:
+                         'libwinpthread-1.dll', 'nvcuda.dll', '../kernel32.dll',
+                         'api-ms-win-core/evil.dll', r'api-ms-win-core\evil.dll',
+                         'api-ms-win-core:evil.dll', 'ext-ms-win-core/evil.dll',
+                         r'ext-ms-win-core\evil.dll', 'ext-ms-win-core:evil.dll',
+                         'api-ms-win-core_fake.dll']:
                 for delayed in [False, True]:
                     path.write_bytes(pe(machine, imports=allowed if delayed else [*allowed, name],
                                         delay_imports=[name] if delayed else []))
-                    with self.assertRaisesRegex(ValueError, 'unexpected PE bridge DLL dependency'):
+                    with self.assertRaisesRegex(ValueError, 'delayed import directory' if delayed else
+                                                'unexpected PE bridge DLL dependency'):
                         package.check_pe_imports(package.pe_info(path))
 
     def test_import_violation_blocks_install_final_audit_and_compile_draft(self):
@@ -204,7 +209,7 @@ class CudaPackage(unittest.TestCase):
         self.install()
         final = self.tool / 'files/lib/wine-cuda/zluda/x86_64-windows/nvcuda.dll'
         final.write_bytes(pe(0x8664, 788, delay_imports=['libwinpthread-1.dll']))
-        with self.assertRaisesRegex(ValueError, 'libwinpthread-1.dll'):
+        with self.assertRaisesRegex(ValueError, 'delayed import directory'):
             package.audit(self.tool)
         draft = self.root / 'bad-draft'
         draft.mkdir()
@@ -231,6 +236,28 @@ class CudaPackage(unittest.TestCase):
         path.write_bytes(data)
         with self.assertRaisesRegex(ValueError, 'unmapped PE export RVA'):
             package.pe_info(path)
+
+    def test_pe_directory_extent_and_delayed_import_contract(self):
+        import struct
+        path = self.root / 'header.dll'
+        for machine in [0x14c, 0x8664]:
+            directory = 152 + (96 if machine == 0x14c else 112)
+            for count in [0, 1, 17, 0xffffffff]:
+                data = bytearray(pe(machine, 690, imports=['kernel32.dll']))
+                struct.pack_into('<I', data, directory - 4, count)
+                path.write_bytes(data)
+                with self.assertRaisesRegex(ValueError, 'invalid PE directory extent'):
+                    package.pe_info(path)
+            data = bytearray(pe(machine, 690))
+            # Declared count cannot borrow directory entries from section bytes.
+            struct.pack_into('<H', data, 128 + 20, directory - 152 + 8)
+            path.write_bytes(data)
+            with self.assertRaisesRegex(ValueError, 'invalid PE directory extent'):
+                package.pe_info(path)
+            for imported in ['kernel32.dll', 'api-ms-win-core-synch-l1-2-0.dll']:
+                path.write_bytes(pe(machine, 690, delay_imports=[imported]))
+                with self.assertRaisesRegex(ValueError, 'delayed import directory'):
+                    package.pe_info(path)
 
     def test_source_archive_stubs_verify_checksum_members_and_exact_hashes(self):
         archive = self.root / 'ge.tar.gz'

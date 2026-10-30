@@ -20,8 +20,10 @@ Both overlay and full-source bridge targets install three unchanged modules:
 `files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so`. Both PEs must carry Wine's
 builtin marker, the matching machine and 788/690 named exports respectively;
 the ELF must expose native and WoW64 Unix-call tables and have no direct GPU
-library dependency. Both ordinary and delay-load PE imports must name the
-allowed Windows system runtimes/API sets; unbundled MinGW DLL dependencies
+library dependency. Ordinary PE imports must name allowed Windows system
+runtimes or API-set DLL basenames. Delay-import directories are rejected,
+as the pinned link contract never generates them. Declared PE directory
+extents must fit the optional header; unbundled MinGW DLL dependencies
 (such as libgcc_s_seh-1.dll, libgcc_s_dw2-1.dll and libwinpthread-1.dll) fail
 both draft inspection and full packaging. Artifact checksums and BUILD-CONTRACT.json must identify
 the exact locked source and toolchain. `provenance/ZLUDA-WINE.json` retains the

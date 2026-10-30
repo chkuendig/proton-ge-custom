@@ -44,6 +44,13 @@ def pe_info(path):
     if magic not in (0x10b, 0x20b):
         raise ValueError('invalid PE optional header')
     directory = optional + {0x10b: 96, 0x20b: 112}[magic]
+    directories, = unpack('<I', directory - 4)
+    if not 2 <= directories <= 16 or directory + directories * 8 > optional + optional_size:
+        raise ValueError('invalid PE directory extent')
+    if optional + optional_size > len(data):
+        raise ValueError('PE optional header outside file')
+    if directories > 13 and any(unpack('<II', directory + 13 * 8)):
+        raise ValueError('unexpected PE delayed import directory')
     export_rva, export_size = unpack('<II', directory)
     def offset(rva, size=1):
         for i in range(sections):
@@ -54,32 +61,19 @@ def pe_info(path):
                 return position + rva - virtual
         raise ValueError('unmapped PE export RVA: ' + str(path))
     count = 0 if not export_rva or not export_size else unpack('<I', offset(export_rva) + 24)[0]
-    directories, = unpack('<I', directory - 4)
-    imports, delayed = [], []
-    for index, stride, names in [(1, 20, imports), (13, 32, delayed)]:
-        if directories <= index:
-            continue
-        if directory + (index + 1) * 8 > optional + optional_size:
-            raise ValueError('PE import directory outside optional header')
-        rva, size = unpack('<II', directory + index * 8)
-        if not rva and not size:
-            continue
+    imports = []
+    rva, size = unpack('<II', directory + 8)
+    if rva or size:
+        stride = 20
         if not rva or size < stride or size // stride > 65536:
             raise ValueError('invalid PE import directory')
         terminated = False
         for position in range(0, size - stride + 1, stride):
-            record = unpack('<' + 'I' * (stride // 4), offset(rva + position, stride))
+            record = unpack('<IIIII', offset(rva + position, stride))
             if not any(record):
                 terminated = True
                 break
-            name_rva = record[3] if index == 1 else record[1]
-            if index == 13:
-                if record[0] & ~1:
-                    raise ValueError('unknown PE delay-import attributes')
-                if not record[0] & 1:
-                    image_base, = unpack('<I' if magic == 0x10b else '<Q',
-                                         optional + (28 if magic == 0x10b else 24))
-                    name_rva -= image_base
+            name_rva = record[3]
             if not name_rva:
                 raise ValueError('PE import DLL name is missing')
             start = offset(name_rva)
@@ -88,19 +82,19 @@ def pe_info(path):
                 raise ValueError('unterminated/empty PE import DLL name')
             offset(name_rva, end - start + 1)
             try:
-                names.append(data[start:end].decode('ascii'))
+                imports.append(data[start:end].decode('ascii'))
             except UnicodeDecodeError as error:
                 raise ValueError('non-ASCII PE import DLL name') from error
         if not terminated:
             raise ValueError('unterminated PE import descriptor table')
     return {'machine': machine, 'named_exports': count,
-            'imports': imports, 'delay_imports': delayed}
+            'imports': imports, 'delay_imports': []}
 
 
 def check_pe_imports(info):
     names = info['imports'] + info['delay_imports']
     forbidden = sorted({name for name in names if name.lower() not in WINDOWS_IMPORTS
-                        and not re.fullmatch(r'(?:api|ext)-ms-win-[a-z0-9_-]+\.dll', name.lower())})
+                        and not re.fullmatch(r'(?:api|ext)-ms-win-[a-z0-9-]+\.dll', name.lower())})
     if forbidden:
         raise ValueError('unexpected PE bridge DLL dependency: ' + ', '.join(forbidden))
 
