@@ -49,8 +49,6 @@ if [[ $part == zluda || $part == all ]]; then
     ln -s libcuda.so.1 "$lib64/libcuda.so"
     # Keep the launcher LD order untouched. Both Wine paths resolve to GE's
     # canonical files/lib/wine tree; lib64 still wins for CUDA and ROCm.
-    ln -s ../../../lib64/libcuda.so.1 "$wl/x86_64-unix/libcuda.so.1"
-    ln -s libcuda.so.1 "$wl/x86_64-unix/libcuda.so"
     ln -s ../lib/wine "$lib64/wine"
     tar -xf "$DOWNLOAD_ROOT/numactl-2.0.18.tar.gz" -C "$BUILD_ROOT"
     (
@@ -112,9 +110,8 @@ if [[ $part == bridges || $part == all ]]; then
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    # Backend-refusal attestation reads exactly these two backend source files.
-    git -C "$SOURCE_ROOT/zluda" archive HEAD wine cuda_types cuda_macros dark_api \
-        zluda/src/lib.rs zluda/src/impl/mod.rs | gzip -n > "$DESTDIR/sources/zluda-wine.tar.gz"
+    python3 "$here/source_archive.py" --source "$SOURCE_ROOT/zluda" \
+        --build "$BUILD_ROOT/zluda-wine/target" --output "$DESTDIR/sources/zluda-wine.tar.gz"
     python3 "$here/component_patches.py" stage "$SOURCE_ROOT" \
         "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi --dest "$DESTDIR"
 fi

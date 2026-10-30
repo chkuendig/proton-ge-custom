@@ -60,6 +60,9 @@ jobs:
           sudo mkdir -p /work
           sudo chown "$USER:$USER" /work
           df -h / /work
+      # No registry/src or git checkouts: Cargo re-extracts archives and checks
+      # Cargo.lock hashes. Partial ccache reuse is restricted to the full lock,
+      # SDK, Rust, source pins, recipes and workflow fingerprint below.
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: llvm-cache
         if: matrix.part == 'zluda'
@@ -67,16 +70,16 @@ jobs:
           path: /work/ccache
           # Cache entries are immutable. A unique suffix lets a failed partial
           # build grow on the next run instead of freezing the first snapshot.
-          key: llvm-v2-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('zluda/llvm_zluda/build.rs') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: llvm-v2-107e2bfaf44d-sdk-6c1789cad862-rust-1.99.0-${{ hashFiles('zluda/llvm_zluda/build.rs') }}-
+          key: llvm-v3-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/llvm_zluda/build.rs', 'zluda/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: llvm-v3-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/llvm_zluda/build.rs', 'zluda/Cargo.lock') }}-
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: cargo-cache
         with:
           path: |
-            /work/cargo/registry
-            /work/cargo/git
-          key: cargo-${{ matrix.part }}-1.99.0-${{ hashFiles('zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: cargo-${{ matrix.part }}-1.99.0-${{ hashFiles('zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-
+            /work/cargo/registry/cache
+            /work/cargo/registry/index
+          key: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
@@ -105,13 +108,13 @@ jobs:
         with:
           path: /work/ccache
           key: ${{ steps.llvm-cache.outputs.cache-primary-key }}
-      - name: Save downloaded Cargo sources after success or failure
+      - name: Save checksum-verified Cargo archives after success or failure
         if: always() && steps.cargo-cache.outputs.cache-primary-key != ''
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
-            /work/cargo/registry
-            /work/cargo/git
+            /work/cargo/registry/cache
+            /work/cargo/registry/index
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: inputs.profile != 'x64-draft'
@@ -148,6 +151,8 @@ jobs:
             /work/build/zluda-wine-draft/artifacts
             /work/build/zluda-wine-draft/x86_64-native-libs.log
             /work/overlay/provenance/ZLUDA-WINE.json
+            /work/overlay/sources/zluda-wine.tar.gz.check.log
+            /work/overlay/sources/zluda-wine.tar.gz.json
             /work/build/native
           if-no-files-found: warn
           retention-days: 14
@@ -222,6 +227,13 @@ jobs:
             ${{ runner.temp }}/wine-cpu/run/INTEGRATION.json
             ${{ runner.temp }}/wine-cpu/run/*.log
             ${{ runner.temp }}/wine-cpu/run/build
+            ${{ runner.temp }}/wine-cpu/run/production
+            ${{ runner.temp }}/wine-cpu/run/launcher/INTEGRATION.json
+            ${{ runner.temp }}/wine-cpu/run/launcher/*.log
+            ${{ runner.temp }}/wine-cpu/run/launcher/win64/**/*.log
+            ${{ runner.temp }}/wine-cpu/run/launcher/win64/**/*.json
+            ${{ runner.temp }}/wine-cpu/run/launcher/wow64/**/*.log
+            ${{ runner.temp }}/wine-cpu/run/launcher/wow64/**/*.json
             ${{ runner.temp }}/wine-cpu/run/win64/*.log
             ${{ runner.temp }}/wine-cpu/run/win64/results
             ${{ runner.temp }}/wine-cpu/run/wow64/*.log

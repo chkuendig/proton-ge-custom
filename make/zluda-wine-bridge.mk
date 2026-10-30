@@ -35,9 +35,12 @@ $(OBJ)/.nvcuda-dist: $(OBJ)/.nvcuda-build $(OBJ)/.wine-x86_64-dist $(OBJ)/.wine-
 	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" archive-stubs "$(DST_BASE)" --archive "$(NVCUDA_BUILD)/downloads/GE-Proton11-7-x86_64.tar.gz"
 	python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" clean "$(DST_BASE)"
 	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" python3 "$(NVCUDA_SCRIPTS)/cuda_package.py" licenses "$(DST_BASE)" --source "$(SRCDIR)/zluda"
-	git -C "$(SRCDIR)/zluda" archive HEAD wine cuda_types cuda_macros dark_api \
-	    zluda/src/lib.rs zluda/src/impl/mod.rs | gzip -n > "$(DST_BASE)/sources/zluda-wine.tar.gz"
-	cp -a "$(NVCUDA_SCRIPTS)" "$(DST_BASE)/sources/overlay-recipes"
+	env CARGO_HOME="$(NVCUDA_BUILD)/cargo" PATH="$(NVCUDA_BUILD)/rust/bin:$(PATH)" \
+	    python3 "$(NVCUDA_SCRIPTS)/source_archive.py" --source "$(SRCDIR)/zluda" \
+	    --build "$(NVCUDA_BUILD)/zluda-wine/target" --output "$(DST_BASE)/sources/zluda-wine.tar.gz"
+	rm -rf "$(DST_BASE)/sources/overlay-recipes"
+	mkdir -p "$(DST_BASE)/sources/overlay-recipes"
+	git -C "$(SRCDIR)" archive HEAD packaging/zluda-overlay | tar -x --strip-components=2 -C "$(DST_BASE)/sources/overlay-recipes"
 	touch $@
 
 nvcuda-build: $(OBJ)/.nvcuda-build

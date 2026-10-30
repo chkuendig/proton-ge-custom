@@ -43,22 +43,7 @@ def builtin_override(value):
     return dll_override(value, "nvcuda", "b")
 
 
-def nvapi_enabled(config, host_arch):
-    return ("disablenvapi" not in config or "forcenvapi" in config) and host_arch != "aarch64-windows"
-
-
-def prepare_nvapi(env, config):
-    """Keep the published one-switch ZLUDA policy ahead of prefix decisions."""
-    if enabled(env):
-        env["PROTON_FORCE_NVAPI"] = "1"
-        env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
-        env["DXVK_ENABLE_NVAPI"] = "1"
-        env["DXVK_NVAPI_DRIVER_VERSION"] = "99999"
-        env["WINE_HIDE_AMD_GPU"] = "1"
-        config.add("forcenvapi")
-
-
-def select_root(env, tool, bootstrap=False, ld_path_var="LD_LIBRARY_PATH"):
+def select_root(env, tool, bootstrap=False, ld_path_var="LD_LIBRARY_PATH", log=None):
     """Select one immutable module namespace for the next Wine process."""
     tool = Path(tool).resolve()
     root, _ = stub_assets(tool)
@@ -70,9 +55,14 @@ def select_root(env, tool, bootstrap=False, ld_path_var="LD_LIBRARY_PATH"):
                 raise ValueError("incomplete ZLUDA Wine module root: " + str(selected / relative))
         backend = tool / "files/lib64/libcuda.so.1"
         if not backend.is_file():
-            raise ValueError("missing bundled ZLUDA backend: " + str(backend))
-        env["ZLUDA_WINE_BACKEND_PATH"] = str(backend)
-    else:
+            if log is not None:
+                log("ZLUDA unavailable: missing bundled backend; continuing with ZLUDA off")
+            env["PROTON_ENABLE_ZLUDA"] = "0"
+            on = False
+            selected = root / "stub"
+        else:
+            env["ZLUDA_WINE_BACKEND_PATH"] = str(backend)
+    if not on:
         env.pop("ZLUDA_WINE_BACKEND_PATH", None)
     paths = []
     for entry in env.get("WINEDLLPATH", "").split(":"):
@@ -94,6 +84,48 @@ def select_root(env, tool, bootstrap=False, ld_path_var="LD_LIBRARY_PATH"):
         env[ld_path_var] = ":".join(entry for entry in env[ld_path_var].split(":")
                                   if entry and Path(entry) not in owned and Path(entry).resolve() not in owned)
     return selected
+
+
+def launch_warnings(env, arguments, log, logfile=None):
+    def warn(message):
+        log(message)
+        if logfile is not None:
+            logfile.write(message + "\n")
+            logfile.flush()
+    flags = [key for key in ("PROTON_NVIDIA_NVCUDA", "PROTON_NVIDIA_LIBS", "PROTON_NVIDIA_NVOPTIX")
+             if env.get(key, "0") not in ("", "0")]
+    if flags:
+        warn("WARNING: " + ", ".join(flags) +
+            ": CUDA/NVENC-CUDA/OptiX via nvidia-libs is not supported in this tool")
+    if enabled(env) and env.get("WINEARCH") != "wow64" and arguments:
+        try:
+            with open(arguments[0], "rb") as stream:
+                header = stream.read(64)
+                if header[:2] == b"MZ":
+                    stream.seek(int.from_bytes(header[60:64], "little"))
+                    pe = stream.read(6)
+                    if pe == b"PE\0\0\x4c\x01":
+                        warn("WARNING: ZLUDA cannot service a classic 32-bit game; PROTON_USE_WOW64=1 is required")
+        except OSError:
+            warn("ZLUDA: executable architecture unknown; 32-bit CUDA requires PROTON_USE_WOW64=1")
+
+
+def prepare_prefix(proton, compatdata, session, log=None):
+    """Under prefix_lock, update builtins using the stub root before game selection."""
+    migrate_prefix(proton.base_dir, compatdata.base_dir, log=log)
+    timestamp = Path(compatdata.prefix_dir) / ".update-timestamp"
+    expected = str(int(os.stat(proton.wine_inf).st_mtime))
+    if timestamp.is_file() and timestamp.read_text().strip() == expected:
+        return
+    env = dict(session.env)
+    select_root(env, proton.base_dir, bootstrap=True)
+    if session.run_proc([proton.wine_bin, "wineboot", "--update"], env) != 0:
+        raise RuntimeError("CUDA stub-root Wineboot update failed")
+    if session.run_proc([proton.wineserver_bin, "-w"], env) != 0:
+        raise RuntimeError("CUDA stub-root Wineserver wait failed")
+    # Wineboot uses the admitted off root itself, rather than repairing its
+    # output after the fact. User-supplied native CUDA DLLs remain untouched.
+    timestamp.write_text(expected)
 
 
 def validate_default_prefix(tool, prefix):

@@ -762,10 +762,14 @@ class Proton:
                 #make default prefix
                 local_env["WINEPREFIX"] = self.default_pfx_dir
                 local_env["WINEDEBUG"] = "-all"
-                g_session.run_proc([self.wine_bin, "wineboot"], local_env)
-                g_session.run_proc([self.wineserver_bin, "-w"], local_env)
+                if g_session.run_proc([self.wine_bin, "wineboot"], local_env) != 0:
+                    raise RuntimeError("CUDA stub-root default Wineboot failed")
+                if g_session.run_proc([self.wineserver_bin, "-w"], local_env) != 0:
+                    raise RuntimeError("CUDA stub-root default Wineserver wait failed")
                 from proton_zluda import materialize_default_prefix
                 materialize_default_prefix(self.base_dir, self.default_pfx_dir)
+            from proton_zluda import validate_default_prefix
+            validate_default_prefix(self.base_dir, self.default_pfx_dir)
 
 class CompatData:
     def __init__(self, compatdata):
@@ -1200,8 +1204,6 @@ class CompatData:
                     pass
                 os.sync()
 
-            from proton_zluda import migrate_prefix
-            migrate_prefix(g_proton.base_dir, self.base_dir, log=log)
             self.migrate_user_paths()
 
             if not file_exists(self.prefix_dir + "/dosdevices/c:", follow_symlinks=False):
@@ -1212,14 +1214,16 @@ class CompatData:
                 os.makedirs(f"{self.prefix_dir}/dosdevices", exist_ok=True)
                 os.symlink("/", self.prefix_dir + "/dosdevices/z:")
 
+            from proton_zluda import prepare_prefix
+            prepare_prefix(g_proton, self, g_session, log=log)
+
             # collect configuration info
             steam_linux_path = os.environ["STEAM_COMPAT_CLIENT_INSTALL_PATH"]
 
             use_wined3d = "wined3d" in g_session.compat_config
             use_dxvk_dxgi = not use_wined3d and \
                     not ("WINEDLLOVERRIDES" in g_session.env and "dxgi=b" in g_session.env["WINEDLLOVERRIDES"])
-            from proton_zluda import nvapi_enabled
-            use_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
+            use_nvapi = ("disablenvapi" not in g_session.compat_config or "forcenvapi" in g_session.compat_config) and g_proton.host_pe_arch != "aarch64-windows"
             use_dxvk_d3d8 = "dxvkd3d8" in g_session.compat_config
 
             builtin_dll_copy = os.environ.get("PROTON_DLL_COPY",
@@ -2215,9 +2219,6 @@ class Session:
                 log("%s" % sys.exc_info()[1])
                 log("************************************************")
 
-        from proton_zluda import prepare_nvapi
-        prepare_nvapi(self.env, self.compat_config)
-
         if "PROTON_LOG" in self.env and nonzero(self.env["PROTON_LOG"]):
             self.env.setdefault("WINEDEBUG", "+timestamp,+pid,+tid,+seh,+unwind,+threadname,+debugstr,+loaddll,+mscoree")
             self.env.setdefault("DXVK_LOG_LEVEL", "info")
@@ -2486,10 +2487,7 @@ class Session:
         if "hidevggpu" in self.compat_config:
             self.env["WINE_HIDE_VANGOGH_GPU"] = "1"
 
-        self._cuda_previous_nvidia_hide = self.env.get("WINE_HIDE_NVIDIA_GPU")
-        self._cuda_hide_written = False
         if "hidenvgpu" in self.compat_config and "forcenvapi" not in self.compat_config:
-            self._cuda_hide_written = True
             self.env["WINE_HIDE_NVIDIA_GPU"] = "1"
 
         if "hideintelgpu" in self.compat_config:
@@ -2880,11 +2878,7 @@ if __name__ == "__main__":
 
     g_session.init_wine()
 
-    if g_proton.missing_default_prefix():
-        g_proton.make_default_prefix()
-
-    from proton_zluda import validate_default_prefix
-    validate_default_prefix(g_proton.base_dir, g_proton.default_pfx_dir)
+    g_proton.make_default_prefix()
     g_session.init_session(sys.argv[1] != "runinprefix")
 
     # protonfixes execution
@@ -2905,32 +2899,14 @@ if __name__ == "__main__":
     protonfixes.setup_upscalers(g_session.compat_config, g_session.env, g_compatdata.base_dir, g_compatdata.prefix_dir)
     protonfixes.execute()
 
-    from proton_zluda import dll_override, nvapi_enabled, prepare_nvapi
-    if g_session.env.get("PROTON_ENABLE_ZLUDA") == "1":
-        old_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
-        prepare_nvapi(g_session.env, g_session.compat_config)
-        if g_session.env.get("PROTON_ENABLE_ZLUDA") == "1" and getattr(g_session, "_cuda_hide_written", False):
-            if g_session._cuda_previous_nvidia_hide is None:
-                g_session.env.pop("WINE_HIDE_NVIDIA_GPU", None)
-            else:
-                g_session.env["WINE_HIDE_NVIDIA_GPU"] = g_session._cuda_previous_nvidia_hide
-        g_session.check_environment("PROTON_DISABLE_NVAPI", "disablenvapi")
-        g_session.check_environment("PROTON_FORCE_NVAPI", "forcenvapi")
-        new_nvapi = nvapi_enabled(g_session.compat_config, g_proton.host_pe_arch)
-        if old_nvapi != new_nvapi and sys.argv[1] != "runinprefix":
-            g_compatdata.setup_prefix()
-        if new_nvapi:
-            for module in ["nvapi", "nvapi64", "nvofapi64"]:
-                g_session.env["WINEDLLOVERRIDES"] = dll_override(
-                        g_session.env.get("WINEDLLOVERRIDES", ""), module, "n")
-        g_session.env["DXVK_ENABLE_NVAPI"] = "1" if new_nvapi else "0"
-
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
 
     # Per-game hooks opt in explicitly; forcing NVAPI alone is independent.
     from proton_zluda import enabled as zluda_enabled, configure_hardware, select_root
-    select_root(g_session.env, g_proton.base_dir, ld_path_var=ld_path_var)
+    from proton_zluda import launch_warnings
+    select_root(g_session.env, g_proton.base_dir, ld_path_var=ld_path_var, log=log)
+    launch_warnings(g_session.env, sys.argv[2:], log, g_session.log_file)
     if zluda_enabled(g_session.env):
         zluda_lib_dir = g_proton.path("files/lib64/")
         prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
@@ -2940,7 +2916,9 @@ if __name__ == "__main__":
         # preloaded into unrelated Wine processes. Hardware policy runs before
         # the game can load HIP, preserving explicit user overrides.
         configure_hardware(g_session.env)
+        g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
+        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
         log("ZLUDA enabled: CUDA-on-HIP translation active")
 
     #determine mode

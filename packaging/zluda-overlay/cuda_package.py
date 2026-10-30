@@ -16,10 +16,11 @@ import proton_zluda as policy
 
 MODULES = ['x86_64-windows/nvcuda.dll', 'i386-windows/nvcuda.dll', 'x86_64-unix/nvcuda.so']
 NAMES = {'nvcuda.dll', 'nvcuda.dll.so', 'nvcuda.so'}
+CANONICAL_NAMES = NAMES | {'libcuda.so', 'libcuda.so.1'}
 # Windows system runtimes supplied by Wine, never MinGW redistributable DLLs.
 WINDOWS_IMPORTS = {'kernel32.dll', 'msvcrt.dll', 'ntdll.dll', 'userenv.dll',
                    'ws2_32.dll', 'bcryptprimitives.dll', 'dbghelp.dll',
-                   'advapi32.dll', 'ucrtbase.dll'}
+                   'advapi32.dll', 'ucrtbase.dll', 'user32.dll'}
 
 
 
@@ -264,7 +265,7 @@ def materialize_template(tool):
 def remove_canonical(tool):
     canonical = tool / 'files/lib/wine'
     for path in canonical.rglob('*'):
-        if path.name.lower() in NAMES:
+        if path.name.lower() in CANONICAL_NAMES:
             if path.is_dir() and not path.is_symlink():
                 raise ValueError('unexpected canonical CUDA directory: ' + str(path))
             path.unlink()
@@ -283,7 +284,7 @@ def audit(tool):
     for canonical in [tool / 'files/lib/wine', tool / 'files/lib64/wine']:
         if not canonical.resolve().is_relative_to(tool.resolve()):
             raise ValueError('canonical Wine alias leaves tool')
-        if any(p.name.lower() in NAMES for p in canonical.rglob('*')):
+        if any(p.name.lower() in CANONICAL_NAMES for p in canonical.rglob('*')):
             raise ValueError('canonical nvcuda remains: ' + str(canonical))
     expected_on = {cuda / 'zluda' / name for name in MODULES}
     expected_on |= {p.parent for p in expected_on}

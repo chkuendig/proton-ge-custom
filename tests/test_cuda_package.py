@@ -66,7 +66,7 @@ class CudaPackage(unittest.TestCase):
 
     def test_exact_roots_and_regular_default_stubs_without_canonical_or_alias(self):
         canonical = self.tool / 'files/lib/wine'
-        for name in ['x86_64-unix/nvcuda.dll.so', 'x86_64-unix/nvcuda.so',
+        for name in ['x86_64-unix/nvcuda.dll.so', 'x86_64-unix/nvcuda.so', 'x86_64-unix/libcuda.so', 'x86_64-unix/libcuda.so.1',
                      'nvidia-libs/nvcuda/i386-windows/nvcuda.dll.so']:
             path = canonical / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -75,13 +75,13 @@ class CudaPackage(unittest.TestCase):
         for name in package.MODULES:
             self.assertEqual((self.tool / 'files/lib/wine-cuda/zluda' / name).read_bytes(),
                              (self.artifacts / name).read_bytes())
-        self.assertFalse(any(p.name in package.NAMES for p in canonical.rglob('*')))
+        self.assertFalse(any(p.name in package.CANONICAL_NAMES for p in canonical.rglob('*')))
         policy.validate_default_prefix(self.tool, self.tool / 'files/share/default_pfx')
         prov = json.loads((self.tool / 'provenance/ZLUDA-WINE.json').read_text())
         self.assertIn('PENDING', prov['qualification'])
         for name in ['files/lib/wine-cuda/stub/x86_64-unix/nvcuda.so',
                      'files/lib/wine-cuda/stub/x86_64-windows/libcuda.so.1',
-                     'files/lib/wine/x86_64-unix/nvcuda.so']:
+                     'files/lib/wine/x86_64-unix/nvcuda.so', 'files/lib/wine/x86_64-unix/libcuda.so.1']:
             path = self.tool / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'unexpected')
@@ -178,7 +178,7 @@ class CudaPackage(unittest.TestCase):
     def test_pe_import_policy_rejects_unbundled_compiler_runtimes_on_both_arches(self):
         allowed = ['KERNEL32.dll', 'msvcrt.dll', 'ntdll.dll', 'USERENV.dll',
                    'WS2_32.dll', 'api-ms-win-core-synch-l1-2-0.dll', 'bcryptprimitives.dll',
-                   'dbghelp.dll', 'advapi32.dll', 'ucrtbase.dll']
+                   'dbghelp.dll', 'advapi32.dll', 'ucrtbase.dll', 'USER32.dll']
         for machine in [0x14c, 0x8664]:
             path = self.root / 'dependency.dll'
             path.write_bytes(pe(machine, imports=allowed))

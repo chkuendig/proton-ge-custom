@@ -53,7 +53,8 @@ def sdk():
         if item.get('group') != 'rocm':
             continue
         archive = cache / item['url'].rsplit('/', 1)[1]
-        assert sha256(archive) == item['sha256'], item['id']
+        if not (sha256(archive) == item['sha256']):
+            raise ValueError(item['id'])
         package = build / 'packages' / item['id']
         package.mkdir(parents=True)
         subprocess.run(['dpkg-deb', '-x', str(archive), str(package)], check=True)
@@ -79,7 +80,8 @@ def sdk():
     for real, aliases in LOCK['rocm_runtime'].items():
         path = sdk / 'lib' / real
         with path.open('rb') as stream:
-            assert stream.read(4) == b'\x7fELF', real
+            if not (stream.read(4) == b'\x7fELF'):
+                raise ValueError(real)
         out = dest / 'files/lib64' / real
         out.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, out)
@@ -144,7 +146,6 @@ def metadata(part):
 
 def required_payload():
     required = ['proton', 'proton_zluda.py', 'files/lib64/libcuda.so.1', 'files/lib64/libcuda.so',
-                'files/lib/wine/x86_64-unix/libcuda.so.1', 'files/lib/wine/x86_64-unix/libcuda.so',
                 'files/lib64/libnuma.so.1',
                 *['files/lib/wine-cuda/zluda/' + name for name in cuda_package.MODULES],
                 *['files/lib/wine-cuda/stub/' + arch + '/nvcuda.dll' for arch in cuda_package.policy.ARCHES.values()],
@@ -181,14 +182,16 @@ def assemble(overlays):
     component_patches.prepare(source, pf, 'protonfixes', LOCK)
     ge = next(x for x in LOCK['downloads'] if x['id'] == 'ge')
     archive = cache / ge['url'].rsplit('/', 1)[1]
-    assert sha256(archive) == ge['sha256']
+    if not (sha256(archive) == ge['sha256']):
+        raise ValueError("overlay.py integrity gate failed: sha256(archive) == ge['sha256']")
     if dest.exists():
         raise ValueError('DESTDIR already exists')
     dest.parent.mkdir(parents=True, exist_ok=True)
     unpack = build / 'ge-unpacked'
     extract(archive, unpack, ge_base=True)
     children = list(unpack.iterdir())
-    assert len(children) == 1 and children[0].is_dir(), 'unexpected GE archive layout'
+    if not (len(children) == 1 and children[0].is_dir()):
+        raise ValueError('unexpected GE archive layout')
     shutil.move(str(children[0]), dest)
     cuda_package.prepare_stubs(dest)
     template_links = {p.relative_to(dest).as_posix(): os.readlink(p)
@@ -202,8 +205,10 @@ def assemble(overlays):
         extract(overlays / (part + '.tar.gz'), overlay)
         verify_manifest(overlay)
         record = json.loads((overlay / 'provenance' / (part + '.json')).read_text())
-        assert record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')
-        assert record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')
+        if not (record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')):
+            raise ValueError("overlay.py integrity gate failed: record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')")
+        if not (record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')):
+            raise ValueError("overlay.py integrity gate failed: record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')")
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
@@ -216,7 +221,8 @@ def assemble(overlays):
     for line in git(pf, 'diff', '--cached', '--name-status', '--no-renames', base).splitlines():
         status, name = line.split('\t', 1)
         path = dest / 'protonfixes' / name
-        assert path.resolve().is_relative_to((dest / 'protonfixes').resolve())
+        if not (path.resolve().is_relative_to((dest / 'protonfixes').resolve())):
+            raise ValueError("overlay.py integrity gate failed: path.resolve().is_relative_to((dest / 'protonfixes').resolve())")
         if status == 'D':
             path.unlink(missing_ok=True)
         else:
@@ -230,15 +236,18 @@ def assemble(overlays):
     vdf = dest / 'compatibilitytool.vdf'
     text, n = re.subn(r'(\n\s*)"[^"]+"(\s*// Internal name)',
                       lambda m: m[1] + '"' + LOCK['tool_name'] + '"' + m[2], vdf.read_text(), count=1)
-    assert n == 1, 'unknown compatibilitytool.vdf layout'
+    if not (n == 1):
+        raise ValueError('unknown compatibilitytool.vdf layout')
     text, n = re.subn(r'("display_name"\s*)"[^"]*"', r'\1"GE-Proton11-7 ZLUDA"', text, count=1)
-    assert n == 1
+    if not (n == 1):
+        raise ValueError('overlay.py integrity gate failed: n == 1')
     vdf.write_text(text)
     cuda_package.remove_canonical(dest)
     cuda_package.materialize_template(dest)
     cuda_package.audit(dest)
     for name in required_payload():
-        assert (dest / name).is_file() and (dest / name).stat().st_size, name
+        if not ((dest / name).is_file() and (dest / name).stat().st_size):
+            raise ValueError(name)
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'component_patches': LOCK['component_patches'],

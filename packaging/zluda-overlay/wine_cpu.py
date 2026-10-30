@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import signal
 import stat
+import shutil
 import subprocess
 
 import cuda_package
@@ -251,6 +252,25 @@ def check_result(results, winearch='win64', on_root=None):
     return record
 
 
+def retain_production(tool, work):
+    """Keep the exact assembled modules even when a later CPU gate fails."""
+    target = work / 'production'
+    target.mkdir()
+    files = {}
+    for name in cuda_package.MODULES:
+        source = tool / 'files/lib/wine-cuda/zluda' / name
+        dest = target / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, dest)
+        files[name] = sha256(dest)
+    contract = tool / 'provenance/ZLUDA-WINE.json'
+    shutil.copyfile(contract, target / 'ZLUDA-WINE.json')
+    (target / 'BUILD-CONTRACT.json').write_text(json.dumps(json.loads(contract.read_text())['contract'], indent=2) + '\n')
+    (target / 'SHA256SUMS').write_text(''.join(value + '  ' + name + '\n' for name, value in files.items()))
+    (target / 'RECEIPT.json').write_text(json.dumps({'kind': 'exact assembled production binaries; not a release artifact',
+        'source_pin': LOCK['components']['zluda'], 'files': files, 'provenance_sha256': sha256(contract)}, indent=2) + '\n')
+
+
 def run(source, tool, work):
     if not all(path.is_absolute() for path in [source, tool, work]):
         raise ValueError('Wine CPU paths must be absolute')
@@ -267,6 +287,7 @@ def run(source, tool, work):
         admit_cpu_devices()
         fixture = admit_source(source)
         wine, server = admit_tool(source, tool)
+        retain_production(tool, work)
         contexts = {}
         for winearch in PROFILES:
             directory = work / winearch
@@ -340,3 +361,5 @@ if __name__ == '__main__':
         raise RuntimeError('Wine CPU gate interrupted by signal ' + str(signum))
     signal.signal(signal.SIGTERM, terminate)
     run(args.source, args.tool, args.work)
+    import launcher_cpu
+    launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher')

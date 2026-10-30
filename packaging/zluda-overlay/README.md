@@ -43,14 +43,42 @@ before game launch, PROTON_ENABLE_ZLUDA=1 selects only the generated root;
 otherwise the stub root remains selected. Inherited managed roots are removed,
 one builtin CUDA override is merged, and only enabled processes receive the
 bundled backend's absolute filename internally. That filename is implementation
-state, not a user setting. Published one-switch NVAPI behavior is retained;
-off-mode NVAPI policy matches GE, including late game-fix behavior. Known managed
+state, not a user setting. The published dc2db071/e4dcac96 NVAPI timing is retained:
+ZLUDA-on sets PROTON_FORCE_NVAPI, DXVK_NVAPI_ALLOW_OTHER_DRIVERS and
+DXVK_ENABLE_NVAPI only after prefix setup. It does not insert `forcenvapi`, spoof
+AMD as an NVIDIA GPU, change the driver version, undo `hidenvgpu` or repeat
+prefix setup. An explicit early PROTON_FORCE_NVAPI still invokes GE's force
+policy, including its GPU spoof. Published `disablenvapi` without an early
+explicit force skips NVAPI DLL copies/native overrides even though ZLUDA-on
+sets DXVK_ENABLE_NVAPI later; this behavior is deliberately preserved. Off-mode
+NVAPI policy also matches the published launcher, including late game-fix behavior.
+The managed CUDA namespace always forces nvcuda=b, including off mode; user CUDA
+load-order overrides are replaced. Known managed
 prefix PE placeholders, ELF copies and tool symlinks migrate once under the
 prefix lock; native unmarked user DLLs/unknown files are preserved and logged.
 
-Sources include the complete pinned `wine`, `cuda_types`, `cuda_macros` and `dark_api`
-regeneration inputs, plus `zluda/src/lib.rs` and `zluda/src/impl/mod.rs` for
-backend-refusal attestation, in `sources/zluda-wine.tar.gz`. Root MIT/Apache, derived LGPL
+`PROTON_NVIDIA_NVCUDA`, `PROTON_NVIDIA_LIBS` and `PROTON_NVIDIA_NVOPTIX` no
+longer provide CUDA/NVENC-CUDA/OptiX through nvidia-libs. Each requested launch
+logs an explicit warning to stderr and the enabled Proton log. NVML/NVENC/NVOptiX
+copy policy otherwise stays GE's; those CUDA-dependent paths are unsupported.
+A 32-bit ZLUDA game requires PROTON_USE_WOW64=1; classic i386 launches log a
+warning. A make-built tool without the bundled backend falls back to off mode
+with a log message. Corrupt stub assets still fail closed.
+
+Default-prefix creation and validation share the distribution lock. Under the
+prefix lock, a changed Wine update timestamp runs Wineboot with only the stub
+root before final game selection. The gate checks the resulting prefix bytes;
+it does not rewrite them after Wineboot.
+
+`sources/zluda-wine.tar.gz` contains the full tracked ZLUDA superproject at its
+pin, including cuda_macros' `ext/*-sys/src/lib.rs` inputs and backend attestation
+sources. Compiler dep-info and build-script rerun-if records add only observed
+submodule files, never whole LLVM or other submodule trees. Both CI and make use
+`source_archive.py`: extract, run locked/offline Cargo metadata, resolve local
+literal includes, then run an offline native library Cargo check to execute the
+actual build-script/proc-macro regeneration from extracted sources alone. The
+receipt records the source tree, archive hash, observed files and resolved includes.
+Root MIT/Apache, derived LGPL
 and per-file notices, the independent Cargo lock and downloaded dependency
 licenses are retained. Stage A comparison utilities remain available for source
 oracle work; they are no longer invoked as a substitute for generated-bridge
@@ -167,8 +195,9 @@ compiler/binutils sets, DXVK/NVAPI cross-file tools and the prepared Winebuild
 before bridge configuration. `install-rust.sh` installs checksum-verified Rust
 1.99 and both GNU Windows standard libraries into a private build prefix.
 The upstream bridge entry fetches its independent locked graph and compiles
-offline with at most three jobs. Both component jobs cache downloaded Cargo
-sources even after failures, separated by component and lock hashes.
+offline with at most three jobs. Both component jobs cache Cargo crate archives
+and indexes, with keys covering the complete input lock, recipes, workflow and
+Cargo locks; extracted registry sources and Git checkouts are never restored.
 
 The final overlay's `DESTDIR` is private to the assembly helpers. Upstream builds
 must not inherit it: GE dependency recipes already install to absolute private
@@ -200,11 +229,14 @@ Cargo invocation.
 `native-cmake.py` passes `CMAKE_INSTALL_LIBDIR=lib` only when configuring HiGHS;
 it also removes staging DESTDIR. This leaves the ZLUDA pin and LLVM/Wine flags
 unchanged. Native logs and `NATIVE-LINK-LAYOUT.json` record the actual layout.
-The workflow restores compiler/Cargo source caches by compatible prefixes and
-explicitly saves them even after failure, with unique immutable keys per run.
-Only the bounded 4 GiB compiler cache is retained for LLVM, not its large build
-tree. GitHub's cache eviction controls accumulated snapshots; cache upload and
-reuse still need real CI validation. Package notices are collected per extracted
+Partial cache saves remain enabled. LLVM ccache restore/save prefixes cover all
+source pins and SDK/Rust versions through the complete input lock, all packaging
+Python/shell recipes, LLVM's build script, Cargo lock and workflow. A unique run
+suffix allows partial caches to grow. Cargo restores only crate archives/indexes;
+fresh extraction verifies Cargo.lock checksums. The bounded 4 GiB compiler cache
+retains no LLVM build tree. Corruption or changes to compiler inputs cannot be
+made safe merely by a cache key; clean rebuild comparison remains a separate
+reproducibility check. Package notices are collected per extracted
 AMD package; component and Cargo dependency licenses are retained. Corresponding
 libnuma, generated bridge and prepared Wine source and this build recipe are included under
 `sources/`. GE's existing license payload remains in the archive. Inspect the
@@ -270,9 +302,24 @@ probe binaries and separate win64/wow64 bootstrap/case/cleanup logs and JSON
 results on either outcome. Each runner is bounded to 15 minutes; the combined
 step is capped at 40 minutes for compilation and both cleanup sequences.
 The PE64 gate and verified-absence cleanup passed hosted run 40994299565.
-PE32 execution awaits the next combined hosted run. A complete pass establishes
+Both profiles passed hosted run 41003314309 on the prior 0f529f9d/6e3ff59a pair. A direct-Wine pass establishes
 only the tested CPU behavior; real GPU W1/W2, all bounded opcodes under Wine,
 complete graph/context ownership, interop and game adoption remain separate gates.
+
+The same 40-minute CPU step additionally invokes `launcher_cpu.py`, which runs
+the actual assembled `proton` script off/on/off on one fresh compatdata per
+architecture. Its disposable tool copy has no default_pfx initially and uses a
+fixture in place of its bundled native backend; the release tool remains
+unchanged. No WINEDLLPATH, CUDA override or prefix-stub repair is supplied by the
+harness. The on transition seeds a managed legacy ELF and stale Wine timestamp.
+It requires migration receipts and exact regular GE template/prefix stubs after
+every launch. PE32 uses the actual 35140 early/main protonfix via
+`waitforexitandrun`; installed-verb log fixtures prevent installer/network use.
+Both ordinary probes/events and every server cleanup remain mandatory. This
+new real-launcher gate awaits hosted execution. `wine-cpu-evidence` always
+retains its logs/results plus the exact three assembled production bridge
+modules, BUILD-CONTRACT.json, SHA256SUMS and source-pin receipt, even on failure.
+Evidence artifacts from failed runs are not release artifacts.
 
 ```bash
 # Small metadata + HEAD requests only; no SDK layers or GE/Rust/ROCm payloads.
@@ -322,7 +369,7 @@ Draft mode does not build the native CUDA/LLVM backend, generate an overlay
 tarball, install modules into a tool or run the assembly job. Default dispatch
 `profile=overlay` retains the full three-module path. The pinned WoW64 draft
 now supplies both PE frontends, all 59 bounded operations and both ELF tables.
-Its 13 native CPU tests include original-C dispatcher comparisons; actual
-PE32/PE64 compilation/loading and Wine/GPU/private-table/callback parity remain
-pending. The package gate rejects missing or partial output without a C fallback;
+Original-C dispatcher CPU comparisons and hosted ordinary PE32/PE64 Wine
+execution are recorded in the evidence. Full GPU/private-table/callback parity
+and target-game adoption remain pending. The package gate rejects missing or partial output without a C fallback;
 passing compilation/assembly alone does not qualify adoption.

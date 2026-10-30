@@ -151,6 +151,7 @@ class WineCpu(unittest.TestCase):
         with mock.patch.object(gate, 'admit_cpu_devices'), \
              mock.patch.object(gate, 'admit_source', return_value=self.source / 'tests/abi'), \
              mock.patch.object(gate, 'admit_tool', return_value=[self.wine, self.server]), \
+             mock.patch.object(gate, 'retain_production'), \
              mock.patch.object(gate, 'inspect_backend', return_value=['libc.so.6']), \
              mock.patch.object(gate, 'inspect_probe', return_value={'sha256': 'fixture'}), \
              mock.patch.object(gate, 'command', side_effect=command):
@@ -254,33 +255,29 @@ class WineCpu(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'DLL dependency'):
                 gate.inspect_probe(probe, arch)
 
-    def test_source_archive_contains_exact_backend_attestation_files(self):
-        source = self.source / 'zluda'
-        source.mkdir()
-        expected = {'wine/fixture', 'cuda_types/fixture', 'cuda_macros/fixture', 'dark_api/fixture',
-                    'zluda/src/lib.rs', 'zluda/src/impl/mod.rs'}
-        for name in expected | {'zluda/src/unrelated.rs', 'unrelated.txt'}:
-            path = source / name
+    def test_production_retention_keeps_module_bytes_contract_and_checksums(self):
+        for name in gate.cuda_package.MODULES:
+            path = self.tool / 'files/lib/wine-cuda/zluda' / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('source archive fixture\n')
-        env = dict(os.environ, GIT_AUTHOR_NAME='Christian Kündig', GIT_COMMITTER_NAME='Christian Kündig',
-                   GIT_AUTHOR_EMAIL='christian@kuendig.info', GIT_COMMITTER_EMAIL='christian@kuendig.info')
-        for args in [('init', '-q'), ('add', '.'),
-                     ('-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'fixture')]:
-            subprocess.run(['git', '-C', str(source), *args], env=env, check=True,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        lines = (ROOT / 'packaging/zluda-overlay/build-components.sh').read_text().splitlines()
-        index = next(i for i, line in enumerate(lines) if 'git -C "$SOURCE_ROOT/zluda" archive HEAD' in line)
-        command = lines[index]
-        while command.rstrip().endswith('\\'):
-            index += 1
-            command += '\n' + lines[index]
-        (self.tool / 'sources').mkdir()
-        subprocess.run(['bash', '-euo', 'pipefail', '-c', command],
-                       env=dict(env, SOURCE_ROOT=str(self.source), DESTDIR=str(self.tool)), check=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        with tarfile.open(self.tool / 'sources/zluda-wine.tar.gz') as archive:
-            self.assertEqual({item.name for item in archive if item.isfile()}, expected)
+            path.write_bytes(('production ' + name).encode())
+        path = self.tool / 'provenance/ZLUDA-WINE.json'
+        path.parent.mkdir()
+        path.write_text(json.dumps({'contract': {'source_commit': gate.LOCK['components']['zluda']}}))
+        self.work.mkdir()
+        gate.retain_production(self.tool, self.work)
+        for name in gate.cuda_package.MODULES:
+            self.assertEqual((self.work / 'production' / name).read_bytes(),
+                             (self.tool / 'files/lib/wine-cuda/zluda' / name).read_bytes())
+        self.assertEqual(json.loads((self.work / 'production/BUILD-CONTRACT.json').read_text()),
+                         {'source_commit': gate.LOCK['components']['zluda']})
+        self.assertEqual(len((self.work / 'production/SHA256SUMS').read_text().splitlines()), 3)
+
+    def test_both_build_paths_share_compiler_observed_full_source_archive(self):
+        for file in ['packaging/zluda-overlay/build-components.sh', 'make/zluda-wine-bridge.mk']:
+            text = (ROOT / file).read_text()
+            self.assertIn('source_archive.py', text)
+            self.assertIn('zluda-wine/target', text)
+            self.assertNotIn('archive HEAD wine cuda_types', text)
 
     def test_probe_timeout_still_kills_and_waits(self):
         self.exercise('timeout')

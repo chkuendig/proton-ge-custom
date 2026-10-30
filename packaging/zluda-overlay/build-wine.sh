@@ -280,7 +280,9 @@ for p in $(printf '%s\n' "${sel[@]}" | sort -u); do
     case $(file -b "$t") in
         ELF*)
             objcopy -p --strip-debug "$t"
-            v=$(objdump -T "$t" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1 || true)
+            symbols=$(objdump -T "$t")
+            # A valid ELF may have no GLIBC requirement; objdump failure is fatal.
+            v=$(grep -o 'GLIBC_[0-9.]*' <<< "$symbols" | sort -uV | tail -1 || true)
             if [[ -n $v ]]; then
                 [[ $glibc_max == none ]] || v=$(printf '%s\n' "$glibc_max" "$v" | sort -V | tail -1)
                 glibc_max=$v
