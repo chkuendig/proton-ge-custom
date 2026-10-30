@@ -28,10 +28,12 @@ class WineCpu(unittest.TestCase):
         directory.mkdir(parents=True)
         record = {'qualification': gate.PASS,
                   'cases': [{'mode': mode, 'returncode': 0} for mode in gate.MODES],
-                  'cleanup': {'returncode': 0}}
+                  'cleanup': {'verified_absent': True, 'lock': {'absent': True},
+                              'steps': [{'command': [str(self.server), flag], 'returncode': code,
+                                         'accepted': True} for flag, code in [('-k', 1), ('-w', 0), ('-k0', 1)]]}}
         (directory / 'RESULT.json').write_text(json.dumps(record))
-        for name in ['bootstrap', *gate.MODES, 'wineserver-cleanup']:
-            (directory / (name + '.log')).write_text('fixture log\n')
+        for name in ['bootstrap', *gate.MODES, 'wineserver-cleanup', 'wineserver-wait', 'wineserver-verify']:
+            (directory / (name + '.log')).write_text('' if name.startswith('wineserver-') else 'fixture log\n')
         return record
 
     def test_environment_excludes_inherited_roots_backends_and_gpu_libraries(self):
@@ -78,11 +80,20 @@ class WineCpu(unittest.TestCase):
         for invalid in [dict(valid, qualification='pending'), dict(valid, cases=valid['cases'][:-1]),
                         dict(valid, cases=list(reversed(valid['cases']))),
                         dict(valid, cleanup={'returncode': 1}),
+                        dict(valid, cleanup=dict(valid['cleanup'], verified_absent=False)),
+                        dict(valid, cleanup=dict(valid['cleanup'], lock={'absent': False})),
+                        dict(valid, cleanup=dict(valid['cleanup'], steps=[])),
+                        dict(valid, cleanup=dict(valid['cleanup'], steps=[
+                             dict(step, returncode=0) for step in valid['cleanup']['steps']])),
                         dict(valid, cases=[dict(case, returncode=1) for case in valid['cases']])]:
             (results / 'RESULT.json').write_text(json.dumps(invalid))
             with self.assertRaises(ValueError):
                 gate.check_result(results)
         (results / 'RESULT.json').write_text(json.dumps(valid))
+        (results / 'wineserver-verify.log').write_text('permission denied')
+        with self.assertRaisesRegex(ValueError, 'diagnostics'):
+            gate.check_result(results)
+        (results / 'wineserver-verify.log').write_text('')
         (results / 'off-again.log').unlink()
         with self.assertRaisesRegex(ValueError, 'log missing'):
             gate.check_result(results)
@@ -90,7 +101,7 @@ class WineCpu(unittest.TestCase):
     def exercise(self, mode='pass'):
         commands = []
 
-        def command(argv, env, log, timeout):
+        def command(argv, env, log, timeout, accepted=(0,)):
             argv = [str(value) for value in argv]
             commands.append((argv, env, timeout))
             log.write_text('orchestration fixture\n')
@@ -102,6 +113,9 @@ class WineCpu(unittest.TestCase):
                     self.results(self.work / 'results')
             if mode == 'kill-failure' and argv[-1] == '-k':
                 raise RuntimeError('fixture kill failure')
+            if argv[-1] in ['-k', '-w', '-k0']:
+                log.write_text('')
+            return 1 if argv[-1] == '-k0' else 0
 
         with mock.patch.object(gate, 'admit_cpu_devices'), \
              mock.patch.object(gate, 'admit_source', return_value=self.source / 'tests/abi'), \
@@ -117,10 +131,10 @@ class WineCpu(unittest.TestCase):
                     gate.run(self.source, self.tool, self.work)
         record = json.loads((self.work / 'INTEGRATION.json').read_text())
         self.assertEqual(record['status'], 'passed' if mode == 'pass' else 'failed')
-        # Both cleanup calls must run even after probe timeout, absent result,
-        # or a failure of the first cleanup call.
-        self.assertEqual([entry[0] for entry in commands[-2:]],
-                         [[str(self.server), '-k'], [str(self.server), '-w']])
+        # Wait and absence check must run even after probe timeout, absent
+        # result or failure of the first cleanup call.
+        self.assertEqual([entry[0] for entry in commands[-3:]],
+                         [[str(self.server), flag] for flag in ['-k', '-w', '-k0']])
         self.assertTrue(all(env['WINEPREFIX'] == str(self.work / 'prefix')
                             for _, env, _ in commands))
         return commands
@@ -145,6 +159,82 @@ class WineCpu(unittest.TestCase):
 
     def test_cleanup_failure_cannot_pass_and_still_waits(self):
         self.exercise('kill-failure')
+
+    def test_cleanup_accepts_absence_but_rejects_survivor_diagnostics_and_wait_failure(self):
+        self.work.mkdir()
+        cases = [('already-exited', [1, 0, 1], '', True),
+                 ('killed', [0, 0, 1], '', True),
+                 ('survivor', [0, 0, 0], '', False),
+                 ('wait-failure', [1, 1, 1], '', False),
+                 ('wait-timeout', [0, 'timeout', 0], '', False),
+                 ('absence-diagnostic', [1, 0, 1], 'permission denied', False),
+                 ('unexpected-code', [2, 0, 1], '', False)]
+        for name, codes, diagnostic, passed in cases:
+            with self.subTest(name=name):
+                responses = iter(codes)
+                def command(argv, env, log, timeout, accepted=(0,)):
+                    code = next(responses)
+                    log.write_text(diagnostic if code == 1 else '')
+                    if code == 'timeout':
+                        raise subprocess.TimeoutExpired(argv, timeout)
+                    if code not in accepted:
+                        raise RuntimeError('unexpected returncode ' + str(code))
+                    return code
+                with mock.patch.object(gate, 'command', side_effect=command):
+                    record = gate.cleanup_server(self.server, {'WINEPREFIX': str(self.work / 'prefix')}, self.work)
+                self.assertEqual(record['status'], 'passed' if passed else 'failed')
+                self.assertEqual([entry['command'][-1] for entry in record['commands']], ['-k', '-w', '-k0'])
+                if passed:
+                    self.assertEqual([entry['returncode'] for entry in record['commands']], codes)
+
+    def test_direct_posix_lock_check_detects_a_survivor_without_wine(self):
+        prefix = self.root / 'prefix'
+        temporary = self.root / 'tmp'
+        prefix.mkdir()
+        temporary.mkdir()
+        self.assertEqual(gate.server_lock_state(prefix, temporary)['state'], 'absent-lock-path')
+        info = prefix.stat()
+        directory = temporary / ('.wine-' + str(os.getuid())) / f'server-{info.st_dev:x}-{info.st_ino:x}'
+        directory.mkdir(parents=True)
+        lock = directory / 'lock'
+        lock.write_text('')
+        self.assertEqual(gate.server_lock_state(prefix, temporary)['state'], 'unlocked')
+        # A separate Python process holds the same byte-range lock Wine uses.
+        # This fixture executes neither Wine nor a native compiler.
+        script = ('import fcntl,sys; f=open(sys.argv[1],"r+"); '
+                  'fcntl.lockf(f,fcntl.LOCK_EX,1,0); print("ready",flush=True); sys.stdin.readline()')
+        process = subprocess.Popen([sys.executable, '-c', script, str(lock)], text=True,
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            self.assertEqual(process.stdout.readline().strip(), 'ready')
+            with self.assertRaises(BlockingIOError):
+                gate.server_lock_state(prefix, temporary)
+            with mock.patch.object(gate, 'server_lock_state', side_effect=BlockingIOError('held')), \
+                 mock.patch.object(gate, 'command', side_effect=[0, 0, 1]):
+                self.work.mkdir()
+                # Absence-probe diagnostics are independently required empty.
+                (self.work / 'outer-server-absent.log').write_text('')
+                record = gate.cleanup_server(self.server, {'WINEPREFIX': str(prefix)}, self.work)
+                self.assertEqual(record['status'], 'failed')
+                self.assertIn('held', record['lock']['error'])
+        finally:
+            process.communicate('\n', timeout=5)
+        self.assertEqual(gate.server_lock_state(prefix, temporary)['state'], 'unlocked')
+        lock.unlink()
+        lock.symlink_to(self.root / 'external-lock')
+        with self.assertRaises(OSError):
+            gate.server_lock_state(prefix, temporary)
+        lock.unlink()
+        os.mkfifo(lock)
+        with self.assertRaisesRegex(ValueError, 'regular file'):
+            gate.server_lock_state(prefix, temporary)
+
+    def test_command_nonzero_is_accepted_only_when_explicit(self):
+        log = self.root / 'command.log'
+        with mock.patch.object(gate.subprocess, 'run', return_value=mock.Mock(returncode=1)):
+            with self.assertRaisesRegex(RuntimeError, 'command failed'):
+                gate.command(['/not-executed'], {}, log, 1)
+            self.assertEqual(gate.command(['/not-executed'], {}, log, 1, accepted=(0, 1)), 1)
 
     def test_source_and_provenance_admission_precede_execution(self):
         with mock.patch.object(gate, 'admit_cpu_devices'), \

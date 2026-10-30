@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Hosted Wine CPU gate orchestration; no container launch or GPU backend."""
 import argparse
+import fcntl
 import json
 import os
 from pathlib import Path
 import re
 import signal
+import stat
 import subprocess
 
 import cuda_package
@@ -60,13 +62,77 @@ def environment(tool, work, wine, server):
     return env
 
 
-def command(argv, env, log, timeout):
+def command(argv, env, log, timeout, accepted=(0,)):
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open('w') as output:
         result = subprocess.run([str(arg) for arg in argv], env=env, stdout=output,
                                 stderr=subprocess.STDOUT, timeout=timeout, check=False)
-    if result.returncode:
+    if result.returncode not in accepted:
         raise RuntimeError(f'Wine CPU command failed ({result.returncode}): {log}')
+    return result.returncode
+
+
+def cleanup_server(server, env, work):
+    # Wine main.c exits !kill_lock_owner(): -k returns 1 when already gone.
+    # Require the lock wait, then signal-0 probe too: a surviving server returns
+    # 0 for -k0. An error diagnostic must never masquerade as an absent server.
+    record = {'status': 'passed', 'commands': []}
+    for flag, label in [('-k', 'kill'), ('-w', 'wait'), ('-k0', 'absent')]:
+        log = work / ('outer-server-' + label + '.log')
+        entry = {'command': [str(server), flag], 'log': log.name}
+        record['commands'].append(entry)
+        try:
+            code = command([server, flag], env, log, 15, accepted=(0, 1))
+            entry['returncode'] = code
+            if ((flag == '-w' and code != 0) or (flag == '-k0' and code != 1) or
+                    (code == 1 and log.read_text().strip())):
+                raise RuntimeError('Wine CPU server cleanup failed or server survived: ' + str(log))
+        except BaseException as error:
+            record['status'] = 'failed'
+            entry['error'] = str(error)
+    try:
+        record['lock'] = server_lock_state(Path(env['WINEPREFIX']))
+    except BaseException as error:
+        record['status'] = 'failed'
+        record['lock'] = {'error': str(error)}
+    return record
+
+
+def server_lock_state(prefix, temporary=Path('/tmp')):
+    """Independently verify Wine's byte-0 server lock, without creating files."""
+    try:
+        info = prefix.lstat()
+    except FileNotFoundError:
+        return {'state': 'absent-prefix', 'path': str(prefix)}
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        raise ValueError('Wine CPU prefix must be an owned regular directory')
+    parts = ['.wine-' + str(os.getuid()), f'server-{info.st_dev:x}-{info.st_ino:x}', 'lock']
+    path = temporary.joinpath(*parts)
+    result = {'path': str(path)}
+    directory = os.open(temporary, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    lock = None
+    try:
+        for name in parts[:-1]:
+            child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory)
+            directory = child
+            if os.fstat(directory).st_uid != os.getuid():
+                raise ValueError('Wine CPU server directory has another owner')
+        lock = os.open(parts[-1], os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        info = os.fstat(lock)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            raise ValueError('Wine CPU server lock must be an owned regular file')
+        # Wine request.c uses this same POSIX byte-range lock. A held lock or
+        # any filesystem/locking error must fail, even if -w exited zero.
+        fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB, 1, 0, os.SEEK_SET)
+        result['state'] = 'unlocked'
+    except FileNotFoundError:
+        result['state'] = 'absent-lock-path'
+    finally:
+        if lock is not None:
+            os.close(lock)
+        os.close(directory)
+    return result
 
 
 def admit_cpu_devices(dev=Path('/dev')):
@@ -91,14 +157,22 @@ def inspect_backend(backend):
 
 def check_result(results):
     record = json.loads((results / 'RESULT.json').read_text())
+    cleanup = record.get('cleanup', {})
+    steps = cleanup.get('steps', [])
     if (record.get('qualification') != PASS or
             [case['mode'] for case in record.get('cases', [])] != MODES or
             any(case['returncode'] for case in record['cases']) or
-            record.get('cleanup', {}).get('returncode') != 0):
+            cleanup.get('verified_absent') is not True or cleanup.get('lock', {}).get('absent') is not True or
+            [step['command'][-1] for step in steps] != ['-k', '-w', '-k0'] or
+            any(step.get('accepted') is not True or step['returncode'] not in codes
+                for step, codes in zip(steps, [(0, 1), (0,), (1,)]))):
         raise ValueError('Wine CPU runner did not complete all six cases and cleanup')
-    for name in ['bootstrap', *MODES, 'wineserver-cleanup']:
+    for name in ['bootstrap', *MODES, 'wineserver-cleanup', 'wineserver-wait', 'wineserver-verify']:
         if not (results / (name + '.log')).is_file():
             raise ValueError('Wine CPU runner log missing: ' + name)
+    for step, name in zip(steps, ['wineserver-cleanup', 'wineserver-wait', 'wineserver-verify']):
+        if step['returncode'] == 1 and (results / (name + '.log')).read_text().strip():
+            raise ValueError('Wine CPU runner absence result has diagnostics: ' + name)
     return record
 
 
@@ -142,16 +216,9 @@ def run(source, tool, work):
         # The runner cleans up too; this outer guard covers timeout/early errors.
         # Prefix-local -k/-w cannot affect another Wine server or prefix.
         if env is not None and (work / 'prefix').exists():
-            errors = []
-            for flag, label in [('-k', 'kill'), ('-w', 'wait')]:
-                try:
-                    command([server, flag], env, work / ('outer-server-' + label + '.log'), 15)
-                except BaseException as error:
-                    errors.append(str(error))
-                    failure = failure or error
-            record['cleanup'] = 'failed' if errors else 'prefix server killed and waited'
-            if errors:
-                record['cleanup_error'] = errors
+            record['cleanup'] = cleanup_server(server, env, work)
+            if record['cleanup']['status'] != 'passed':
+                failure = failure or RuntimeError('Wine CPU outer server cleanup failed; see INTEGRATION.json')
         record['status'] = 'failed' if failure else 'passed'
         if not failure:
             record['qualification'] = PASS

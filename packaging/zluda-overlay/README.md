@@ -242,12 +242,17 @@ Wineboot/display diagnostics remain in the logs for the first hosted run.
 
 `wine_cpu.py` admits the exact source and assembled provenance, checks fake
 backend dependencies and requires all six cases, their logs and successful
-cleanup. Its outer timeout/error guard always kills and waits for the
-prefix-local wineserver. Failures block final tool artifact upload;
+cleanup. Its outer timeout/error guard kills and waits for the prefix-local
+wineserver, accepts an already-exited server, then verifies absence with a
+signal-zero probe and a direct nonblocking POSIX byte-range lock check. Any
+surviving server, diagnostic on an absence result or lock-check error fails.
+Failures block final tool artifact upload;
 `wine-cpu-evidence` retains fixture sources/binary hashes, toolchain versions,
 probe binaries, bootstrap/case/cleanup logs and JSON results on either outcome.
-This gate has not yet executed under Wine. A future pass establishes only the
-tested x64 CPU behavior; PE32 execution, real GPU W1/W2, complete graph/context
+The first hosted run passed all six probe cases under headless Wine, then
+failed on an already-exited wineserver's cleanup exit code. The corrected
+cleanup protocol still needs a hosted rerun. A complete pass establishes only
+the tested x64 CPU behavior; PE32 execution, real GPU W1/W2, complete graph/context
 ownership, interop and game adoption remain separate gates.
 
 ```bash
