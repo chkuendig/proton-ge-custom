@@ -317,6 +317,12 @@ Failures block final tool artifact upload;
 probe binaries and separate win64/wow64 bootstrap/case/cleanup logs and JSON
 results on either outcome. Each runner is bounded to 15 minutes; the combined
 step is capped at 40 minutes for all runtime profiles and cleanup sequences.
+Before upload, `stage_cpu_evidence.py` copies approved evidence into a fresh
+directory using regular-file checks and directory-descriptor opens that never
+follow symlinks. Prefix, drive mappings and disposable tool contents are excluded;
+only the explicit migration receipt is copied from compatdata. `STAGING.json`
+records hashes, missing/skipped paths and read errors even after a failed gate.
+The upload action scans only this staged directory.
 The PE64 gate and verified-absence cleanup passed hosted run 40994299565.
 Both profiles passed hosted run 41003314309 on the prior 0f529f9d/6e3ff59a pair. A direct-Wine pass establishes
 only the tested CPU behavior; real GPU W1/W2, all bounded opcodes under Wine,

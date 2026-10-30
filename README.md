@@ -10,6 +10,8 @@
 
 # GE-Proton
 
+This compatibility tool currently targets AMD GPUs only.
+
 This ZLUDA fork selects its bundled Wine CUDA bridge with
 `PROTON_ENABLE_ZLUDA=1`; 32-bit CUDA games also require WoW64. ZLUDA-on retains
 the published launcher's late NVAPI environment writes and does not implicitly

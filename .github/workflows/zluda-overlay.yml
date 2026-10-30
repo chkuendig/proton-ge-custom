@@ -241,30 +241,17 @@ jobs:
             "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
             --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
+      - name: Stage bounded CPU evidence without prefix traversal
+        if: always()
+        run: |
+          python3 packaging/zluda-overlay/stage_cpu_evidence.py \
+            --root "$RUNNER_TEMP" --dest "$RUNNER_TEMP/wine-cpu-evidence"
       - name: Retain CPU fixture evidence on success or failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wine-cpu-evidence
-          path: |
-            ${{ runner.temp }}/wine-cpu.log
-            ${{ runner.temp }}/wine-cpu/run/INTEGRATION.json
-            ${{ runner.temp }}/wine-cpu/run/*.log
-            ${{ runner.temp }}/wine-cpu/run/build
-            ${{ runner.temp }}/wine-cpu/run/production
-            ${{ runner.temp }}/wine-cpu/run/lifecycle/INTEGRATION.json
-            ${{ runner.temp }}/wine-cpu/run/lifecycle/*.log
-            ${{ runner.temp }}/wine-cpu/run/lifecycle/results
-            ${{ runner.temp }}/wine-cpu/run/launcher/INTEGRATION.json
-            ${{ runner.temp }}/wine-cpu/run/launcher/*.log
-            ${{ runner.temp }}/wine-cpu/run/launcher/win64/**/*.log
-            ${{ runner.temp }}/wine-cpu/run/launcher/win64/**/*.json
-            ${{ runner.temp }}/wine-cpu/run/launcher/wow64/**/*.log
-            ${{ runner.temp }}/wine-cpu/run/launcher/wow64/**/*.json
-            ${{ runner.temp }}/wine-cpu/run/win64/*.log
-            ${{ runner.temp }}/wine-cpu/run/win64/results
-            ${{ runner.temp }}/wine-cpu/run/wow64/*.log
-            ${{ runner.temp }}/wine-cpu/run/wow64/results
+          path: ${{ runner.temp }}/wine-cpu-evidence
           if-no-files-found: warn
           retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
