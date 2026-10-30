@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from unittest import mock
@@ -24,13 +25,29 @@ class WineCpu(unittest.TestCase):
         self.wine = self.tool / 'files/bin/wine'
         self.server = self.tool / 'files/bin/wineserver'
 
-    def results(self, directory):
+    def results(self, directory, winearch='win64'):
         directory.mkdir(parents=True)
-        record = {'qualification': gate.PASS,
+        record = {'qualification': gate.PROFILES[winearch]['qualification'], 'architecture': gate.architecture(winearch),
                   'cases': [{'mode': mode, 'returncode': 0} for mode in gate.MODES],
                   'cleanup': {'verified_absent': True, 'lock': {'absent': True},
                               'steps': [{'command': [str(self.server), flag], 'returncode': code,
                                          'accepted': True} for flag, code in [('-k', 1), ('-w', 0), ('-k0', 1)]]}}
+        if winearch == 'wow64':
+            for case in record['cases']:
+                case['architecture'] = {'process_machine': '0x014c', 'native_machine': '0x8664',
+                    'pointer_bits': 32, 'module_machine': '0x014c', 'module_bits': 32,
+                    'cu_deviceptr_bits': 32, 'exports': 0 if case['mode'].startswith('off') else 690}
+                case['events'] = []
+                if case['mode'] == 'on':
+                    case['events'] = ['backend-loaded', 'cuInit', 'cuInit', 'sparse-512MiB-pool',
+                                      'bounded-interior-htod', 'bounded-interior-dtoh', 'pool-released', 'context-released']
+                    case['wow64_witness'] = {'native_bits': 64, 'native_pid': 1234,
+                        'unixlib_path': str(self.tool / 'files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so'),
+                        'unixlib_mapped': True, 'i386_unix_cuda_mapped': False, 'unexpected_cuda_mapping': False,
+                        'pool_reserved_bytes': 536870912, 'pool_native_base': 0x100000000,
+                        'htod_offset': 260, 'dtoh_offset': 260, 'pool_released': True, 'context_released': True}
+                    (directory / 'on-backend.json').write_text(json.dumps(case['wow64_witness']))
+                    (directory / 'on-backend.log').write_text('\n'.join(case['events']) + '\n')
         (directory / 'RESULT.json').write_text(json.dumps(record))
         for name in ['bootstrap', *gate.MODES, 'wineserver-cleanup', 'wineserver-wait', 'wineserver-verify']:
             (directory / (name + '.log')).write_text('' if name.startswith('wineserver-') else 'fixture log\n')
@@ -53,6 +70,11 @@ class WineCpu(unittest.TestCase):
         self.assertEqual(env['WINEPREFIX'], str(self.work / 'prefix'))
         self.assertEqual(env['WINESERVER'], str(self.server))
         self.assertEqual(env['WINEARCH'], 'win64')
+        wow64 = gate.environment(self.tool, self.work / 'wow64', self.wine, self.server, 'wow64')
+        self.assertEqual(wow64['WINEARCH'], 'wow64')
+        self.assertEqual(wow64['WINEPREFIX'], str(self.work / 'wow64/prefix'))
+        with self.assertRaises(ValueError):
+            gate.environment(self.tool, self.work, self.wine, self.server, 'win32')
 
     def test_device_and_fake_backend_dependency_guards(self):
         dev = self.root / 'dev'
@@ -64,7 +86,10 @@ class WineCpu(unittest.TestCase):
                 gate.admit_cpu_devices(dev)
             (dev / name).rmdir()
         backend = self.root / 'libcuda.so.1'
-        backend.write_bytes(b'\x7fELF\x02\x01fixture')
+        header = bytearray(64)
+        header[:6] = b'\x7fELF\x02\x01'
+        header[18:20] = (62).to_bytes(2, 'little')
+        backend.write_bytes(header)
         dynamic = '(SONAME) Library soname: [libcuda.so.1]\n(NEEDED) Shared library: [libc.so.6]\n'
         with mock.patch.object(gate.subprocess, 'check_output', return_value=dynamic):
             self.assertEqual(gate.inspect_backend(backend), ['libc.so.6'])
@@ -78,6 +103,10 @@ class WineCpu(unittest.TestCase):
         valid = self.results(results)
         self.assertEqual(gate.check_result(results), valid)
         for invalid in [dict(valid, qualification='pending'), dict(valid, cases=valid['cases'][:-1]),
+                        dict(valid, architecture=gate.architecture('wow64')),
+                        dict(valid, architecture={}),
+                        dict(valid, architecture=dict(valid['architecture'], native_bits=32)),
+                        dict(valid, architecture=dict(valid['architecture'], unix_call_table='__wine_unix_call_wow64_funcs')),
                         dict(valid, cases=list(reversed(valid['cases']))),
                         dict(valid, cleanup={'returncode': 1}),
                         dict(valid, cleanup=dict(valid['cleanup'], verified_absent=False)),
@@ -106,12 +135,14 @@ class WineCpu(unittest.TestCase):
             commands.append((argv, env, timeout))
             log.write_text('orchestration fixture\n')
             if 'run-fixtures.py' in argv[1]:
-                (self.work / 'prefix').mkdir()
-                if mode == 'timeout':
+                options = dict(zip(argv[2::2], argv[3::2]))
+                arch = options['--winearch']
+                Path(options['--prefix']).mkdir()
+                if mode == 'timeout' or mode == 'wow64-timeout' and arch == 'wow64':
                     raise subprocess.TimeoutExpired(argv, timeout)
-                if mode != 'missing-result':
-                    self.results(self.work / 'results')
-            if mode == 'kill-failure' and argv[-1] == '-k':
+                if mode != 'missing-result' and not (mode == 'wow64-missing-result' and arch == 'wow64'):
+                    self.results(Path(options['--results']), 'win64' if mode == 'wow64-wrong-profile' else arch)
+            if (mode == 'kill-failure' or mode == 'wow64-cleanup-failure' and env['WINEARCH'] == 'wow64') and argv[-1] == '-k':
                 raise RuntimeError('fixture kill failure')
             if argv[-1] in ['-k', '-w', '-k0']:
                 log.write_text('')
@@ -121,13 +152,16 @@ class WineCpu(unittest.TestCase):
              mock.patch.object(gate, 'admit_source', return_value=self.source / 'tests/abi'), \
              mock.patch.object(gate, 'admit_tool', return_value=[self.wine, self.server]), \
              mock.patch.object(gate, 'inspect_backend', return_value=['libc.so.6']), \
+             mock.patch.object(gate, 'inspect_probe', return_value={'sha256': 'fixture'}), \
              mock.patch.object(gate, 'command', side_effect=command):
             if mode == 'pass':
                 record = gate.run(self.source, self.tool, self.work)
                 self.assertEqual(record['status'], 'passed')
                 self.assertEqual(record['qualification'], gate.PASS)
+                self.assertEqual(record['case_count'], 12)
+                self.assertEqual(set(record['profiles']), {'win64', 'wow64'})
             else:
-                with self.assertRaises((RuntimeError, subprocess.TimeoutExpired, FileNotFoundError)):
+                with self.assertRaises((RuntimeError, ValueError, subprocess.TimeoutExpired, FileNotFoundError)):
                     gate.run(self.source, self.tool, self.work)
         record = json.loads((self.work / 'INTEGRATION.json').read_text())
         self.assertEqual(record['status'], 'passed' if mode == 'pass' else 'failed')
@@ -135,21 +169,118 @@ class WineCpu(unittest.TestCase):
         # result or failure of the first cleanup call.
         self.assertEqual([entry[0] for entry in commands[-3:]],
                          [[str(self.server), flag] for flag in ['-k', '-w', '-k0']])
-        self.assertTrue(all(env['WINEPREFIX'] == str(self.work / 'prefix')
+        self.assertTrue(all(env['WINEPREFIX'] == str(self.work / env['WINEARCH'] / 'prefix')
                             for _, env, _ in commands))
+        self.assertEqual(record['profiles']['win64']['status'], 'passed' if mode.startswith('wow64-') or mode == 'pass' else 'failed')
         return commands
 
     def test_real_runner_contract_and_outer_cleanup(self):
         commands = self.exercise()
-        argv = next(argv for argv, _, _ in commands if 'run-fixtures.py' in argv[1])
-        options = dict(zip(argv[2::2], argv[3::2]))
-        self.assertEqual(options, {'--wine': str(self.wine), '--wineserver': str(self.server),
-            '--dll-dir': str(self.tool / 'files/lib/wine'),
-            '--on-root': str(self.tool / 'files/lib/wine-cuda/zluda'),
-            '--off-root': str(self.tool / 'files/lib/wine-cuda/stub'),
-            '--backend': str(self.work / 'build/libcuda.so.1'),
-            '--probe': str(self.work / 'build/probe.exe'), '--prefix': str(self.work / 'prefix'),
-            '--results': str(self.work / 'results')})
+        runners = [(argv, env) for argv, env, _ in commands if 'run-fixtures.py' in argv[1]]
+        self.assertEqual([env['WINEARCH'] for _, env in runners], ['win64', 'wow64'])
+        for (argv, env), (arch, profile) in zip(runners, gate.PROFILES.items()):
+            options = dict(zip(argv[2::2], argv[3::2]))
+            self.assertEqual(options, {'--wine': str(self.wine), '--wineserver': str(self.server),
+                '--winearch': arch, '--dll-dir': str(self.tool / 'files/lib/wine'),
+                '--on-root': str(self.tool / 'files/lib/wine-cuda/zluda'),
+                '--off-root': str(self.tool / 'files/lib/wine-cuda/stub'),
+                '--backend': str(self.work / 'build' / profile['backend']),
+                '--probe': str(self.work / 'build' / profile['probe']),
+                '--prefix': str(self.work / arch / 'prefix'), '--results': str(self.work / arch / 'results')})
+        cleanups = [env['WINEARCH'] for argv, env, _ in commands if argv[-1] == '-k0']
+        self.assertEqual(cleanups, ['win64', 'wow64'])
+        # The first prefix is independently gone before the second starts.
+        first_cleanup = next(i for i, (argv, _, _) in enumerate(commands) if argv[-1] == '-k0')
+        second_runner = next(i for i, (argv, env, _) in enumerate(commands)
+                             if 'run-fixtures.py' in argv[1] and env['WINEARCH'] == 'wow64')
+        self.assertLess(first_cleanup, second_runner)
+
+    def test_wow64_failure_cannot_be_hidden_by_x64_success(self):
+        for mode in ['wow64-timeout', 'wow64-missing-result', 'wow64-wrong-profile', 'wow64-cleanup-failure']:
+            with self.subTest(mode=mode):
+                self.work = self.root / mode
+                commands = self.exercise(mode)
+                self.assertEqual([env['WINEARCH'] for argv, env, _ in commands if argv[-1] == '-k0'], ['win64', 'wow64'])
+
+    def test_wow64_runtime_machine_and_translation_witness_fail_closed(self):
+        results = self.root / 'results'
+        valid = self.results(results, 'wow64')
+        on_root = self.tool / 'files/lib/wine-cuda/zluda'
+        self.assertEqual(gate.check_result(results, 'wow64', on_root), valid)
+        cases = [('machine', lambda r: r['cases'][1]['architecture'].update(process_machine='0x8664')),
+                 ('pointer-width', lambda r: r['cases'][1]['architecture'].update(cu_deviceptr_bits=64)),
+                 ('off-exports', lambda r: r['cases'][0]['architecture'].update(exports=690)),
+                 ('off-exports-type', lambda r: r['cases'][0]['architecture'].update(exports=False)),
+                 ('native-bits', lambda r: r['cases'][1]['wow64_witness'].update(native_bits=32)),
+                 ('native-base', lambda r: r['cases'][1]['wow64_witness'].update(pool_native_base=4096)),
+                 ('native-pid', lambda r: r['cases'][1]['wow64_witness'].update(native_pid=True)),
+                 ('pool-size', lambda r: r['cases'][1]['wow64_witness'].update(pool_reserved_bytes=32)),
+                 ('copy-offset', lambda r: r['cases'][1]['wow64_witness'].update(htod_offset=256)),
+                 ('module-path', lambda r: r['cases'][1]['wow64_witness'].update(unixlib_path='/host/nvcuda.so')),
+                 ('classic-unix', lambda r: r['cases'][1]['wow64_witness'].update(i386_unix_cuda_mapped=True)),
+                 ('foreign-cuda', lambda r: r['cases'][1]['wow64_witness'].update(unexpected_cuda_mapping=True)),
+                 ('missing-release', lambda r: r['cases'][1]['wow64_witness'].update(context_released=False)),
+                 ('missing-event', lambda r: r['cases'][1]['events'].pop()),
+                 ('off-event', lambda r: r['cases'][0]['events'].append('backend-loaded')),
+                 ('off-witness', lambda r: r['cases'][0].update(wow64_witness={}))]
+        for name, mutate in cases:
+            with self.subTest(name=name):
+                record = json.loads(json.dumps(valid))
+                mutate(record)
+                (results / 'RESULT.json').write_text(json.dumps(record))
+                with self.assertRaises(ValueError):
+                    gate.check_result(results, 'wow64', on_root)
+        (results / 'RESULT.json').write_text(json.dumps(valid))
+        (results / 'on-backend.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'retained witness'):
+            gate.check_result(results, 'wow64', on_root)
+        (results / 'on-backend.json').write_text(json.dumps(valid['cases'][1]['wow64_witness']))
+        (results / 'off-zero-backend.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'off/refused'):
+            gate.check_result(results, 'wow64', on_root)
+
+    def test_probe_header_and_import_admission_rejects_wrong_architecture(self):
+        sys.path.insert(0, str(ROOT / 'tests/fixtures'))
+        from cuda_binary import pe
+        probe = self.root / 'probe.exe'
+        for arch, machine in [('win64', 0x8664), ('wow64', 0x14c)]:
+            data = bytearray(pe(machine, imports=['KERNEL32.dll']))
+            data[0x40:0x50] = bytes(16)  # probes are ordinary MinGW executables
+            probe.write_bytes(data)
+            self.assertEqual(gate.inspect_probe(probe, arch)['machine'], machine)
+            with self.assertRaisesRegex(ValueError, 'architecture'):
+                gate.inspect_probe(probe, 'wow64' if arch == 'win64' else 'win64')
+            probe.write_bytes(pe(machine, imports=['libgcc_s_dw2-1.dll']))
+            with self.assertRaisesRegex(ValueError, 'DLL dependency'):
+                gate.inspect_probe(probe, arch)
+
+    def test_source_archive_contains_exact_backend_attestation_files(self):
+        source = self.source / 'zluda'
+        source.mkdir()
+        expected = {'wine/fixture', 'cuda_types/fixture', 'cuda_macros/fixture', 'dark_api/fixture',
+                    'zluda/src/lib.rs', 'zluda/src/impl/mod.rs'}
+        for name in expected | {'zluda/src/unrelated.rs', 'unrelated.txt'}:
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('source archive fixture\n')
+        env = dict(os.environ, GIT_AUTHOR_NAME='Christian Kündig', GIT_COMMITTER_NAME='Christian Kündig',
+                   GIT_AUTHOR_EMAIL='christian@kuendig.info', GIT_COMMITTER_EMAIL='christian@kuendig.info')
+        for args in [('init', '-q'), ('add', '.'),
+                     ('-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'fixture')]:
+            subprocess.run(['git', '-C', str(source), *args], env=env, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        lines = (ROOT / 'packaging/zluda-overlay/build-components.sh').read_text().splitlines()
+        index = next(i for i, line in enumerate(lines) if 'git -C "$SOURCE_ROOT/zluda" archive HEAD' in line)
+        command = lines[index]
+        while command.rstrip().endswith('\\'):
+            index += 1
+            command += '\n' + lines[index]
+        (self.tool / 'sources').mkdir()
+        subprocess.run(['bash', '-euo', 'pipefail', '-c', command],
+                       env=dict(env, SOURCE_ROOT=str(self.source), DESTDIR=str(self.tool)), check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with tarfile.open(self.tool / 'sources/zluda-wine.tar.gz') as archive:
+            self.assertEqual({item.name for item in archive if item.isfile()}, expected)
 
     def test_probe_timeout_still_kills_and_waits(self):
         self.exercise('timeout')

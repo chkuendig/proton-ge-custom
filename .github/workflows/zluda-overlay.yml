@@ -198,7 +198,7 @@ jobs:
       - name: Checkout pinned CPU fixture sources
         run: GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --filter=blob:none -- zluda
       - name: Run headless Wine CPU gate without network or GPU
-        timeout-minutes: 25
+        timeout-minutes: 40
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/wine-cpu"
@@ -222,7 +222,10 @@ jobs:
             ${{ runner.temp }}/wine-cpu/run/INTEGRATION.json
             ${{ runner.temp }}/wine-cpu/run/*.log
             ${{ runner.temp }}/wine-cpu/run/build
-            ${{ runner.temp }}/wine-cpu/run/results
+            ${{ runner.temp }}/wine-cpu/run/win64/*.log
+            ${{ runner.temp }}/wine-cpu/run/win64/results
+            ${{ runner.temp }}/wine-cpu/run/wow64/*.log
+            ${{ runner.temp }}/wine-cpu/run/wow64/results
           if-no-files-found: warn
           retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

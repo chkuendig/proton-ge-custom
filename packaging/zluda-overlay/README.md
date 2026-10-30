@@ -49,7 +49,8 @@ prefix PE placeholders, ELF copies and tool symlinks migrate once under the
 prefix lock; native unmarked user DLLs/unknown files are preserved and logged.
 
 Sources include the complete pinned `wine`, `cuda_types`, `cuda_macros` and `dark_api`
-regeneration inputs in `sources/zluda-wine.tar.gz`. Root MIT/Apache, derived LGPL
+regeneration inputs, plus `zluda/src/lib.rs` and `zluda/src/impl/mod.rs` for
+backend-refusal attestation, in `sources/zluda-wine.tar.gz`. Root MIT/Apache, derived LGPL
 and per-file notices, the independent Cargo lock and downloaded dependency
 licenses are retained. Stage A comparison utilities remain available for source
 oracle work; they are no longer invoked as a substitute for generated-bridge
@@ -230,30 +231,36 @@ The final CI job checks transitive ELF dependencies inside the pinned SDK and
 records its output. The SDK has more libraries than a game runtime: this is not
 pressure-vessel, enabled/disabled launcher, or GPU qualification.
 
-After assembly, `profile=overlay` also compiles the pinned x64 PE CPU probe and
-fake SysV backend with the same SDK, then runs the tool's own `files/bin/wine`.
-This headless gate uses a fresh isolated prefix for off/on/off root selection,
-missing/relative backend refusal, proc-address versions, the five-argument dark
-slot and native-pthread callbacks invoking Windows TLS/heap APIs. It passes an
-explicit fake backend and excludes the tool's CUDA/ROCm library paths. The
+After assembly, `profile=overlay` also compiles the pinned PE64 and PE32 CPU
+probes and native ELF64 fake SysV backends with the same SDK, then runs the
+tool's own `files/bin/wine`. The profiles run sequentially with separate fresh
+prefixes: `WINEARCH=win64` and `WINEARCH=wow64`, matching the launcher's WoW64
+opt-in. Each profile runs six off/on/off and missing/relative backend modes.
+The PE64 probe checks proc-address versions, the five-argument dark slot and
+native-pthread callbacks invoking Windows TLS/heap APIs. The PE32 probe checks
+its own 690-export surface, 32-bit handles/device offsets and bounded memory
+roundtrip through the native WoW64 table. Both pass explicit fake backends
+and exclude the tool's CUDA/ROCm library paths. The
 container has no network or GPU devices, read-only source/tool mounts and a
 private PID namespace and `/tmp`. Console/kernel APIs need no display; any
 Wineboot/display diagnostics remain in the logs for the first hosted run.
 
-`wine_cpu.py` admits the exact source and assembled provenance, checks fake
-backend dependencies and requires all six cases, their logs and successful
-cleanup. Its outer timeout/error guard kills and waits for the prefix-local
+`wine_cpu.py` admits the exact source and assembled provenance, checks each
+probe's PE machine/header/imports and each backend's ELF64 x86_64 dependencies,
+and requires both architecture receipts and all twelve cases, their logs and
+successful cleanup. Its outer timeout/error guard kills and waits for each prefix-local
 wineserver, accepts an already-exited server, then verifies absence with a
 signal-zero probe and a direct nonblocking POSIX byte-range lock check. Any
 surviving server, diagnostic on an absence result or lock-check error fails.
 Failures block final tool artifact upload;
-`wine-cpu-evidence` retains fixture sources/binary hashes, toolchain versions,
-probe binaries, bootstrap/case/cleanup logs and JSON results on either outcome.
-The first hosted run passed all six probe cases under headless Wine, then
-failed on an already-exited wineserver's cleanup exit code. The corrected
-cleanup protocol still needs a hosted rerun. A complete pass establishes only
-the tested x64 CPU behavior; PE32 execution, real GPU W1/W2, complete graph/context
-ownership, interop and game adoption remain separate gates.
+`wine-cpu-evidence` retains fixture source/binary hashes, toolchain versions,
+probe binaries and separate win64/wow64 bootstrap/case/cleanup logs and JSON
+results on either outcome. Each runner is bounded to 15 minutes; the combined
+step is capped at 40 minutes for compilation and both cleanup sequences.
+The PE64 gate and verified-absence cleanup passed hosted run 40994299565.
+PE32 execution awaits the next combined hosted run. A complete pass establishes
+only the tested CPU behavior; real GPU W1/W2, all bounded opcodes under Wine,
+complete graph/context ownership, interop and game adoption remain separate gates.
 
 ```bash
 # Small metadata + HEAD requests only; no SDK layers or GE/Rust/ROCm payloads.

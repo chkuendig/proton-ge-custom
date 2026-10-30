@@ -27,13 +27,13 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def pe_info(path):
+def pe_info(path, require_builtin=True):
     data = path.read_bytes()
     def unpack(fmt, offset):
         if offset < 0 or offset + struct.calcsize(fmt) > len(data):
             raise ValueError('PE field outside file: ' + str(path))
         return struct.unpack_from(fmt, data, offset)
-    if data[:2] != b'MZ' or b'Wine builtin DLL' not in data[0x40:0x60]:
+    if data[:2] != b'MZ' or (require_builtin and b'Wine builtin DLL' not in data[0x40:0x60]):
         raise ValueError('not a builtin-marked PE: ' + str(path))
     nt, = unpack('<I', 0x3c)
     if data[nt:nt + 4] != b'PE\0\0':
@@ -87,7 +87,7 @@ def pe_info(path):
                 raise ValueError('non-ASCII PE import DLL name') from error
         if not terminated:
             raise ValueError('unterminated PE import descriptor table')
-    return {'machine': machine, 'named_exports': count,
+    return {'machine': machine, 'optional_magic': magic, 'named_exports': count,
             'imports': imports, 'delay_imports': []}
 
 
