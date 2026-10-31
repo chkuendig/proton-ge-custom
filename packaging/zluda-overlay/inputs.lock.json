@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "60cddc9afd2d8313a4ddc3a5acaa1166a95b9360",
+    "zluda": "001db0476a9bf5fd93c4aa23a2adb316e465cec1",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "27f5c708ec4d4150fbff97acb30a5b21ad893994",
@@ -253,7 +253,7 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "424d00277622de812dd985e7eb38add2ba221b29",
+    "tree": "6801b20c3ceb6fd13188e28088e5ab51f7d000f2",
     "origin": "https://github.com/chkuendig/nvcuda",
     "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
     "contract": "zluda-wine-packaging-1",
@@ -267,10 +267,10 @@
       "LICENSES/ABI-FACTS.json.license": "e1011a8d249fe5463b86287ce92f141abc29f64b20e5fd9ca16e158385eb669e",
       "LICENSES/CLEAN-ROOM-SPEC.md": "0e1ca380f1c24cd622e2f4cc779695d780b6946aeb7db135c3d512f61eb87c65",
       "LICENSES/CLEAN-ROOM-SPEC.md.license": "e1011a8d249fe5463b86287ce92f141abc29f64b20e5fd9ca16e158385eb669e",
-      "LICENSES/CLEANROOM-RECEIPT.json": "b442ff48fa12736c1159fb26379eec747041e5fb36a937f3504fb3160a94f02e",
+      "LICENSES/CLEANROOM-RECEIPT.json": "ca415f65f2f937c7b3e9e341b607af454cd57c03213423719b941160393069bc",
       "LICENSES/NOTICE.md": "859207d97730ffcbf1a53013b745a5753575192ea53f019cc9669b6341799194",
-      "LICENSES/PRODUCTION-INPUTS.json": "3758fb6d5ece300ef1c2e83e1636e60af123085fc2f2b7430c9404ecc5edcd86",
-      "LICENSES/PROVENANCE.md": "c14e2920a11e08e5ad48cf70d5becdc3edb90c8900fcc213b1db4b33af8dc3d9",
+      "LICENSES/PRODUCTION-INPUTS.json": "434ad519ad1fcaa35ab99e413f161a3ce63f4e1c69e4cca83cb642d204aab3f5",
+      "LICENSES/PROVENANCE.md": "503a31943253d5487d0ca26e3c9285883f856822fe1330210b0fbda933a73564",
       "LICENSES/Wine-library.md": "12c8623c49b58e6169f2f4d2178bf207c389da23c921106eaa44138fd19c09bf",
       "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
     }
