@@ -211,7 +211,7 @@ jobs:
     timeout-minutes: 20
     env:
       CARGO_BUILD_JOBS: "3"
-      CARGO_TARGET_DIR: ${{ runner.temp }}/pe32-luid
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/pe32-luid
       ZLUDA_WINE_DECLARATIONS_ONLY: "1"
     steps:
       - name: Preserve pinned source bytes
