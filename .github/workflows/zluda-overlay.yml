@@ -113,12 +113,16 @@ jobs:
         if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
         run: |
           set -euo pipefail
+          mkdir -p /work/archive-rebuild
+          # Original checkout, Wine source/object tree and SDK are not mounted.
           docker run --rm --init --pull=never --network=none --cpus=3 --memory=6g \
-            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" -v /work:/work \
-            -e CARGO_HOME=/work/cargo -e WINE_SDK_ROOT=/work/wine-sdk \
-            -e PATH=/work/build/rust/bin:/work/wine-sdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" \
+            -v /work/overlay/sources:/archives:ro -v /work/cargo:/cargo \
+            -v /work/build/rust:/rust:ro -v /work/archive-rebuild:/rebuild \
+            -e CARGO_HOME=/cargo \
+            -e PATH=/rust/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
             "$SDK_IMAGE" python3 /recipes/source_archive.py \
-            --rebuild-archive /work/overlay/sources/zluda-wine.tar.gz --work /work/archive-rebuild
+            --rebuild-archive /archives/zluda-wine.tar.gz --work /rebuild/run
       - name: Preserve caches with runner ownership
         if: always()
         run: sudo chown -R "$USER:$USER" /work/cargo /work/ccache 2>/dev/null || true
@@ -181,6 +185,9 @@ jobs:
           path: |
             /work/logs
             /work/build/wine/log
+            /work/wine-sdk/ABI-RECEIPT.json
+            /work/wine-sdk/WINE-SOURCE-AUDIT.json
+            /work/wine-sdk/WINE-SOURCE-AUDIT.fragments
             /work/build/wine/changed-sources.txt
             /work/build/log
             /work/build/zluda-wine/artifacts
@@ -193,10 +200,75 @@ jobs:
             /work/overlay/sources/zluda-wine.tar.gz.check.log
             /work/overlay/sources/zluda-wine.tar.gz.json
             /work/build/native
-            /work/archive-rebuild/REBUILD.json
-            /work/archive-rebuild/*.log
+            /work/archive-rebuild/run/REBUILD.json
+            /work/archive-rebuild/run/*.log
           if-no-files-found: warn
           retention-days: 14
+
+  w1-fixtures:
+    if: inputs.profile != 'x64-draft'
+    needs: assemble
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Checkout the exact W1 fixture source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: chkuendig/ZLUDA
+          ref: bf13b315986b7eb7e3bd60c67ea8368a2d9cf0b2
+          path: w1-source
+          sparse-checkout: wine/w1-fixtures
+          persist-credentials: false
+      - name: Download the pinned W1 fixture binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: w1-fixtures
+          repository: chkuendig/ZLUDA
+          run-id: 41128190234
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/w1-fixtures
+      - name: Download this run's fully rebuilt candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: GE-Proton11-7-zluda
+          path: ${{ runner.temp }}/candidate-download
+      - name: Prepare candidate
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          cd "$RUNNER_TEMP/candidate-download"
+          sha256sum -c SHA256SUMS
+          mkdir -p "$RUNNER_TEMP/tool" "$RUNNER_TEMP/w1-work"
+          tar -xf GE-Proton11-7-zluda.tar.gz --strip-components=1 -C "$RUNNER_TEMP/tool"
+          cp SHA256SUMS "$RUNNER_TEMP/w1-work/TOOL-SHA256SUMS"
+      - name: Run W1 fixtures without network or GPU
+        timeout-minutes: 40
+        run: |
+          set -euo pipefail
+          docker pull "$SDK_IMAGE"
+          docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=512 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/tool:/tool:ro" \
+            -v "$RUNNER_TEMP/w1-fixtures:/fixtures:ro" -v "$RUNNER_TEMP/w1-work:/work" \
+            "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/w1_cpu.py --source /src \
+            --fixture-source /src/w1-source/wine/w1-fixtures --tool /tool --fixtures /fixtures --work /work/run \
+            2>&1 | tee "$RUNNER_TEMP/w1-work/run.log"
+      - name: Retain bounded W1 CPU evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: w1-candidate-cpu-evidence
+          path: |
+            ${{ runner.temp }}/w1-work/run.log
+            ${{ runner.temp }}/w1-work/TOOL-SHA256SUMS
+            ${{ runner.temp }}/w1-work/run/CPU-RESULT.json
+            ${{ runner.temp }}/w1-work/run/logs
+          if-no-files-found: warn
+          retention-days: 90
 
   assemble:
     if: always() && inputs.profile != 'x64-draft' && (inputs.components_run != '' || needs.components.result == 'success')

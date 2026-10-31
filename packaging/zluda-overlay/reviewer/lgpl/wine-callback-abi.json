@@ -1,0 +1,230 @@
+{
+  "contract": "zluda-wine-user32-callback-4",
+  "wine_commit": "46b29104e3741fe23bf5e2547196a253aab88c89",
+  "callback_id": 0,
+  "pointer_prefix": "UINT64 callback",
+  "pe_callback_abi": "NTSTATUS WINAPI (void *, ULONG)",
+  "unix_entry": "KeUserModeCallback",
+  "native_stack_default_bytes": 1048576,
+  "files": {
+    "include/ntuser.h": {
+      "baseline_sha256": "9110717e53c634229421d8b89dd2570ffc8a12780c836fc939f34e8fc3e6dc2e",
+      "fragments": [
+        {
+          "name": "Windows callback calling convention",
+          "begin": "typedef NTSTATUS (WINAPI *ntuser_callback)( void *args, ULONG len );",
+          "tokens": 16,
+          "sha256": "1957c568a323656135ca7a4cd3b147ce3d47e8465429526b40c50afccb08d4dd"
+        },
+        {
+          "name": "Unix callback ABI",
+          "begin": "NTSYSAPI NTSTATUS KeUserModeCallback( ULONG id, const void *args, ULONG len, void **ret_ptr, ULONG *ret_len );",
+          "tokens": 25,
+          "sha256": "67409ad040d1350fc5deced0ee33761024e7715aa83a627ee329ca47905c8504"
+        },
+        {
+          "name": "Callback IDs and enum order",
+          "begin": "#define ALL_USER32_CALLBACKS",
+          "tokens": 125,
+          "sha256": "db48465d4348aadf7749ec96e7d7a20d490542c5f5462eca58648a17d7e28b87"
+        },
+        {
+          "name": "64-bit callback prefix",
+          "begin": "struct dispatch_callback_params {",
+          "tokens": 7,
+          "sha256": "1fa38e4df954b9f9a543a949e854c620b2e78177dd77cc88f484cf60da3af633"
+        },
+        {
+          "name": "Generic callback ID and dispatch",
+          "begin": "static inline NTSTATUS KeUserDispatchCallback(",
+          "tokens": 50,
+          "sha256": "29c117008396b16b4d70ac6d183a761ea8641f840dfd14700fc293729e54bf15",
+          "capture": "body"
+        }
+      ]
+    },
+    "include/winternl.h": {
+      "baseline_sha256": "258901b2203df1f8c6159ebfedf5c2687258833f992390f0ae3417b785b44c8b",
+      "fragments": [
+        {
+          "name": "PEB prefix through LoaderLock",
+          "begin": "typedef struct _PEB {",
+          "tokens": 210,
+          "sha256": "fd0c8bde4b821e4d26d36af9fe65f765f4833692e073b8ec6bd9dcccbe8e3d8d"
+        },
+        {
+          "name": "PEB LoaderLock field",
+          "begin": "PVOID LoaderLock;",
+          "tokens": 3,
+          "sha256": "fff9966de1f79ff86c4cef467d773e207c2af1f3ceef2458d430b70576b268bd"
+        }
+      ]
+    },
+    "dlls/user32/user_main.c": {
+      "baseline_sha256": "f3a95b85f446397826bb181ad0fb1086178d432a204519271180ae52e1a9ff6e",
+      "fragments": [
+        {
+          "name": "Same-thread dispatcher",
+          "begin": "static NTSTATUS WINAPI User32CallDispatchCallback(",
+          "tokens": 44,
+          "sha256": "d57b01704de9f2b0a055d3adc7fdcf4611f2e1534cb41a7a6dc95f28e179b2f5",
+          "capture": "body"
+        },
+        {
+          "name": "Dispatcher table",
+          "begin": "static KERNEL_CALLBACK_PROC kernel_callback_table[256]",
+          "tokens": 24,
+          "sha256": "47e8b1fa2c87003879569f61662f9a78a7108cca2506eb567bbd5c5a99442e87"
+        },
+        {
+          "name": "Table initialization",
+          "begin": "static BOOL process_attach(void)",
+          "tokens": 19,
+          "sha256": "bfb58b3b2268bfb06b54df69752adf23adf6d68b560c7783639bd8f984332286",
+          "capture": "body"
+        }
+      ]
+    },
+    "dlls/ntdll/signal_x86_64.c": {
+      "baseline_sha256": "a5f3810fbc88ea151aab8c379cde67f7f45f5ae4045e771f592829dcc7185836",
+      "fragments": [
+        {
+          "name": "PE callback dispatch",
+          "begin": "__ASM_GLOBAL_FUNC( KiUserCallbackDispatcher,",
+          "tokens": 86,
+          "sha256": "40800f45ff7f36d822afb5aeec27ad8b298ee0ccfd2821a73d9c7a708d905e1e",
+          "capture": "call"
+        }
+      ]
+    },
+    "dlls/ntdll/unix/signal_x86_64.c": {
+      "baseline_sha256": "c3af9f7ab4212b7680c78b08485c634e3f73c59d02598d470d1605ecfb6e3988",
+      "fragments": [
+        {
+          "name": "Kernel to PE same-thread call",
+          "begin": "NTSTATUS KeUserModeCallback(",
+          "tokens": 171,
+          "sha256": "02199d7f725d0de9f8477fe383f13ced025db28923fa681eeb837cd46e7693d2",
+          "capture": "body"
+        },
+        {
+          "name": "PE to kernel callback return",
+          "begin": "NTSTATUS WINAPI NtCallbackReturn(",
+          "tokens": 42,
+          "sha256": "4a52b2be65706bad83e635778df3aab2db690b54857e282da845409d3328300e",
+          "capture": "body"
+        }
+      ]
+    },
+    "dlls/ntdll/loader.c": {
+      "baseline_sha256": "075b699459eeaa68d3cf018177c050a654344e17ee5d85de7fce4b6236e5f368",
+      "fragments": [
+        {
+          "name": "Process exit ordering",
+          "begin": "void WINAPI RtlExitUserProcess(",
+          "tokens": 52,
+          "sha256": "99b70a55939e2f72338d01c9790ae594f4f8d07f2ac7b74a2ad4d65b2993fd3d",
+          "capture": "body"
+        },
+        {
+          "name": "Process detach flag",
+          "begin": "void WINAPI LdrShutdownProcess(",
+          "tokens": 43,
+          "sha256": "ce76ceb2714bde9438a559a1ea82a45ddb2c328c39cefbfa09ac51de15590f06",
+          "capture": "body"
+        },
+        {
+          "name": "Thread shutdown and detach ordering",
+          "begin": "void WINAPI LdrShutdownThread(void)",
+          "capture": "body",
+          "tokens": 349,
+          "sha256": "96ac8df2578d4e5b9cb7ce0e5858460231f5e0e033e5d65ed6beabffc2557674"
+        },
+        {
+          "name": "TLS callback delivery",
+          "begin": "static void call_tls_callbacks( HMODULE module, UINT reason )",
+          "capture": "body",
+          "tokens": 157,
+          "sha256": "7e819c42b9eb91a56d82b71912947ee2a991b22506224130bf4b97e1b88b26b7"
+        },
+        {
+          "name": "Loader lock try/refusal semantics",
+          "begin": "NTSTATUS WINAPI LdrLockLoaderLock( ULONG flags, ULONG *result, ULONG_PTR *magic )",
+          "capture": "body",
+          "tokens": 142,
+          "sha256": "735503b373055346a0995de8673f9c62eb6513dd26c352b2faf7659c049e3c64"
+        },
+        {
+          "name": "Loader lock release semantics",
+          "begin": "NTSTATUS WINAPI LdrUnlockLoaderLock( ULONG flags, ULONG_PTR magic )",
+          "capture": "body",
+          "tokens": 39,
+          "sha256": "41ecfe85029dbc23131a6b81ff909e7b119e5e4a32cb4dc3a008bcd785b67e4c"
+        }
+      ]
+    },
+    "dlls/ntdll/unix/thread.c": {
+      "baseline_sha256": "9d752f5d227b6f945e387c103e0a9bb9b8dd74ad630fa02c935f5287d816a159",
+      "fragments": [
+        {
+          "name": "Kernel stack lower bound",
+          "begin": "NTSTATUS init_thread_stack(",
+          "tokens": 82,
+          "sha256": "56d2d889a73769967ace78b9f8a0af8fe26596f3930503bbcfd31a0044b555e5",
+          "capture": "body"
+        }
+      ]
+    },
+    "dlls/ntdll/unix/virtual.c": {
+      "baseline_sha256": "4073fbe49157ef9dc9b3f4ed07fe7f98451c05bc5e6220c877ef69403cdbbcdf",
+      "fragments": [
+        {
+          "name": "Kernel stack allocation and guards",
+          "begin": "NTSTATUS virtual_alloc_thread_stack(",
+          "tokens": 341,
+          "sha256": "b4760b38472a163ec25d82e19768cf7619e3393a604466d049f7dfce18d2c045",
+          "capture": "body"
+        },
+        {
+          "name": "Eager Unix library symbol binding",
+          "begin": "static NTSTATUS get_builtin_unix_funcs(",
+          "capture": "body",
+          "tokens": 190,
+          "sha256": "86c05aff4fbeb598a4b978da6c78148f43ead1f659a6d93b6ec660b210ee7765"
+        }
+      ]
+    },
+    "dlls/ntdll/unix/unix_private.h": {
+      "baseline_sha256": "c90dab67dea7e4b7a9d843cda3b258fd225addc6867ce2180342d27dfbdbaaae",
+      "fragments": [
+        {
+          "name": "4GiB lower bound",
+          "begin": "static const ULONG_PTR limit_4g = (ULONG_PTR)((ULONGLONG)1 << 32);",
+          "tokens": 18,
+          "sha256": "bdf70c75a277f9ec85f43d382bb484d0d9a919ef01cf954eda850fc5189a44a1"
+        },
+        {
+          "name": "Kernel stack guard",
+          "begin": "static const SIZE_T kernel_stack_guard_size = 0x1000;",
+          "tokens": 7,
+          "sha256": "3597b6f3819b9c87350abdeada6b197ed480a9d658a1da1551d012e9dd0ad189"
+        },
+        {
+          "name": "Kernel stack minimum",
+          "begin": "static const SIZE_T min_kernel_stack = 0x3000;",
+          "tokens": 7,
+          "sha256": "2a2030c1031a5e8ecdd323bfba1c2fdc57148f59915d8013ee9717118d8453c5"
+        }
+      ]
+    }
+  },
+  "prepared_exit_provenance": {
+    "proton_commit": "0d33ed32e528767c0be9b4a0c6684c0785ba3af0",
+    "prep_script": "patches/protonprep-valve-staging.sh",
+    "patch": "patches/wine-hotfixes/em-fixups/0041-ntdll-terminate-on-contended-srw-locks-during-process-exit.patch",
+    "patch_sha256": "10a51da73638bb1e01047f4b23d4d074342ae1d017396c7b9ca54937d7f72a3f",
+    "scope": "Exact reviewed prepared RtlExitUserProcess body, reconstructed by applying the pinned patch to raw Wine46b29104. Other fragments remain token-exact; full-file hashes are receipts, not acceptance rules."
+  },
+  "unix_library_dependency": "ntdll.so",
+  "unix_callback_binding": "Strong ELF import, -z defs link check, and eager Wine RTLD_NOW module admission. No global symbol lookup."
+}

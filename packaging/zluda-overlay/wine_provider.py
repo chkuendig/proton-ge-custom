@@ -24,7 +24,8 @@ def elf_details(path):
         return data[position:position + size]
     def string(table, offset):
         return table[offset:table.index(b'\0', offset)].decode()
-    symbols, functions, needed, sonames = set(), set(), [], []
+    symbols, functions, strong_functions, needed, sonames = set(), set(), set(), [], []
+    eager = False
     for section in sections:
         if section[1] == 11:  # SHT_DYNSYM
             table = content(sections[section[6]])
@@ -34,18 +35,23 @@ def elf_details(path):
                     symbols.add(string(table, name))
                     if info & 15 == 2:
                         functions.add(string(table, name))
+                        if info >> 4 == 1:
+                            strong_functions.add(string(table, name))
         if section[1] == 6:  # SHT_DYNAMIC
             table = content(sections[section[6]])
             entries = list(struct.iter_unpack('<qQ', content(section)))
             needed += [string(table, value) for tag, value in entries if tag == 1]
             sonames += [string(table, value) for tag, value in entries if tag == 14]
-    return {'symbols': symbols, 'functions': functions, 'needed': needed, 'sonames': sonames,
+            eager |= any(tag == 24 or tag == 30 and value & 8 or tag == 0x6ffffffb and value & 1
+                         for tag, value in entries)
+    return {'symbols': symbols, 'functions': functions, 'strong_functions': strong_functions,
+            'needed': needed, 'sonames': sonames, 'eager_binding': eager,
             'type': struct.unpack_from('<H', data, 16)[0]}
 
 
 def inspect(path):
     info = elf_details(path)
-    if info['type'] != 3 or info['sonames'] != ['ntdll.so'] or 'KeUserModeCallback' not in info['functions']:
+    if info['type'] != 3 or info['sonames'] != ['ntdll.so'] or 'KeUserModeCallback' not in info['strong_functions']:
         raise ValueError('Wine ntdll provider must export KeUserModeCallback with SONAME ntdll.so: ' + str(path))
     return {'soname': 'ntdll.so', 'callback': 'KeUserModeCallback', 'needed': info['needed']}
 

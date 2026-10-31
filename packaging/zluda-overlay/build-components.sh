@@ -76,10 +76,11 @@ if [[ $part == bridges || $part == all ]]; then
     # This source line changes ntdll relative to GE11-7. Build exactly the
     # changed Wine modules and retain the existing ELF dependency/version gate.
     bash "$here/build-wine.sh"
-    export WINE_SOURCE_ROOT=$BUILD_ROOT/wine/src/wine
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
     python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
     n=$SOURCE_ROOT/zluda/wine/zluda_wine
+    export BRIDGE_SOURCE=$n
+    source "$here/bridge-env.sh"
     BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
     # transition.exe needs this exact prepared Wine SDK; assembly has only
     # the runtime tool, so compile fixtures here and bind their provenance.

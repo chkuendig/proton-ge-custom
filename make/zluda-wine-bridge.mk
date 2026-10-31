@@ -12,6 +12,8 @@ ZLUDA_BRIDGE_SCRIPTS := $(SRC)/packaging/zluda-overlay
 $(OBJ)/.zluda-bridge-build: $(OBJ)/.zluda-bridge-post-source $(OBJ)/.wine-x86_64-build
 $(OBJ)/.zluda-bridge-build: $(ZLUDA_BRIDGE_SCRIPTS)/build-bridge.sh $(ZLUDA_BRIDGE_SCRIPTS)/wine_sdk.py $(ZLUDA_BRIDGE_SCRIPTS)/cuda_package.py
 $(OBJ)/.zluda-bridge-build: $(ZLUDA_BRIDGE_SCRIPTS)/wine_provider.py
+$(OBJ)/.zluda-bridge-build: $(ZLUDA_BRIDGE_SCRIPTS)/wine_abi.py $(ZLUDA_BRIDGE_SCRIPTS)/bridge-env.sh
+$(OBJ)/.zluda-bridge-build: $(wildcard $(ZLUDA_BRIDGE_SCRIPTS)/reviewer/lgpl/*)
 
 $(OBJ)/.zluda-bridge-build:
 	rm -rf "$(ZLUDA_BRIDGE_BUILD)"
@@ -25,7 +27,7 @@ $(OBJ)/.zluda-bridge-build:
 	# require the complete ZLUDA source layout, rather than a lone rsynced crate.
 	env BRIDGE_SOURCE="$(SRCDIR)/zluda/wine/zluda_wine" BUILD_ROOT="$(ZLUDA_BRIDGE_BUILD)" BRIDGE_DEST="$(ZLUDA_BRIDGE_PAYLOAD)" \
 	    PATH="$(ZLUDA_BRIDGE_BUILD)/rust/bin:$(PATH)" CARGO_HOME="$(ZLUDA_BRIDGE_BUILD)/cargo" \
-	    WINE_SDK_ROOT="$(ZLUDA_BRIDGE_SDK)" WINE_SOURCE_ROOT="$(WINE_SRC)" JOBS=3 bash "$(ZLUDA_BRIDGE_SCRIPTS)/build-bridge.sh"
+	    WINE_SDK_ROOT="$(ZLUDA_BRIDGE_SDK)" JOBS=3 bash "$(ZLUDA_BRIDGE_SCRIPTS)/build-bridge.sh"
 	touch $@
 
 # Both Wine dist targets must finish before removing obsolete canonical bridge files.
@@ -36,8 +38,8 @@ $(OBJ)/.zluda-bridge-dist: $(OBJ)/.zluda-bridge-build $(OBJ)/.wine-x86_64-dist $
 	python3 "$(ZLUDA_BRIDGE_SCRIPTS)/cuda_package.py" archive-stubs "$(DST_BASE)" --archive "$(ZLUDA_BRIDGE_BUILD)/downloads/GE-Proton11-7-x86_64.tar.gz"
 	python3 "$(ZLUDA_BRIDGE_SCRIPTS)/cuda_package.py" clean "$(DST_BASE)"
 	env CARGO_HOME="$(ZLUDA_BRIDGE_BUILD)/cargo" python3 "$(ZLUDA_BRIDGE_SCRIPTS)/cuda_package.py" licenses "$(DST_BASE)" --source "$(SRCDIR)/zluda"
-	env CARGO_HOME="$(ZLUDA_BRIDGE_BUILD)/cargo" PATH="$(ZLUDA_BRIDGE_BUILD)/rust/bin:$(PATH)" WINE_SOURCE_ROOT="$(WINE_SRC)" WINE_SDK_ROOT="$(ZLUDA_BRIDGE_SDK)" \
-	    python3 "$(ZLUDA_BRIDGE_SCRIPTS)/source_archive.py" --source "$(SRCDIR)/zluda" \
+	env CARGO_HOME="$(ZLUDA_BRIDGE_BUILD)/cargo" PATH="$(ZLUDA_BRIDGE_BUILD)/rust/bin:$(PATH)" WINE_SDK_ROOT="$(ZLUDA_BRIDGE_SDK)" BRIDGE_SOURCE="$(SRCDIR)/zluda/wine/zluda_wine" \
+	    bash "$(ZLUDA_BRIDGE_SCRIPTS)/bridge-env.sh" python3 "$(ZLUDA_BRIDGE_SCRIPTS)/source_archive.py" --source "$(SRCDIR)/zluda" \
 	    --build "$(ZLUDA_BRIDGE_BUILD)/zluda-wine/target" --output "$(DST_BASE)/sources/zluda-wine.tar.gz"
 	rm -rf "$(DST_BASE)/sources/overlay-recipes"
 	mkdir -p "$(DST_BASE)/sources/overlay-recipes"

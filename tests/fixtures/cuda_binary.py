@@ -33,7 +33,7 @@ def pe(machine, exports=0, imports=(), delay_imports=()):
     return bytes(data)
 
 
-def elf(needed=('libc.so.6',), wow64=True, functions=(), soname=None):
+def elf(needed=('libc.so.6',), wow64=True, functions=(), soname=None, eager=True):
     names = ['__wine_unix_call_funcs'] + (['__wine_unix_call_wow64_funcs'] if wow64 else []) + list(functions)
     strings = b'\0'
     offsets = {}
@@ -44,6 +44,8 @@ def elf(needed=('libc.so.6',), wow64=True, functions=(), soname=None):
     dynamic = b''.join(struct.pack('<qQ', 1, offsets[name]) for name in needed)
     if soname:
         dynamic += struct.pack('<qQ', 14, offsets[soname])
+    if eager:
+        dynamic += struct.pack('<qQ', 24, 0)
     dynamic += bytes(16)
     data = bytearray(64 + 4 * 64)
     data[:6] = b'\x7fELF\x02\x01'

@@ -7,9 +7,11 @@ import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 
 from bridge_tools import cross_file
 import wine_provider
+import wine_abi
 
 TOOLS = ['winegcc', 'winebuild', 'wrc', 'widl']
 LIBRARIES = ['winecrt0', 'kernel32', 'ntdll']
@@ -68,6 +70,12 @@ def prepare(build, sdk, cross=None, obj=None, src=None, generated_bridge=False):
             headers = ['-I' + str(generated), '-I' + str(include)]
         wrapper = sdk / 'bin' / name
         wrapper.unlink(missing_ok=True)
+        if generated_bridge:
+            # A portable binary, not a wrapper referencing the original object
+            # tree: the extracted archive must rebuild with that tree absent.
+            shutil.copyfile(obj / 'tools' / name / name, wrapper)
+            wrapper.chmod(0o755)
+            continue
         version_alias = ('case "${1:-}" in --version) shift; set -- -V "$@" ;; esac\n'
                          if name == 'widl' else '')
         wrapper.write_text('#!/bin/sh\n' + version_alias + 'exec ' + shlex.join(command) +
@@ -87,12 +95,16 @@ def prepare(build, sdk, cross=None, obj=None, src=None, generated_bridge=False):
               'native_provider': provider,
               'cross_sha256': hashlib.sha256(cross.read_bytes()).hexdigest() if cross else None,
               'generated_cross': (sdk / 'nvcuda-wine64.ini').read_text() if not generated_bridge else None,
-              'wrappers': {name: (sdk / 'bin' / name).read_text() for name in tools},
+              'wrappers': {name: (sdk / 'bin' / name).read_text() for name in tools} if not generated_bridge else {},
+              'portable_tools': {name: hashlib.sha256((sdk / 'bin' / name).read_bytes()).hexdigest()
+                                 for name in tools} if generated_bridge else {},
               'object': str(obj), 'source': str(src), 'include': [str(generated), str(include)],
               'cross_file': str(cross), 'sha256': {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                                                 for path in required}}
     (build / 'log').mkdir(parents=True, exist_ok=True)
     (build / 'log/wine-sdk.json').write_text(json.dumps(record, indent=2) + '\n')
+    if generated_bridge:
+        wine_abi.produce(src, sdk, sdk / 'ABI-RECEIPT.json')
     return record
 
 

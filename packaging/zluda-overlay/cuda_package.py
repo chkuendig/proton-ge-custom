@@ -103,6 +103,8 @@ def check_pe_imports(info):
 def elf_info(path, require_wow64=True):
     from wine_provider import elf_details
     details = elf_details(path)
+    if not details['eager_binding']:
+        raise ValueError('Unix CUDA bridge requires eager ELF binding')
     symbols, needed = details['symbols'], details['needed']
     tables = {'__wine_unix_call_funcs', '__wine_unix_call_wow64_funcs'}
     required = tables if require_wow64 else {'__wine_unix_call_funcs'}
@@ -304,12 +306,8 @@ if __name__ == '__main__':
     elif args.command == 'archive-stubs':
         archive_stubs(args.archive, args.tool)
     elif args.command == 'licenses':
-        from overlay import collect_licenses
-        collect_licenses(args.source / 'wine/zluda_wine', args.tool / 'licenses/zluda-wine')
-        for name in ['LICENSE-MIT', 'LICENSE-APACHE']:
-            out = args.tool / 'licenses/zluda-wine' / name
-            shutil.copyfile(args.source / name, out)
-        shutil.copyfile(args.source / 'wine/zluda_wine/Cargo.lock', args.tool / 'licenses/zluda-wine/Cargo.lock')
+        from overlay import collect_licenses, collect_bridge_notices
+        collect_bridge_notices(args.source, args.tool)
         cargo = Path(os.environ['CARGO_HOME'])
         collect_licenses(cargo / 'registry/src', args.tool / 'licenses/cargo/registry')
         if (cargo / 'git/checkouts').exists():

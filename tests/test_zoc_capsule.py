@@ -61,6 +61,7 @@ class ZocCapsule(unittest.TestCase):
             with mock.patch.object(gate,'output',side_effect=output), \
                  mock.patch.object(gate,'package_owner',return_value='libc6:amd64'), \
                  mock.patch.object(gate,'collect_licenses',side_effect=notices), \
+                 mock.patch.object(gate,'collect_bridge_notices'), \
                  mock.patch.object(gate,'git',return_value='a'*40):
                 record=gate.create(source,paths['zoc'],capsule,stack)
             self.assertEqual(record['interpreter'],'ld-linux-x86-64.so.2')

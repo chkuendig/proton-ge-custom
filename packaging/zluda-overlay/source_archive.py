@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from inputs import git, sha256
+from inputs import HERE, git, sha256
 
 
 def observed_inputs(source, build, required=True):
@@ -49,7 +49,7 @@ def observed_inputs(source, build, required=True):
     return paths, records
 
 
-def check_extracted(root, metadata):
+def check_extracted(root, metadata, compiled=None):
     """Resolve literal Rust includes in Cargo's actual local dependency closure."""
     checked = []
     for package in metadata['packages']:
@@ -58,7 +58,10 @@ def check_extracted(root, metadata):
         directory = Path(package['manifest_path']).parent
         if not directory.is_relative_to(root):
             raise ValueError('Cargo local dependency escaped extracted archive')
-        for file in directory.rglob('*.rs'):
+        files = directory.rglob('*.rs') if compiled is None else (
+            root / name for name in compiled if name.endswith('.rs') and
+            (root / name).is_relative_to(directory))
+        for file in files:
             # Generated target files are not source regeneration inputs.
             if 'target' in file.relative_to(directory).parts:
                 continue
@@ -69,6 +72,39 @@ def check_extracted(root, metadata):
                     raise ValueError('unresolved extracted include: ' + str(file) + ': ' + match[1])
                 checked.append(candidate.relative_to(root).as_posix())
     return sorted(set(checked))
+
+
+def sdk_inputs(env):
+    sdk, receipt = Path(env['WINE_SDK_ROOT']), Path(env['ZLUDA_WINE_ABI_RECEIPT'])
+    if sha256(receipt) != env['ZLUDA_WINE_ABI_RECEIPT_SHA256']:
+        raise ValueError('source archive ABI receipt digest mismatch')
+    record = json.loads(receipt.read_text())
+    files = {}
+    for name, expected in record['sdk_files'].items():
+        path = Path(name)
+        if (not path.parts or path.is_absolute() or '..' in path.parts or
+                path.parts[0] in {'include', 'include-generated'} or
+                path.suffix in {'.h', '.c', '.idl', '.rs'} or sha256(sdk / path) != expected):
+            raise ValueError('source archive SDK input mismatch: ' + name)
+        files['external/prepared-wine-sdk/' + name] = (sdk / path).read_bytes()
+    if not {'bin/winebuild', 'lib/ntdll.so'} <= record['sdk_files'].keys():
+        raise ValueError('source archive lacks SDK binary/provider')
+    return files
+
+
+def extracted_environment(root, original):
+    # Relocate both the digest-pinned attestation and its exact binary/tool
+    # inputs. Neither receipt nor wrapper points into the original build tree.
+    record = json.loads((root / 'external/BRIDGE-BUILD.json').read_text())
+    env = dict(original)
+    for key in ['WINE_SOURCE_ROOT', 'ZLUDA_WINE_WINE_INCLUDE', 'ZLUDA_WINE_WINE_GENERATED']:
+        env.pop(key, None)
+    env.update(WINE_SDK_ROOT=str(root / 'external/prepared-wine-sdk'),
+               ZLUDA_WINE_ABI_RECEIPT=str(root / 'external/prepared-wine-abi.json'),
+               ZLUDA_WINE_ABI_RECEIPT_SHA256=record['abi_receipt_sha256'],
+               ZLUDA_WINE_SOURCE_ID=record['source_commit'], SOURCE_DATE_EPOCH=record['source_date_epoch'])
+    sdk_inputs(env)  # Actual bytes, before Cargo also performs production admission.
+    return env
 
 
 def create(source, build, output, cargo='cargo'):
@@ -92,18 +128,29 @@ def create(source, build, output, cargo='cargo'):
         oid = git(repo, 'rev-parse', 'HEAD:' + relative)
         if git(repo, 'hash-object', '--', relative) != oid:
             raise ValueError('modified submodule build source: ' + name)
-    wine = Path(os.environ['WINE_SOURCE_ROOT']).resolve() if 'WINE_SOURCE_ROOT' in os.environ else None
-    wine_paths, wine_records = observed_inputs(wine, build, required=False) if wine is not None else (set(), [])
-    for name in wine_paths:
-        if 'external/wine-source/' + name in entries:
-            raise ValueError('external Wine input collides with tracked source: ' + name)
+    capsule = sdk_inputs(os.environ)
+    capsule['external/prepared-wine-abi.json'] = Path(os.environ['ZLUDA_WINE_ABI_RECEIPT']).read_bytes()
+    identity = {'source_commit': git(source, 'rev-parse', 'HEAD'),
+                'source_date_epoch': os.environ['SOURCE_DATE_EPOCH'],
+                'abi_receipt_sha256': os.environ['ZLUDA_WINE_ABI_RECEIPT_SHA256']}
+    if os.environ['ZLUDA_WINE_SOURCE_ID'] != identity['source_commit']:
+        raise ValueError('source archive shipping source identity mismatch')
+    capsule['external/BRIDGE-BUILD.json'] = (json.dumps(identity, indent=2) + '\n').encode()
+    for path in HERE.rglob('*'):
+        if path.is_file() and '__pycache__' not in path.parts:
+            capsule['external/proton-build-recipes/' + path.relative_to(HERE).as_posix()] = path.read_bytes()
+    if set(capsule) & entries.keys():
+        raise ValueError('prepared SDK capsule collides with tracked source')
     raw = subprocess.check_output(['git', '-C', str(source), 'archive', 'HEAD'])
     output.parent.mkdir(parents=True, exist_ok=True)
     receipt = {'source_commit': git(source, 'rev-parse', 'HEAD'), 'source_tree': git(source, 'rev-parse', 'HEAD^{tree}'),
                'method': 'full tracked superproject plus Cargo-observed submodule files',
                'cargo_inputs': records, 'extra_submodule_files': {name: sha256(source / name) for name in extras},
-               'wine_source_inputs': wine_records,
-               'wine_source_files': {name: sha256(wine / name) for name in sorted(wine_paths)}}
+               'production_license': 'MIT OR Apache-2.0',
+               'reference_license': 'Source archive also contains retained LGPL C/test material; not relicensed',
+               'compiled_source_closure': sorted(paths),
+               'prepared_abi_receipt_sha256': identity['abi_receipt_sha256'],
+               'sdk_capsule': {name: __import__('hashlib').sha256(data).hexdigest() for name,data in capsule.items()}}
     with output.open('wb') as stream, gzip.GzipFile(filename='', fileobj=stream, mode='wb', mtime=0) as zipped:
         with tarfile.open(fileobj=zipped, mode='w|') as archive, tarfile.open(fileobj=io.BytesIO(raw)) as original:
             for member in original:
@@ -113,10 +160,9 @@ def create(source, build, output, cargo='cargo'):
                 data = (source / name).read_bytes()
                 info.size, info.mode = len(data), (source / name).stat().st_mode & 0o777
                 archive.addfile(info, io.BytesIO(data))
-            for name in sorted(wine_paths):
-                data = (wine / name).read_bytes()
-                info = tarfile.TarInfo('external/wine-source/' + name)
-                info.size, info.mode = len(data), 0o644
+            for name, data in sorted(capsule.items()):
+                info = tarfile.TarInfo(name)
+                info.size, info.mode = len(data), (0o755 if name.endswith('/bin/winebuild') else 0o644)
                 archive.addfile(info, io.BytesIO(data))
     with tempfile.TemporaryDirectory(prefix='archive-check-', dir=build) as temporary:
         root = Path(temporary).resolve()
@@ -131,16 +177,12 @@ def create(source, build, output, cargo='cargo'):
         # Only offline registry sources already fetched for the real build.
         result = subprocess.check_output([cargo, 'metadata', '--locked', '--offline', '--format-version=1',
                          '--manifest-path', str(root / 'wine/zluda_wine/Cargo.toml')], text=True)
-        receipt['resolved_includes'] = check_extracted(root, json.loads(result))
+        receipt['resolved_includes'] = check_extracted(root, json.loads(result), paths)
         # Run the actual generator/proc macros from the extracted tree, never
         # the original checkout. This checks dynamic build.rs reads and
         # OUT_DIR includes in addition to literal source includes.
-        env = dict(os.environ, CARGO_TARGET_DIR=str(root / 'target'), CARGO_BUILD_JOBS='3')
-        if wine is not None:
-            env['WINE_SOURCE_ROOT'] = str(root / 'external/wine-source')
-        if 'WINE_SDK_ROOT' in env:
-            env['ZLUDA_WINE_WINE_INCLUDE'] = str(Path(env['WINE_SDK_ROOT']) / 'include')
-            env['ZLUDA_WINE_WINE_GENERATED'] = str(Path(env['WINE_SDK_ROOT']) / 'include-generated')
+        env = dict(extracted_environment(root, os.environ),
+                   CARGO_TARGET_DIR=str(root / 'target'), CARGO_BUILD_JOBS='3')
         check = [cargo, 'check', '--locked', '--offline', '--lib', '--target', 'x86_64-unknown-linux-gnu',
                  '--manifest-path', str(root / 'wine/zluda_wine/Cargo.toml')]
         with output.with_suffix(output.suffix + '.check.log').open('w') as log:
@@ -168,11 +210,8 @@ def rebuild(archive_path, work, cargo='cargo'):
             if member.issym() and not (target.parent / member.linkname).resolve().is_relative_to(root):
                 raise ValueError('source archive link escapes extraction')
         archive.extractall(root)
-    env = dict(os.environ, CARGO_TARGET_DIR=str(work / 'target'), CARGO_BUILD_JOBS='3',
-               WINE_SOURCE_ROOT=str(root / 'external/wine-source'))
-    sdk = Path(env['WINE_SDK_ROOT'])
-    env['ZLUDA_WINE_WINE_INCLUDE'] = str(sdk / 'include')
-    env['ZLUDA_WINE_WINE_GENERATED'] = str(sdk / 'include-generated')
+    env = dict(extracted_environment(root, os.environ),
+               CARGO_TARGET_DIR=str(work / 'target'), CARGO_BUILD_JOBS='3')
     record = {'archive_sha256': sha256(archive_path), 'status': 'running', 'targets': {}}
     try:
         for target, triplet, artifact in [

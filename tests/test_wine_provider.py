@@ -30,6 +30,12 @@ class WineProvider(unittest.TestCase):
             path.write_bytes(data)
             with self.assertRaisesRegex(ValueError,'must export KeUserModeCallback'):
                 gate.inspect(path)
+            # A weak definition is not the required strong local provider.
+            data=bytearray(valid)
+            data[symbols+3*24+4] = 0x22
+            path.write_bytes(data)
+            with self.assertRaisesRegex(ValueError,'must export KeUserModeCallback'):
+                gate.inspect(path)
             for data in [elf(soname='ntdll.so'),elf(functions=['KeUserModeCallback'],soname='/build/ntdll.so')]:
                 path.write_bytes(data)
                 with self.assertRaises(ValueError):

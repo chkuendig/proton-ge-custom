@@ -298,9 +298,12 @@ class CudaPackage(unittest.TestCase):
         native = obj / 'dlls/ntdll/ntdll.so'
         native.parent.mkdir(parents=True)
         native.write_bytes(elf(functions=['KeUserModeCallback'], soname='ntdll.so'))
-        record = wine_sdk.prepare(build, sdk, generated_bridge=True)
+        with mock.patch.object(wine_sdk.wine_abi, 'produce') as reviewer:
+            record = wine_sdk.prepare(build, sdk, generated_bridge=True)
+        reviewer.assert_called_once_with(source, sdk, sdk / 'ABI-RECEIPT.json')
         self.assertEqual(record['profile'], 'generated')
-        self.assertEqual(list(record['wrappers']), ['winebuild'])
+        self.assertEqual(list(record['portable_tools']), ['winebuild'])
+        self.assertEqual((sdk / 'bin/winebuild').read_bytes(), tool.read_bytes())
         self.assertFalse((sdk / 'bin/winegcc').exists())
         self.assertFalse((sdk / 'nvcuda-wine64.ini').exists())
         self.assertEqual((sdk / 'lib/ntdll.so').resolve(), native)

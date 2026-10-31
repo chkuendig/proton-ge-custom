@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "42b557a23c9c7868ee1fb736849451361a6e8893",
+    "zluda": "60cddc9afd2d8313a4ddc3a5acaa1166a95b9360",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "27f5c708ec4d4150fbff97acb30a5b21ad893994",
@@ -253,12 +253,27 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "4b2051e4e713f582f3e84420cd8844ce4dc452b4",
+    "tree": "424d00277622de812dd985e7eb38add2ba221b29",
     "origin": "https://github.com/chkuendig/nvcuda",
     "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
     "contract": "zluda-wine-packaging-1",
-    "cargo_lock_sha256": "cb1a7c7a302647f7b58894146f9ece90b1c35816daf78f4e996a72274666cb68",
-    "qualification": "PENDING: combined hosted PE64 and PE32/WoW64 CPU execution for new ports/interop; earlier PE64 cleanup gate passed at 2e955425; GPU, full ABI/lifetime/interop and device adoption remain unqualified"
+    "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
+    "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
+    "license": "MIT OR Apache-2.0",
+    "implementation": "clean-room production; historical origin/import_commit below identify only retained C reference",
+    "test_license": "tests/lgpl: LGPL-2.1-or-later AND (MIT OR Apache-2.0); separate test-only workspace",
+    "provenance_bundle": {
+      "LICENSES/ABI-FACTS.json": "1cd9f4411f8792d99e587063e5a61f9a3d1cfc89557795553fc9e2a9a1e925f8",
+      "LICENSES/ABI-FACTS.json.license": "e1011a8d249fe5463b86287ce92f141abc29f64b20e5fd9ca16e158385eb669e",
+      "LICENSES/CLEAN-ROOM-SPEC.md": "0e1ca380f1c24cd622e2f4cc779695d780b6946aeb7db135c3d512f61eb87c65",
+      "LICENSES/CLEAN-ROOM-SPEC.md.license": "e1011a8d249fe5463b86287ce92f141abc29f64b20e5fd9ca16e158385eb669e",
+      "LICENSES/CLEANROOM-RECEIPT.json": "b442ff48fa12736c1159fb26379eec747041e5fb36a937f3504fb3160a94f02e",
+      "LICENSES/NOTICE.md": "859207d97730ffcbf1a53013b745a5753575192ea53f019cc9669b6341799194",
+      "LICENSES/PRODUCTION-INPUTS.json": "3758fb6d5ece300ef1c2e83e1636e60af123085fc2f2b7430c9404ecc5edcd86",
+      "LICENSES/PROVENANCE.md": "c14e2920a11e08e5ad48cf70d5becdc3edb90c8900fcc213b1db4b33af8dc3d9",
+      "LICENSES/Wine-library.md": "12c8623c49b58e6169f2f4d2178bf207c389da23c921106eaa44138fd19c09bf",
+      "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+    }
   },
   "component_patches": {
     "dxvk-nvapi": {

@@ -7,7 +7,7 @@ JOBS=${JOBS:-3}
 here=$(cd -- "$(dirname -- "$0")" && pwd)
 export PATH="$WINE_SDK_ROOT/bin:$PATH"
 export ZLUDA_WINE_BUILD_ROOT=$BUILD_ROOT/zluda-wine
-export WINE_SOURCE_ROOT=${WINE_SOURCE_ROOT:-$BUILD_ROOT/wine/src/wine}
+source "$here/bridge-env.sh"
 mkdir -p "$BUILD_ROOT/log"
 # Full checkout provenance, pinned independent crate tree and lock are checked
 # by inputs.py before this entry in both CI and make redist.

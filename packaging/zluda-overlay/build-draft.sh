@@ -15,12 +15,13 @@ BUILD_PART=bridges bash "$here/install-rust.sh"
 export PATH="$BUILD_ROOT/rust/bin:$PATH"
 export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
 bash "$here/build-wine.sh"
-export WINE_SOURCE_ROOT=$BUILD_ROOT/wine/src/wine
 export PATH="$WINE_SDK_ROOT/bin:$PATH"
 python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
 export PILOT_BUILD_ROOT=$BUILD_ROOT/zluda-wine-draft
 mkdir -p "$BUILD_ROOT/log"
 bridge=$SOURCE_ROOT/zluda/wine/zluda_wine
+export BRIDGE_SOURCE=$bridge
+source "$here/bridge-env.sh"
 bash "$bridge/build-pilot.sh" 2>&1 | tee "$BUILD_ROOT/log/zluda-wine-draft.log"
 commit=$(git -C "$bridge" rev-parse HEAD)
 python3 "$here/cuda_package.py" draft "$PILOT_BUILD_ROOT/artifacts" --commit "$commit"

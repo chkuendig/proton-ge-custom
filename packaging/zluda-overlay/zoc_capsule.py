@@ -9,7 +9,7 @@ import shutil
 import subprocess
 
 from inputs import LOCK, git, manifest, sha256
-from overlay import collect_licenses
+from overlay import collect_licenses, collect_bridge_notices
 
 
 def output(*argv):
@@ -108,6 +108,8 @@ def create(source, binary, dest, stack_build=None):
     # LLVM and Cargo dependencies are linked into zoc even when they do not
     # appear in DT_NEEDED. Retain their notices with this separate capsule.
     collect_licenses(source, dest / 'licenses/source', required=True)
+    if (source / 'wine/zluda_wine').is_dir():
+        collect_bridge_notices(source, dest)
     if 'CARGO_HOME' in os.environ:
         cargo = Path(os.environ['CARGO_HOME'])
         collect_licenses(cargo / 'registry/src', dest / 'licenses/cargo-registry', required=True)

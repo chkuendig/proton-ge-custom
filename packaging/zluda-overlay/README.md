@@ -90,17 +90,30 @@ submodule files, never whole LLVM or other submodule trees. Both CI and make use
 literal includes, then run an offline native library Cargo check to execute the
 actual build-script/proc-macro regeneration from extracted sources alone. The
 receipt records the source tree, archive hash, observed files and resolved includes.
-Observed Wine callback-ABI inputs are included as a small `external/wine-source`
-capsule; extracted Cargo regeneration reads that capsule, not the original Wine
-checkout. WINE_SOURCE_ROOT identifies the same prepared source used for the SDK
-on overlay and make paths. Callback ABI fragments are gated as exact normalized
-tokens before the bridge build; the nine prepared-file hashes remain receipts.
-The attestation is retained with installed provenance and CPU module evidence.
-Root MIT/Apache, derived LGPL
-and per-file notices, the independent Cargo lock and downloaded dependency
-licenses are retained. Stage A comparison utilities remain available for source
-oracle work; they are no longer invoked as a substitute for generated-bridge
-qualification. Full-source `make redist` builds the bridge after the prepared
+The zluda_wine production crate at the clean-room pin is MIT OR Apache-2.0.
+The SDK producer separately audits exact prepared-Wine callback, layout,
+process/thread shutdown, TLS and loader-lock bodies and COM slots, plus the
+strong local ntdll provider. Reviewer-only source contracts and failure
+artifacts remain outside production. Shipping and draft builds consume only
+the SHA256-pinned ABI-2 receipt and exact SDK binary/tool inputs, with explicit
+source identity and SOURCE_DATE_EPOCH. Production does not read Wine source or
+headers or run historical C importers.
+
+The source archive includes a portable prepared SDK/provider and ABI receipt,
+which extracted builds remap and validate. Its production-closure include scan
+uses compiler-observed sources; unrelated LGPL test references are archived
+without treating them as production inputs. The hosted offline triad rebuild
+mounts neither the original checkout nor Wine source/object/SDK directories.
+The full tracked archive still contains retained historical C and tests/lgpl
+material and their complete original notices; it is not wholly permissive.
+The runtime tool notice and SBOM identify production MIT OR Apache-2.0, keep
+Wine/Proton under their own terms, and retain all provenance/ABI/receipt documents,
+root MIT/Apache texts and Cargo notices. Stage A evidence remains historical;
+it is not old-tree equivalence for the new implementation or its corrected widths.
+Full hosted candidate gates include ABI, lifecycle, launcher and durable A1-layout
+transitions. A separate W1 fixture job uses the exact bf13b315 source/artifact,
+with correct PE32 widths chosen before execution, requiring 24/24 in both backend
+modes and rejecting the old-width oracle. GPU, game and Deck W1/W2 remain pending. Full-source `make redist` builds the bridge after the prepared
 Wine SDK and installs after both Wine architectures; backend/ROCm provisioning
 still belongs to the separate native component.
 
