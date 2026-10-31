@@ -56,10 +56,8 @@ def collect_bridge_notices(source, dest):
     (dest / 'ZLUDA-WINE-NOTICE.md').write_text(
         'The zluda_wine production bridge is MIT OR Apache-2.0. See '
         'licenses/zluda-wine/LICENSE-MIT, LICENSE-APACHE and LICENSES/PROVENANCE.md.\n'
-        'Wine and Proton remain under their own terms. The retained C import '
-        'and tests/lgpl are reference/test-only LGPL material, not production '
-        'inputs and not relicensed. The complete source archive preserves their '
-        'source, notices and recipes. Cargo dependencies retain their own notices.\n')
+        'Wine and Proton remain under their own terms, with separate corresponding '
+        'source and notices. Cargo dependencies retain their own notices.\n')
 
 
 def sdk():
@@ -158,7 +156,6 @@ def metadata(part):
     # This is deliberately a minimal inventory, not an asserted SPDX document.
     sbom = {'format': 'zluda-overlay-sbom-1', 'scope': 'overlay; GE archive retains its own licenses',
             'production_bridge_license': LOCK['wine_bridge']['license'],
-            'reference_material': LOCK['wine_bridge']['test_license'],
             'sources': record['components'], 'binary_and_source_inputs': LOCK['downloads'],
             'license_files': sorted(p.relative_to(dest).as_posix() for p in (dest / 'licenses').rglob('*') if p.is_file()),
             'cargo_lock': LOCK['cargo_lock_sha256']}

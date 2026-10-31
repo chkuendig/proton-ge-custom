@@ -147,7 +147,7 @@ def create(source, build, output, cargo='cargo'):
                'method': 'full tracked superproject plus Cargo-observed submodule files',
                'cargo_inputs': records, 'extra_submodule_files': {name: sha256(source / name) for name in extras},
                'production_license': 'MIT OR Apache-2.0',
-               'reference_license': 'Source archive also contains retained LGPL C/test material; not relicensed',
+               'recipe_license': 'Prepared-Wine reviewer contracts retain Wine terms; dependencies retain their own notices',
                'compiled_source_closure': sorted(paths),
                'prepared_abi_receipt_sha256': identity['abi_receipt_sha256'],
                'sdk_capsule': {name: __import__('hashlib').sha256(data).hexdigest() for name,data in capsule.items()}}

@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "001db0476a9bf5fd93c4aa23a2adb316e465cec1",
+    "zluda": "20d2e76cf34e9819cca4ac137953c90d7d93ab2b",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "27f5c708ec4d4150fbff97acb30a5b21ad893994",
@@ -253,25 +253,15 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "6801b20c3ceb6fd13188e28088e5ab51f7d000f2",
-    "origin": "https://github.com/chkuendig/nvcuda",
-    "import_commit": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "tree": "5f0e8db9bc1d18da1d59a926c5c5dace83c48ab7",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
     "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
     "license": "MIT OR Apache-2.0",
-    "implementation": "clean-room production; historical origin/import_commit below identify only retained C reference",
-    "test_license": "tests/lgpl: LGPL-2.1-or-later AND (MIT OR Apache-2.0); separate test-only workspace",
+    "implementation": "clean-room production on ZLUDA c60462dc ancestry; Wine/Proton retain their own terms",
     "provenance_bundle": {
-      "LICENSES/ABI-FACTS.json": "1cd9f4411f8792d99e587063e5a61f9a3d1cfc89557795553fc9e2a9a1e925f8",
-      "LICENSES/ABI-FACTS.json.license": "e1011a8d249fe5463b86287ce92f141abc29f64b20e5fd9ca16e158385eb669e",
-      "LICENSES/CLEAN-ROOM-SPEC.md": "0e1ca380f1c24cd622e2f4cc779695d780b6946aeb7db135c3d512f61eb87c65",
-      "LICENSES/CLEAN-ROOM-SPEC.md.license": "e1011a8d249fe5463b86287ce92f141abc29f64b20e5fd9ca16e158385eb669e",
-      "LICENSES/CLEANROOM-RECEIPT.json": "ca415f65f2f937c7b3e9e341b607af454cd57c03213423719b941160393069bc",
-      "LICENSES/NOTICE.md": "859207d97730ffcbf1a53013b745a5753575192ea53f019cc9669b6341799194",
-      "LICENSES/PRODUCTION-INPUTS.json": "434ad519ad1fcaa35ab99e413f161a3ce63f4e1c69e4cca83cb642d204aab3f5",
-      "LICENSES/PROVENANCE.md": "503a31943253d5487d0ca26e3c9285883f856822fe1330210b0fbda933a73564",
-      "LICENSES/Wine-library.md": "12c8623c49b58e6169f2f4d2178bf207c389da23c921106eaa44138fd19c09bf",
+      "LICENSES/PRODUCTION-INPUTS.json": "4b3d935d8b0947daa18a2297252c883ef28b56a77587dc463b28fbed390dd3e5",
+      "LICENSES/PROVENANCE.md": "f66359e0f4407af1121780d82db7e0656d2278e9ae6a782d22a35b497bdafe06",
       "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
     }
   },

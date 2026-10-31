@@ -97,21 +97,21 @@ strong local ntdll provider. Reviewer-only source contracts and failure
 artifacts remain outside production. Shipping and draft builds consume only
 the SHA256-pinned ABI-2 receipt and exact SDK binary/tool inputs, with explicit
 source identity and SOURCE_DATE_EPOCH. Production does not read Wine source or
-headers or run historical C importers.
+headers.
 
 The source archive includes a portable prepared SDK/provider and ABI receipt,
 which extracted builds remap and validate. Its production-closure include scan
-uses compiler-observed sources; unrelated LGPL test references are archived
-without treating them as production inputs. The hosted offline triad rebuild
+uses compiler-observed sources and keeps test fixtures outside the production
+input closure. The hosted offline triad rebuild
 mounts neither the original checkout nor Wine source/object/SDK directories.
-The full tracked archive still contains retained historical C and tests/lgpl
-material and their complete original notices; it is not wholly permissive.
+The full tracked clean ZLUDA source is archived with its complete production
+provenance bundle. Prepared-Wine reviewer contracts retain Wine terms separately.
 The runtime tool notice and SBOM identify production MIT OR Apache-2.0, keep
 Wine/Proton under their own terms, and retain all provenance/ABI/receipt documents,
-root MIT/Apache texts and Cargo notices. Stage A evidence remains historical;
-it is not old-tree equivalence for the new implementation or its corrected widths.
+root MIT/Apache texts and Cargo notices.
 Full hosted candidate gates include ABI, lifecycle, launcher and durable A1-layout
-transitions. A separate W1 fixture job uses the exact bf13b315 source/artifact,
+transitions. A separate W1 fixture job uses source at the same clean ZLUDA pin and the
+matching fixture artifact from clean CI run 41216249728,
 with correct PE32 widths chosen before execution, requiring 24/24 in both backend
 modes and rejecting the old-width oracle. GPU, game and Deck W1/W2 remain pending. Full-source `make redist` builds the bridge after the prepared
 Wine SDK and installs after both Wine architectures; backend/ROCm provisioning

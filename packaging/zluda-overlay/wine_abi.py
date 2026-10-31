@@ -8,7 +8,7 @@ import re
 from inputs import HERE, LOCK, git, sha256
 import wine_provider
 
-REVIEW = HERE / 'reviewer/lgpl'
+REVIEW = HERE / 'reviewer/wine'
 FLAGS = ['callback_id_zero', 'same_thread_destructor', 'process_exit', 'thread_exit',
          'loader_lock_refusal', 'locally_scoped_strong_provider', 'eager_binding']
 
@@ -42,9 +42,9 @@ def audit_com(source):
 
 def produce(source, sdk, output):
     # These source/body comparisons remain reviewer-only, including diagnostics
-    # containing full failed definitions. Never invoke the legacy C importers.
+    # containing full failed definitions. Production receives only the pinned result.
     git(source, 'merge-base', '--is-ancestor', LOCK['components']['wine'], 'HEAD')
-    spec = importlib.util.spec_from_file_location('reviewer_wine_callback', REVIEW / 'check_wine_callback.py')
+    spec = importlib.util.spec_from_file_location('reviewer_wine_callback', REVIEW / 'prepared_source.py')
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
     report, artifacts = checker.audit(source)

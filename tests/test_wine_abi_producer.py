@@ -16,7 +16,7 @@ import overlay
 
 class PreparedAbiReviewer(unittest.TestCase):
     def test_changed_body_fails_and_preserves_full_source_diagnostics(self):
-        spec = importlib.util.spec_from_file_location('callback_reviewer', wine_abi.REVIEW / 'check_wine_callback.py')
+        spec = importlib.util.spec_from_file_location('callback_reviewer', wine_abi.REVIEW / 'prepared_source.py')
         check = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(check)
         original = 'void shutdown(void) { detach(); tls(); unlock(); }'
@@ -57,7 +57,7 @@ class PreparedAbiReviewer(unittest.TestCase):
             root = Path(temporary)
             source, dest = root / 'source', root / 'notices'
             for name in ['LICENSES/PROVENANCE.md', 'LICENSES/ABI-FACTS.json',
-                         'LICENSES/ABI-FACTS.json.license', 'tests/lgpl/LICENSE.md']:
+                         'LICENSES/ABI-FACTS.json.license', 'tests/fixtures/LICENSE-MIT']:
                 path = source / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)

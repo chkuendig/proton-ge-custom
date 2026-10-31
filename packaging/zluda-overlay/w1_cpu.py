@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Adapted from ZLUDA bf13b315:wine/w1-fixtures/run-cpu.py; original history retained there.
+# Adapted from the clean ZLUDA wine/w1-fixtures CPU harness; original authorship retained there.
 """Hosted CPU validation of the W1 fixtures in real Wine (no GPU, fake/absent backend).
 
   run-cpu.py --tool TOOL --fixtures BUILD_OUT --work FRESH_DIR
 
 TOOL is an assembled Proton tool with the bridge under
-files/lib/wine-cuda/{zluda,stub} (e.g. the 42b557a2 iteration tool from
-proton-ge-custom run 41115896989). Runs, per case, one disposable Wine process
+files/lib/wine-cuda/{zluda,stub} (the fully rebuilt candidate from this workflow). Runs, per case, one disposable Wine process
 with a deadline and records stdout JSONL, stderr and the exit code. The
 expectations below are what a fixture must do without a GPU: terminate in time,
 print parseable start/finish records, and, for the PE32 stack fixture, detect
@@ -91,7 +90,7 @@ def terminated(result):
         bool(events(result, 'finish')) or result['exit'] == 2)
 
 
-FIXTURE_PIN = 'bf13b315986b7eb7e3bd60c67ea8368a2d9cf0b2'
+FIXTURE_PIN = '20d2e76cf34e9819cca4ac137953c90d7d93ab2b'
 
 def admit_fixtures(fixtures, source):
     if git(source, 'rev-parse', 'HEAD') != FIXTURE_PIN:
@@ -137,7 +136,7 @@ def main():
         env = environment(a.tool, work, arch, 'stub', False, None)
         results.append(run('boot-' + arch, [wine, 'wineboot', '-u'], env, work, 600))
 
-    # 1. PE32 stack-balance fixture: self-test oracles, then the 42b557a2 bridge
+    # 1. PE32 stack-balance fixture: self-test oracles, then the pinned candidate
     wow_off = environment(a.tool, work, 'wow64', 'stub', False, None)
     st = pe32 / 'pe32_stack.exe'
     good = run('pe32-stack-stub-correct', [wine, st, '--expect', 'correct'], wow_off, work, 120,

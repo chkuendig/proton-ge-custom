@@ -47,7 +47,7 @@ class SourceArchive(unittest.TestCase):
                      'ext/fixture-sys/src/lib.rs': '// macro input\n',
                      'zluda/src/lib.rs': '// attestation\n', 'zluda/src/impl/mod.rs': '// refusal\n',
                      'not-guessed-by-a-hand-list.txt': 'retained',
-                     'wine/zluda_wine/tests/lgpl/reference.rs': 'include_str!("missing-test-only.h");',
+                     'wine/zluda_wine/tests/fixtures/uncompiled.rs': 'include_str!("missing-test-only.h");',
                      'wine/zluda_wine/LICENSES/PROVENANCE.md': 'production/reference boundary'}
             for name, content in files.items():
                 path = source / name

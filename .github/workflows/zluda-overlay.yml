@@ -218,7 +218,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: bf13b315986b7eb7e3bd60c67ea8368a2d9cf0b2
+          ref: 20d2e76cf34e9819cca4ac137953c90d7d93ab2b
           path: w1-source
           sparse-checkout: wine/w1-fixtures
           persist-credentials: false
@@ -227,7 +227,7 @@ jobs:
         with:
           name: w1-fixtures
           repository: chkuendig/ZLUDA
-          run-id: 41128190234
+          run-id: 41216249728
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/w1-fixtures
       - name: Download this run's fully rebuilt candidate
