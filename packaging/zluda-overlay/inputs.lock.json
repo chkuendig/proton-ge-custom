@@ -268,9 +268,9 @@
   "component_patches": {
     "dxvk-nvapi": {
       "upstream_tree": "c18f660124c0ebcc3a134a697a83cad392154e61",
-      "fork_commit": "7d2fa4f1bcc31a52698f4f4d63e2dbe280b6ac55",
-      "fork_tree": "6088b8214be9dc6ceb9ef2d980003f3828e5c542",
-      "prepared_tree": "6088b8214be9dc6ceb9ef2d980003f3828e5c542",
+      "fork_commit": "a83d885439dc2c1930fae223ed91ca59e62cbd2b",
+      "fork_tree": "8df656768813d1bfe171a3a4a70a491f67b182b5",
+      "prepared_tree": "8df656768813d1bfe171a3a4a70a491f67b182b5",
       "patches": [
         {
           "path": "patches/dxvk-nvapi/0001-nvapi-gpu-Bound-CUDA-topology-V1-writes.patch",
@@ -300,6 +300,11 @@
         {
           "path": "patches/dxvk-nvapi/0006-nvapi-Match-CUDA-devices-by-PCI-location-instead-of-.patch",
           "sha256": "e1fd056f485aa76540939f0fae662a090ed687482850eeb5c46c4096d4ba1f61",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0007-tests-Give-CUDA-topology-test-adapters-a-LUID-again.patch",
+          "sha256": "10a124b6ad32e93179e513cad58c78e9bf3ac431135624ba299882130de91cd8",
           "fork_change": true
         }
       ]

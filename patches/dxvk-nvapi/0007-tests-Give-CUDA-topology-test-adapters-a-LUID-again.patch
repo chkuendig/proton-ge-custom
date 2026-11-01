@@ -1,0 +1,30 @@
+From a83d885439dc2c1930fae223ed91ca59e62cbd2b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sun, 1 Nov 2026 11:56:33 +0100
+Subject: [PATCH] tests: Give CUDA topology test adapters a LUID again
+
+GetAdapterIdFromPhysicalGpu, which is used to check that other entry
+points do not load nvcuda.dll, requires a valid LUID. The adapters lost
+it when matching moved to the PCI location. Report one again, which
+also shows that the LUID is not used for matching.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ tests/nvapi_sysinfo_cuda.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/tests/nvapi_sysinfo_cuda.cpp b/tests/nvapi_sysinfo_cuda.cpp
+index 326b683..c894bd2 100644
+--- a/tests/nvapi_sysinfo_cuda.cpp
++++ b/tests/nvapi_sysinfo_cuda.cpp
+@@ -25,6 +25,10 @@ namespace {
+     void ConfigureVkProps(ConfigureProps vkProps, VkDriverId driverId, const PciLocation& pci) {
+         vkProps.props->vendorID = driverId == VK_DRIVER_ID_NVIDIA_PROPRIETARY ? 0x10de : 0x1002;
+         vkProps.driverProps->driverID = driverId;
++        // Adapters also have a LUID, which is not used for matching
++        auto luid = LUID{0x04030211, static_cast<LONG>(pci.bus)};
++        memcpy(&vkProps.idProps->deviceLUID, &luid, sizeof(luid));
++        vkProps.idProps->deviceLUIDValid = VK_TRUE;
+         if (!vkProps.pciBusInfoProps)
+             return;
+ 

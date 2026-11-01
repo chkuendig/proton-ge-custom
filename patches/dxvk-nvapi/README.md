@@ -1,11 +1,11 @@
 # Provider-agnostic CUDA topology series for dxvk-nvapi
 
 Base: upstream jp7677/dxvk-nvapi `fd105c0d07f4531169eba4d1d1eaa25f78a416a2`.
-Apply the six patches in order with `git am`. They replace the whole
+Apply the seven patches in order with `git am`. They replace the whole
 2026-10-30 series (old 0001–0004); do not combine the two. Patch 0001 is the
 old 0001 (same commit `d42d966`). Patch 0005 is a test-only fix: the new tests
 in 0002–0004 fail without it. It was added on top because the series was
-already on the review branch `review/cuda-topology-provider-20261031`. Squash 0005 and 0006
+already on the review branch `review/cuda-topology-provider-20261031`. Squash 0005, 0006 and 0007
 into 0002–0004 before any upstream submission. Upstream submodule pins are unchanged.
 
 1. `0001` – V1 fixed-array bounds protection (unchanged).
@@ -39,6 +39,10 @@ into 0002–0004 before any upstream submission. Upstream submodule pins are unc
    used for NVML. `cuDeviceGetLuid` is dropped from the loader. Squash it into
    0002 (and its test edits into 0002–0004) before upstream.
 
+7. `0007` – test-only: give the mock adapters valid LUIDs in the section
+   checking that unrelated NVAPI methods do not load CUDA. Production code is
+   unchanged (`a83d885`).
+
 Packaging: nothing besides upstream's `DXVK_NVAPI_ALLOW_OTHER_DRIVERS=1`.
 Non-NVIDIA adapters need it to be admitted at all, so they can be matched.
 The CUDA provider is detected at runtime; no provider-specific switch is required.
@@ -59,6 +63,6 @@ Historical validation before PCI patch 0006 (tip `8f3def5`, Wine 9.0, MinGW GCC 
   cases, all 6 CUDA cases included), and the 3 disable checks pass.
 - `validate-methods.py` passes and clang-format reports no changes.
 
-The six-patch integration requires fresh hosted x64/PE32 unit tests.
+The seven-patch integration requires fresh hosted x64/PE32 unit tests.
 
 See workspace `evidence/dxvk-nvapi-provider-20261031/REPORT.md` for design, flag answer, test matrix and hashes.

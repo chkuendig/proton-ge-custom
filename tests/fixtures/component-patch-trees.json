@@ -2,8 +2,8 @@
   "dxvk-nvapi": {
     "upstream_commit": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "upstream_tree": "c18f660124c0ebcc3a134a697a83cad392154e61",
-    "fork_commit": "7d2fa4f1bcc31a52698f4f4d63e2dbe280b6ac55",
-    "fork_tree": "6088b8214be9dc6ceb9ef2d980003f3828e5c542",
+    "fork_commit": "a83d885439dc2c1930fae223ed91ca59e62cbd2b",
+    "fork_tree": "8df656768813d1bfe171a3a4a70a491f67b182b5",
     "entries": [
       [
         "100644",
@@ -1001,6 +1001,15 @@
         "date": "Sun, 1 Nov 2026 07:26:36 +0100",
         "subject": "nvapi: Match CUDA devices by PCI location instead of LUID",
         "body": "cuDeviceGetLuid needs CUDA 10, while the applications querying the\nCUDA topology (legacy PhysX) predate it and CUDA implementations aimed\nat them may not provide it. It is also not a primary identity on Wine:\nthere the LUID is derived from the device UUID, so it only matches when\nthe CUDA implementation and the Vulkan driver report the same UUID.\n\nUse the PCI domain, bus and device instead, read through\ncuDeviceGetAttribute (available since CUDA 4.0), and compare them with\nthe adapter's VK_EXT_pci_bus_info properties. This is the identity\nalready used to find NVML devices. Adapters without PCI bus info are not\nmatched, and CUDA is not loaded at all when no adapter has it. CUDA\ndoes not report the PCI function, so a device matching several adapters\nis ignored as before.\n\nAssisted-by: Claude:claude-opus-5-5"
+      },
+      {
+        "patch": "patches/dxvk-nvapi/0007-tests-Give-CUDA-topology-test-adapters-a-LUID-again.patch",
+        "commit": "a83d885439dc2c1930fae223ed91ca59e62cbd2b",
+        "author": "Christian K\u00fcndig",
+        "email": "christian@kuendig.info",
+        "date": "Sun, 1 Nov 2026 11:56:33 +0100",
+        "subject": "tests: Give CUDA topology test adapters a LUID again",
+        "body": "GetAdapterIdFromPhysicalGpu, which is used to check that other entry\npoints do not load nvcuda.dll, requires a valid LUID. The adapters lost\nit when matching moved to the PCI location. Report one again, which\nalso shows that the LUID is not used for matching.\n\nAssisted-by: Claude:claude-opus-5-5"
       }
     ]
   },

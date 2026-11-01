@@ -16,7 +16,7 @@ BINARIES = ['files/lib/wine/nvapi/x86_64-windows/nvapi64.dll',
 
 def adapt_pe32(source, dest, receipt):
     # Upstream disables tests on x86. Only the private test copy changes;
-    # production and the source archive retain the exact six-patch tree.
+    # production and the source archive retain the exact seven-patch tree.
     shutil.copytree(source, dest, symlinks=True)
     root = dest / 'meson.build'
     original = root.read_text()
