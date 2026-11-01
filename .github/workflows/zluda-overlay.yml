@@ -56,6 +56,10 @@ jobs:
       - name: Make room on the ephemeral GitHub runner
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          # Newer runner images left 27 GB, below ci-build.sh's 30 GB gate.
+          sudo rm -rf /opt/hostedtoolcache /usr/local/share/boost /usr/local/share/powershell \
+            /usr/local/share/chromium /opt/microsoft /opt/google /opt/az
+          sudo docker image prune -af > /dev/null
           sudo mkdir -p /work
           sudo chown "$USER:$USER" /work
           df -h / /work
