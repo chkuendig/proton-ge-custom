@@ -154,7 +154,7 @@ jobs:
           SOURCE_ROOT: ${{ github.workspace }}
           BUILD_ROOT: ${{ runner.temp }}/assembly
           DOWNLOAD_ROOT: ${{ runner.temp }}/downloads
-          DESTDIR: ${{ runner.temp }}/GE-Proton11-7-zluda
+          DESTDIR: ${{ runner.temp }}/GE-Proton11-7-zluda-u
           OVERLAYS_ROOT: ${{ runner.temp }}/overlays
           OUTPUT_ROOT: ${{ runner.temp }}/release
         run: |
@@ -166,12 +166,12 @@ jobs:
           set -euo pipefail
           docker pull "$SDK_IMAGE"
           docker run --rm --init --cpus=3 --memory=6g \
-            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda-u:/tool:ro" \
             -e DESTDIR=/tool "$SDK_IMAGE" bash /src/packaging/zluda-overlay/check-loader.sh \
             2>&1 | tee "$RUNNER_TEMP/loader.log"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: GE-Proton11-7-zluda
+          name: GE-Proton11-7-zluda-u
           path: ${{ runner.temp }}/release
           if-no-files-found: error
           compression-level: 0

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from proton_zluda import configure_hardware, enabled
+from proton_zluda import configure_hardware, enabled, install_wow64_client
 
 
 class LaunchPolicy(unittest.TestCase):
@@ -52,6 +52,54 @@ class LaunchPolicy(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             configure_hardware(env, Path(temporary))
         self.assertNotIn("HSA_OVERRIDE_GFX_VERSION", env)
+
+
+
+class Wow64Client(unittest.TestCase):
+    def tool(self, root):
+        lib = root / "files/lib"
+        (lib / "wine/i386-windows").mkdir(parents=True)
+        (lib / "wine/zluda").mkdir(parents=True)
+        (lib / "wine/i386-windows/nvcuda.dll").write_bytes(b"zluda32")
+        (lib / "wine/zluda/zluda64_server.exe").write_bytes(b"server")
+        prefix = root / "pfx"
+        (prefix / "drive_c/windows/syswow64").mkdir(parents=True)
+        return str(lib) + "/", str(prefix) + "/"
+
+    def test_replaces_ge_placeholder_and_installs_server(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lib, prefix = self.tool(root)
+            windows = root / "pfx/drive_c/windows"
+            # GE restores the default-prefix copy on every launch.
+            (windows / "syswow64/nvcuda.dll").write_bytes(b"placeholder")
+            install_wow64_client(lib, prefix)
+            self.assertEqual((windows / "syswow64/nvcuda.dll").read_bytes(), b"zluda32")
+            self.assertEqual((windows / "zluda64_server.exe").read_bytes(), b"server")
+            self.assertEqual(sorted(p.name for p in windows.iterdir()), ["syswow64", "zluda64_server.exe"])
+
+    def test_replaces_links_and_stale_server(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lib, prefix = self.tool(root)
+            windows = root / "pfx/drive_c/windows"
+            other = root / "other.dll"
+            other.write_bytes(b"zluda32")
+            (windows / "syswow64/nvcuda.dll").symlink_to(other)
+            (windows / "zluda64_server.exe").write_bytes(b"old server")
+            install_wow64_client(lib, prefix)
+            self.assertFalse((windows / "syswow64/nvcuda.dll").is_symlink())
+            self.assertEqual((windows / "syswow64/nvcuda.dll").read_bytes(), b"zluda32")
+            self.assertEqual((windows / "zluda64_server.exe").read_bytes(), b"server")
+            self.assertEqual(other.read_bytes(), b"zluda32")
+
+    def test_missing_client_fails_the_launch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lib, prefix = self.tool(root)
+            (root / "files/lib/wine/zluda/zluda64_server.exe").unlink()
+            with self.assertRaises(FileNotFoundError):
+                install_wow64_client(lib, prefix)
 
 
 if __name__ == "__main__":

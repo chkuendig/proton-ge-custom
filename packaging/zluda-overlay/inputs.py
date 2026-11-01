@@ -82,7 +82,7 @@ def resolve(cache):
                 release = json.load(response)
             asset = next(a for a in release['assets'] if a['browser_download_url'] == item['url'])
             assert asset['digest'] == 'sha256:' + item['sha256']
-        elif item['id'] == 'rust':
+        elif item['id'] == 'rust' or item['id'].startswith('rust-std-'):
             with request(item['url'] + '.sha256') as response:
                 assert response.read().decode().split()[0] == item['sha256']
         else:
@@ -230,6 +230,7 @@ def main():
             for item in LOCK['downloads']:
                 ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge'], 'ge': ['ge']}
                 if (args.group == 'all' or item['id'] in ids[args.group]
+                        or (args.group == 'zluda' and item['id'].startswith('rust-std-'))
                         or (args.group == 'zluda' and item.get('group') == 'rocm')):
                     print(item['id'], download(item, args.directory), flush=True)
 

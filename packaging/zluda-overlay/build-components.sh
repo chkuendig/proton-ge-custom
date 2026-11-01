@@ -29,6 +29,10 @@ if [[ $part == zluda || $part == all ]]; then
         --prefix="$BUILD_ROOT/rust" --without=rust-docs --disable-ldconfig
     export PATH="$BUILD_ROOT/rust/bin:$PATH"
     [[ $(rustc --version) == 'rustc 1.99.0 '* ]]
+    for target in i686-pc-windows-gnu x86_64-pc-windows-gnu; do
+        tar -xf "$DOWNLOAD_ROOT/rust-std-1.99.0-$target.tar.xz" -C "$BUILD_ROOT"
+        "$BUILD_ROOT/rust-std-1.99.0-$target/install.sh" --prefix="$BUILD_ROOT/rust" --disable-ldconfig
+    done
     export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
     export CARGO_BUILD_JOBS=$JOBS CMAKE_BUILD_PARALLEL_LEVEL=$JOBS
     export ZLUDA_HIP_SDK_ROOT=$SDK_ROOT
@@ -38,6 +42,30 @@ if [[ $part == zluda || $part == all ]]; then
     for name in rocsparse MIOpen hipblaslt rocblas; do
         printf '\n' | cc -shared -x c - -o "$BUILD_ROOT/stubs/lib$name.so"
     done
+    # Upstream's 32-bit route: the i386 PE client and its x86_64 PE server are
+    # small and need no HIP SDK, so a MinGW failure stops before LLVM starts.
+    (
+        cd "$SOURCE_ROOT/zluda"
+        cargo fetch --locked
+        cargo build --offline --locked --release -p zluda32 --target i686-pc-windows-gnu
+        cargo build --offline --locked --release -p zluda64_server --target x86_64-pc-windows-gnu
+    )
+    install -m644 "$SOURCE_ROOT/zluda/target/i686-pc-windows-gnu/release/nvcuda.dll" "$wl/i386-windows/nvcuda.dll"
+    python3 "$here/pe_builtin.py" "$wl/i386-windows/nvcuda.dll"
+    # Both PE files must run from a bare prefix: no MinGW runtime DLL imports.
+    for spec in 'i686 i686-pc-windows-gnu/release/nvcuda.dll' \
+                'x86_64 x86_64-pc-windows-gnu/release/zluda64_server.exe'; do
+        read -r arch pe <<< "$spec"
+        pe=$SOURCE_ROOT/zluda/target/$pe
+        imports=$("$arch-w64-mingw32-objdump" -p "$pe" | sed -n 's/^\s*DLL Name: //p')
+        printf '%s imports: %s\n' "${pe##*/}" "$(tr '\n' ' ' <<< "$imports")"
+        if grep -qiE '^(libgcc|libwinpthread|libstdc)' <<< "$imports"; then
+            echo "MinGW runtime import in $pe" >&2
+            exit 1
+        fi
+    done
+    mkdir -p "$wl/zluda"
+    install -m644 "$SOURCE_ROOT/zluda/target/x86_64-pc-windows-gnu/release/zluda64_server.exe" "$wl/zluda/"
     export LIBRARY_PATH="$BUILD_ROOT/stubs:$SDK_ROOT/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
     export LD_LIBRARY_PATH="$SDK_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     # cmake-rs's compiler launcher accepts ccache as well as sccache. Cache key
@@ -73,23 +101,16 @@ if [[ $part == bridges || $part == all ]]; then
     bash "$here/build-wine.sh"
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
     python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT"
-    n=$SOURCE_ROOT/nvcuda
+    # Stock SveSop nvcuda plus the table zluda64_server requests from it.
+    n=$BUILD_ROOT/nvcuda-src
+    git -C "$SOURCE_ROOT/nvcuda" archive --prefix=nvcuda-src/ HEAD | tar -x -C "$BUILD_ROOT"
+    patch -d "$n" -Np1 --no-backup-if-mismatch < "$here/patches/nvcuda/0001-forward-zluda32-internal-export-table.patch"
     meson setup "$BUILD_ROOT/nvcuda-x64" "$n" --cross-file "$n/build-wine64.txt" \
         --cross-file "$WINE_SDK_ROOT/nvcuda-wine64.ini" \
         --buildtype release -Dfakedll=true
     ninja -C "$BUILD_ROOT/nvcuda-x64" -j"$JOBS"
     install -m755 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda/nvcuda.dll.so" "$wl/x86_64-unix/"
     install -m644 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda_fdll/nvcuda.dll" "$wl/x86_64-windows/"
-    # Compile the same bridge as tests/build-wow64.sh, with explicit tool paths.
-    wow=$BUILD_ROOT/wow64
-    mkdir -p "$wow"
-    python3 "$n/tests/generate-wow64-unsupported.py" "$n" "$wow"
-    i686-w64-mingw32-gcc -O2 -Wall -Wextra -Werror -shared \
-        "$n/dlls/nvcuda/wow64/pe.c" "$wow/unsupported.c" "$wow/exports.def" \
-        -Wl,--kill-at -o "$wl/i386-windows/nvcuda.dll"
-    "$WINE_SDK_ROOT/bin/winebuild" --builtin "$wl/i386-windows/nvcuda.dll"
-    cc -O2 -Wall -Wextra -Werror -fPIC -shared "$n/dlls/nvcuda/wow64/unix.c" \
-        -ldl -pthread -o "$wl/x86_64-unix/nvcuda.so"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
         a=$SOURCE_ROOT/dxvk-nvapi
@@ -121,7 +142,8 @@ if [[ $part == bridges || $part == all ]]; then
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    git -C "$n" archive HEAD | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
+    git -C "$SOURCE_ROOT/nvcuda" archive HEAD | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
+    cp "$here/patches/nvcuda/0001-forward-zluda32-internal-export-table.patch" "$DESTDIR/sources/"
 fi
 DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"

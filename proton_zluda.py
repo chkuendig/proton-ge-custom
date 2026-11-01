@@ -1,5 +1,6 @@
 """Launch policy for the bundled ZLUDA backend."""
 
+import os
 from pathlib import Path
 
 
@@ -37,3 +38,21 @@ def configure_hardware(env, sys_root=Path("/sys")):
     except (OSError, ValueError, IndexError):
         # Unknown hardware stays native; the user can opt in explicitly.
         return
+
+
+def install_wow64_client(lib_dir, prefix_dir):
+    """Reinstall upstream's 32-bit CUDA client and its server in the prefix.
+
+    GE runs WoW64 without 32-bit nvidia-libs and resets syswow64/nvcuda.dll
+    to the default-prefix placeholder on every launch. zluda32 starts
+    zluda64_server.exe from its module directory's parent, C:\\windows.
+    """
+    windows = Path(prefix_dir) / "drive_c/windows"
+    for source, target in [(Path(lib_dir) / "wine/i386-windows/nvcuda.dll", windows / "syswow64/nvcuda.dll"),
+                           (Path(lib_dir) / "wine/zluda/zluda64_server.exe", windows / "zluda64_server.exe")]:
+        data = source.read_bytes()
+        if not target.is_symlink() and target.is_file() and target.read_bytes() == data:
+            continue
+        partial = target.with_name(target.name + ".zluda-partial")
+        partial.write_bytes(data)
+        os.replace(partial, target)

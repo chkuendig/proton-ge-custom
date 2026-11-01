@@ -1,5 +1,8 @@
 {
   "nvcuda": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+  "same_cross_file_and_config": [
+    "772b344a3594fca916999c5c5288d875332de482"
+  ],
   "config": {
     "path": "include/config.h",
     "sha256": "e538799b41adad6a73496ee61861fc10c4a3483583ffc17854fe39460182543d",

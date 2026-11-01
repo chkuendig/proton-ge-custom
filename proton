@@ -2913,7 +2913,7 @@ if __name__ == "__main__":
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
 
     # Per-game hooks opt in explicitly; forcing NVAPI alone is independent.
-    from proton_zluda import enabled as zluda_enabled, configure_hardware
+    from proton_zluda import enabled as zluda_enabled, configure_hardware, install_wow64_client
     if zluda_enabled(g_session.env):
         zluda_lib_dir = g_proton.path("files/lib64/")
         prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
@@ -2923,6 +2923,7 @@ if __name__ == "__main__":
         # preloaded into unrelated Wine processes. Hardware policy runs before
         # the game can load HIP, preserving explicit user overrides.
         configure_hardware(g_session.env)
+        install_wow64_client(g_proton.lib_dir, g_compatdata.prefix_dir)
         g_session.env["PROTON_FORCE_NVAPI"] = "1"
         g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
         g_session.env["DXVK_ENABLE_NVAPI"] = "1"

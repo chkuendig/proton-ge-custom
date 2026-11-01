@@ -5,7 +5,7 @@ here=$SOURCE_ROOT/packaging/zluda-overlay
 python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group ge
 python3 "$here/overlay.py" assemble --overlays "$OVERLAYS_ROOT"
 mkdir -p "$OUTPUT_ROOT"
-name=GE-Proton11-7-zluda
+name=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["tool_name"])' "$here/inputs.lock.json")
 [[ $(basename "$DESTDIR") == "$name" ]]
 cp "$DESTDIR/MANIFEST" "$OUTPUT_ROOT/MANIFEST"
 tar --sort=name --mtime="@$(git -C "$SOURCE_ROOT" show -s --format=%ct HEAD)" \

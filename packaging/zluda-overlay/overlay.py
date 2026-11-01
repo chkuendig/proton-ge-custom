@@ -137,8 +137,9 @@ def required_payload():
     required = ['proton', 'proton_zluda.py', 'files/lib64/libcuda.so.1', 'files/lib64/libcuda.so',
                 'files/lib/wine/x86_64-unix/libcuda.so.1', 'files/lib/wine/x86_64-unix/libcuda.so',
                 'files/lib64/libnuma.so.1',
-                'files/lib/wine/x86_64-unix/nvcuda.dll.so', 'files/lib/wine/x86_64-unix/nvcuda.so',
+                'files/lib/wine/x86_64-unix/nvcuda.dll.so',
                 'files/lib/wine/x86_64-windows/nvcuda.dll', 'files/lib/wine/i386-windows/nvcuda.dll',
+                'files/lib/wine/zluda/zluda64_server.exe',
                 'files/lib/wine/nvapi/x86_64-windows/nvapi64.dll',
                 'files/lib/wine/nvapi/x86_64-windows/nvofapi64.dll',
                 'files/lib/wine/nvapi/i386-windows/nvapi.dll']
@@ -218,12 +219,15 @@ def assemble(overlays):
     text, n = re.subn(r'(\n\s*)"[^"]+"(\s*// Internal name)',
                       lambda m: m[1] + '"' + LOCK['tool_name'] + '"' + m[2], vdf.read_text(), count=1)
     assert n == 1, 'unknown compatibilitytool.vdf layout'
-    text, n = re.subn(r'("display_name"\s*)"[^"]*"', r'\1"GE-Proton11-7 ZLUDA"', text, count=1)
+    text, n = re.subn(r'("display_name"\s*)"[^"]*"', lambda m: m[1] + '"' + LOCK['display_name'] + '"', text, count=1)
     assert n == 1
     vdf.write_text(text)
     for name in required_payload():
         assert (dest / name).is_file() and (dest / name).stat().st_size, name
-    assert (dest / 'files/lib64/wine/x86_64-unix/nvcuda.so').samefile(dest / 'files/lib/wine/x86_64-unix/nvcuda.so')
+    # zluda32 is loaded as nvcuda's i386 builtin; ntdll requires the marker.
+    with (dest / 'files/lib/wine/i386-windows/nvcuda.dll').open('rb') as stream:
+        stream.seek(0x40)
+        assert stream.read(16) == b'Wine builtin DLL', 'i386 nvcuda.dll is not marked builtin'
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),

@@ -7,6 +7,20 @@ runbooks and launcher are unchanged. This is packaging step 1: `make redist` now
 copies `proton_zluda.py`, but full ZLUDA component dependencies in `all-dist` remain
 separate work.
 
+**Branch `bridge/u-zluda32-20261101` (route U test artifact).** This branch
+packages upstream's 32-bit route instead of the WoW64 relay, as a separate tool
+(`GE-Proton11-7-zluda-u`, display name "GE-Proton11-7 ZLUDA U"). The 32-bit game
+loads ZLUDA's `zluda32` as nvcuda's i386 builtin; it starts `zluda64_server.exe`,
+which calls stock SveSop nvcuda (pinned `772b344a`) plus
+`patches/nvcuda/0001-forward-zluda32-internal-export-table.patch`, which in turn
+loads the same ZLUDA `libcuda.so.1` as 64-bit games. The zluda part cross-builds
+both PE files with the pinned Rust's `*-pc-windows-gnu` standard libraries and
+marks the client builtin with `pe_builtin.py` (the zluda part has no Wine SDK).
+The bridges part no longer builds `wow64/pe.c` or `x86_64-unix/nvcuda.so`. GE
+resets `syswow64/nvcuda.dll` on every launch, so `proton_zluda.install_wow64_client`
+reinstalls it and `C:\windows\zluda64_server.exe` on each ZLUDA launch. The
+paragraphs below describe the relay-era recipe where they mention WoW64.
+
 `inputs.lock.json` pins the GE11-7 x86_64 release, seven official AMD ROCm 7.2.4
 noble packages, Rust 1.99.0, numactl 2.0.18 source, Steam Runtime SDK image digest,
 component gitlinks, patched LLVM gitlink, Cargo.lock hash and all four ZLUDA LFS

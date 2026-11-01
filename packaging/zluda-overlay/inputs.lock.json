@@ -2,8 +2,9 @@
   "schema": 1,
   "proton_base": "e4dcac96c1d482aa20b2649de323e30366c0695c",
   "ge_source": "c191f35dcebbeccfacd3b4c6f6eea026e588c1c2",
-  "tool_name": "GE-Proton11-7-zluda",
-  "architecture": "x86_64 + i386 PE (WoW64), no i386 ROCm",
+  "tool_name": "GE-Proton11-7-zluda-u",
+  "display_name": "GE-Proton11-7 ZLUDA U",
+  "architecture": "x86_64 ZLUDA; i386 PE zluda32 client + x86_64 zluda64_server (upstream U route), no i386 ROCm",
   "sdk_image": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1",
   "rust_version": "1.99.0",
   "llvm": "107e2bfaf44d07e70050da61ab0655b297c0dd4a",
@@ -12,11 +13,11 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "c60462dc06e9e4b4c3185464919eff5908e763e6",
-    "nvcuda": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "zluda": "f4b8ded94dd44f7bfd2f6be7dd125fd6ec350686",
+    "nvcuda": "772b344a3594fca916999c5c5288d875332de482",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
-    "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
+    "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
     "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
     "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300",
     "ffmpeg": "9047fa1b084f76b1b4d065af2d743df1b40dfb56",
@@ -155,6 +156,18 @@
       "id": "rust",
       "url": "https://static.rust-lang.org/dist/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz",
       "sha256": "891c6366d7100feda0bca4c03ce63f3c9ac827cbebbc283e7433061d42c6a376"
+    },
+    {
+      "id": "rust-std-i686-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-i686-pc-windows-gnu.tar.xz",
+      "sha256": "8c3f4dd0743b8f092651fac16d00a64c6f06ea9420355099e0f52954cc1a61c2",
+      "size": 28201328
+    },
+    {
+      "id": "rust-std-x86_64-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-x86_64-pc-windows-gnu.tar.xz",
+      "sha256": "a2382bf189d5621e09db647da419a8e1d4c604d60941cb116da00ce34042b1dd",
+      "size": 28385812
     }
   ],
   "cargo_lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
