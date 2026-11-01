@@ -108,7 +108,7 @@ def admit_fixtures(fixtures, source):
         if not entries:
             raise ValueError('empty W1 fixture inventory')
         seen[inventory] = entries
-    widths = source / 'wine/w1-fixtures/src/pe32_widths.h'
+    widths = source / 'src/pe32_widths.h'
     cases = [(name, int(correct), int(old)) for name, correct, old in
              re.findall(r'X\((\w+),\s*(\d+),\s*(\d+),', widths.read_text())]
     if len(cases) != 25 or sum(correct == old for _, correct, old in cases) != 1:
@@ -155,7 +155,7 @@ def main():
     results += [good, old, detect]
     summary = lambda r: (events(r, 'summary') or [{}])[0]
     expect('self-test: correct stub balanced 25/25', good['exit'] == 0 and summary(good).get('matched') == 25)
-    expect('self-test: old stub shows the all 25 expected historical widths (including unchanged LUID)',
+    expect('self-test: old stub shows all 25 expected historical widths (including unchanged LUID)',
            old['exit'] == 0 and summary(old).get('matched') == 25)
     expect('self-test: old stub FAILS the correct-width gate on 24, with only unchanged LUID matching',
            detect['exit'] == 1 and summary(detect).get('matched') == 1)
