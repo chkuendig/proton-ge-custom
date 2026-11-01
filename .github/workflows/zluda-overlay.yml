@@ -2,9 +2,15 @@ name: ZLUDA overlay (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      smoke_overlay_run:
+        description: Only re-run the route U smoke against this earlier run's tool
+        required: false
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: zluda-overlay-${{ github.ref }}
@@ -16,6 +22,7 @@ env:
 jobs:
   components:
     name: Build ${{ matrix.part }}
+    if: inputs.smoke_overlay_run == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     strategy:
@@ -129,6 +136,7 @@ jobs:
 
   assemble:
     needs: components
+    if: inputs.smoke_overlay_run == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -183,4 +191,66 @@ jobs:
           path: |
             ${{ runner.temp }}/assembly.log
             ${{ runner.temp }}/loader.log
+          retention-days: 14
+
+  smoke:
+    name: PE32 route probe through the assembled tool
+    needs: assemble
+    if: always() && (needs.assemble.result == 'success' || inputs.smoke_overlay_run != '')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: GE-Proton11-7-zluda-u
+          path: ${{ runner.temp }}/release
+          run-id: ${{ inputs.smoke_overlay_run || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify and unpack the tool
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release"
+          sha256sum -c SHA256SUMS
+          mkdir "$RUNNER_TEMP/tool"
+          tar -xzf GE-Proton11-7-zluda-u.tar.gz -C "$RUNNER_TEMP/tool"
+          ls "$RUNNER_TEMP/tool"
+      - name: Route probe and stub driver from the locked pins
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-i686
+          lock=packaging/zluda-overlay/inputs.lock.json
+          zluda=$(jq -r .components.zluda "$lock")
+          nvcuda=$(jq -r .components.nvcuda "$lock")
+          src=$RUNNER_TEMP/route
+          mkdir -p "$src/stub" "$src/out"
+          for f in probe/probe.c stub/gen_stub.py stub/stub_impl.c; do
+            curl -fsSL --create-dirs -o "$src/$f" "https://raw.githubusercontent.com/chkuendig/ZLUDA/$zluda/route-check/$f"
+          done
+          curl -fsSL -o "$src/nvcuda.c" "https://raw.githubusercontent.com/chkuendig/nvcuda/$nvcuda/dlls/nvcuda/nvcuda.c"
+          i686-w64-mingw32-gcc -O2 -static -o "$src/out/probe32.exe" "$src/probe/probe.c"
+          python3 "$src/stub/gen_stub.py" "$src/nvcuda.c" "$src/stub.c"
+          gcc -O2 -shared -fPIC -I"$src/stub" -Wl,-soname,libcuda.so.1 -o "$src/out/libcuda.so.1" "$src/stub.c"
+          sha256sum "$src/out/"*
+      - name: ntsync, as on the Deck
+        run: |
+          sudo modprobe ntsync || true
+          sudo chmod 666 /dev/ntsync || true
+          ls -l /dev/ntsync || true
+      - name: Smoke
+        run: |
+          python3 packaging/zluda-overlay/u_smoke.py --tool "$RUNNER_TEMP/tool/GE-Proton11-7-zluda-u" \
+            --probe "$RUNNER_TEMP/route/out/probe32.exe" --stub "$RUNNER_TEMP/route/out/libcuda.so.1" \
+            --work "$RUNNER_TEMP/smoke"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: u-smoke
+          path: |
+            ${{ runner.temp }}/smoke/*.json
+            ${{ runner.temp }}/smoke/*/*.stdout
+            ${{ runner.temp }}/smoke/*/*.stderr
           retention-days: 14
