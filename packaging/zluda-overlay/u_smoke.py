@@ -46,7 +46,11 @@ def launch(tool, work, name, probe, iterations, extra_env=None, timeout=420, zlu
     env.update(extra_env or {})
     server_env = dict(env, WINEPREFIX=str(compat / 'pfx'))
     start = time.monotonic()
-    proc = subprocess.Popen(['python3', str(tool / 'proton'), 'run', str(probe), str(iterations)],
+    # A unix path makes GE start the exe through umu.exe with a new Wine
+    # console; headless, the probe then blocks on its first console write.
+    # A Z: path takes GE's plain `wine <exe>` branch, which inherits stdout.
+    windows_probe = 'Z:' + str(probe).replace('/', '\\')
+    proc = subprocess.Popen(['python3', str(tool / 'proton'), 'run', windows_probe, str(iterations)],
                             env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         out, err = proc.communicate(timeout=timeout)
