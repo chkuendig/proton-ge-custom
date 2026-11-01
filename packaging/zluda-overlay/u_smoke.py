@@ -32,29 +32,41 @@ def server_processes():
     return [line for line in out.splitlines() if 'pgrep' not in line]
 
 
-def launch(tool, work, name, probe, iterations, extra_env=None, timeout=600):
+def launch(tool, work, name, probe, iterations, extra_env=None, timeout=420, zluda=True):
     compat = work / 'compat'
     steam = work.parent / 'steam'
     compat.mkdir(parents=True, exist_ok=True)
     steam.mkdir(exist_ok=True)
     env = {k: v for k, v in os.environ.items() if not k.startswith(('WINE', 'PROTON_', 'LD_'))}
     env.update(STEAM_COMPAT_DATA_PATH=str(compat), STEAM_COMPAT_CLIENT_INSTALL_PATH=str(steam),
-               UMU_ID='0', PROTON_USE_WOW64='1', PROTON_ENABLE_ZLUDA='1',
-               WINEDEBUG='err+all,fixme+nvcuda,-fixme+all')
+               UMU_ID='0', PROTON_USE_WOW64='1', PROTON_LOG='1', PROTON_LOG_DIR=str(work),
+               SteamGameId=name, WINEDEBUG='err+all,fixme+nvcuda,-fixme+all')
+    if zluda:
+        env['PROTON_ENABLE_ZLUDA'] = '1'
     env.update(extra_env or {})
+    server_env = dict(env, WINEPREFIX=str(compat / 'pfx'))
     start = time.monotonic()
+    proc = subprocess.Popen(['python3', str(tool / 'proton'), 'run', str(probe), str(iterations)],
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
-        result = subprocess.run(['python3', str(tool / 'proton'), 'run', str(probe), str(iterations)],
-                                env=env, capture_output=True, text=True, timeout=timeout)
-        code, out, err = result.returncode, result.stdout, result.stderr
-    except subprocess.TimeoutExpired as e:
-        code, out, err = 'timeout', e.stdout or '', e.stderr or ''
-        out, err = [x.decode(errors='replace') if isinstance(x, bytes) else x for x in (out, err)]
+        out, err = proc.communicate(timeout=timeout)
+        code = proc.returncode
+    except subprocess.TimeoutExpired:
+        code = 'timeout'
+        # Record what is still running before tearing the prefix down.
+        (work / (name + '.ps')).write_text(subprocess.run(
+            ['ps', '-eo', 'pid,ppid,stat,etime,args', '--forest'], capture_output=True, text=True).stdout)
+        subprocess.run([str(tool / 'files/bin/wineserver'), '-k'], env=server_env, timeout=60)
+        proc.kill()
+        out, err = proc.communicate()
     seconds = round(time.monotonic() - start, 2)
-    subprocess.run([str(tool / 'files/bin/wineserver'), '-w'],
-                   env=dict(env, WINEPREFIX=str(compat / 'pfx')), timeout=120)
     (work / (name + '.stdout')).write_text(out)
     (work / (name + '.stderr')).write_text(err[-200000:])
+    try:
+        subprocess.run([str(tool / 'files/bin/wineserver'), '-w'], env=server_env, timeout=60)
+    except subprocess.TimeoutExpired:
+        (work / (name + '.wineserver-timeout')).write_text('wineserver -w exceeded 60 s; killed\n')
+        subprocess.run([str(tool / 'files/bin/wineserver'), '-k'], env=server_env, timeout=60)
     rows = []
     for line in out.splitlines():
         line = line.strip()
@@ -66,6 +78,8 @@ def launch(tool, work, name, probe, iterations, extra_env=None, timeout=600):
     print(f'== {name}: exit {code}, {seconds} s, {len(rows)} probe rows', flush=True)
     for row in rows[:40]:
         print('  ', json.dumps(row), flush=True)
+    if not rows:
+        print('   stdout tail:', out[-1500:], '\n   stderr tail:', err[-3000:], flush=True)
     return {'exit': code, 'seconds': seconds, 'rows': rows, 'stub_tex': [l for l in err.splitlines() if 'STUB: TEX' in l],
             'servers_after': server_processes()}
 
@@ -86,6 +100,11 @@ def main():
     client = tool / 'files/lib/wine/i386-windows/nvcuda.dll'
     server = tool / 'files/lib/wine/zluda/zluda64_server.exe'
     checks, results = {}, {}
+
+    # Launcher baseline: same tool and probe without ZLUDA (GE's own nvcuda
+    # handling). If this cannot run, the harness rather than U is at fault.
+    r = results['launcher'] = launch(tool, work / 'launcher', 'launcher', args.probe, 10, zluda=False)
+    checks['launcher_runs_probe'] = r['exit'] != 'timeout' and row(r['rows'], probe='start') is not None
 
     # Packaged tool, real ZLUDA, no GPU.
     packaged = work / 'packaged'
@@ -118,15 +137,20 @@ def main():
             p.resolve().is_relative_to(tool / 'files/lib64') for p in paths)
     checks['packaged_no_stray_server'] = not r['servers_after']
     # GE resets syswow64/nvcuda.dll each launch; the glue must restore both files.
-    (windows / 'syswow64/nvcuda.dll').write_bytes(b'tampered')
-    (windows / 'zluda64_server.exe').unlink()
-    r = results['packaged-2'] = launch(tool, packaged, 'packaged-2', args.probe, 200)
-    init2 = row(r['rows'], step='cuInit')
-    checks['relaunch_restores_client'] = sha256(windows / 'syswow64/nvcuda.dll') == sha256(client)
-    checks['relaunch_restores_server'] = (windows / 'zluda64_server.exe').is_file() and \
-        sha256(windows / 'zluda64_server.exe') == sha256(server)
-    checks['relaunch_same_cuInit'] = init2 is not None and init is not None and init2['result'] == init['result']
-    checks['relaunch_no_stray_server'] = not r['servers_after']
+    if not (windows / 'syswow64').is_dir():
+        for key in ['relaunch_restores_client', 'relaunch_restores_server', 'relaunch_same_cuInit',
+                    'relaunch_no_stray_server']:
+            checks[key] = False
+    else:
+        (windows / 'syswow64/nvcuda.dll').write_bytes(b'tampered')
+        (windows / 'zluda64_server.exe').unlink(missing_ok=True)
+        r = results['packaged-2'] = launch(tool, packaged, 'packaged-2', args.probe, 200)
+        init2 = row(r['rows'], step='cuInit')
+        checks['relaunch_restores_client'] = sha256(windows / 'syswow64/nvcuda.dll') == sha256(client)
+        checks['relaunch_restores_server'] = (windows / 'zluda64_server.exe').is_file() and \
+            sha256(windows / 'zluda64_server.exe') == sha256(server)
+        checks['relaunch_same_cuInit'] = init2 is not None and init is not None and init2['result'] == init['result']
+        checks['relaunch_no_stray_server'] = not r['servers_after']
 
     # Same tool with the stub driver in place of ZLUDA's libcuda.
     stub_tool = work / 'tool-stub'

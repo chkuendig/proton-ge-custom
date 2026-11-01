@@ -257,4 +257,7 @@ jobs:
             ${{ runner.temp }}/smoke/*.json
             ${{ runner.temp }}/smoke/*/*.stdout
             ${{ runner.temp }}/smoke/*/*.stderr
+            ${{ runner.temp }}/smoke/*/*.ps
+            ${{ runner.temp }}/smoke/*/*.log
+            ${{ runner.temp }}/smoke/*/*.wineserver-timeout
           retention-days: 14
