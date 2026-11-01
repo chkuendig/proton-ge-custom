@@ -7,7 +7,9 @@ carries this signature. The zluda part has no Wine SDK, so write it here.
 import struct
 import sys
 
-SIGNATURE = b'Wine builtin DLL'
+# Wine compares sizeof("Wine builtin DLL"), so the terminating NUL is part
+# of the signature (winebuild writes all 17 bytes).
+SIGNATURE = b'Wine builtin DLL\0'
 OFFSET = 0x40
 
 

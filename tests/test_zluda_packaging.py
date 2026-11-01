@@ -32,8 +32,11 @@ def builtin_pe(marked=True, lfanew=0x80):
     image[:2] = b'MZ'
     image[0x3c:0x40] = lfanew.to_bytes(4, 'little')
     image[lfanew:lfanew + 4] = b'PE\0\0'
+    # A DOS stub message, as in MinGW/Rust output: byte 0x50 is not zero.
+    stub = b'This program cannot be r'[:lfanew - 0x40]
+    image[0x40:0x40 + len(stub)] = stub
     if marked:
-        image[0x40:0x50] = pe_builtin.SIGNATURE
+        image[0x40:0x51] = pe_builtin.SIGNATURE
     return bytes(image)
 
 
@@ -46,7 +49,9 @@ class WineBuiltinMarker(unittest.TestCase):
             self.assertEqual(path.read_bytes(), builtin_pe())
             pe_builtin.mark(str(path))
             self.assertEqual(path.read_bytes(), builtin_pe())
-            path.write_bytes(builtin_pe(marked=False, lfanew=0x48))
+            # Wine matches 17 bytes including the NUL, as winebuild writes.
+            self.assertEqual(path.read_bytes()[0x40:0x51], b'Wine builtin DLL\0')
+            path.write_bytes(builtin_pe(marked=False, lfanew=0x50))
             with self.assertRaisesRegex(ValueError, 'too small'):
                 pe_builtin.mark(str(path))
             path.write_bytes(b'\x7fELF' + bytes(0x100))

@@ -227,7 +227,7 @@ def assemble(overlays):
     # zluda32 is loaded as nvcuda's i386 builtin; ntdll requires the marker.
     with (dest / 'files/lib/wine/i386-windows/nvcuda.dll').open('rb') as stream:
         stream.seek(0x40)
-        assert stream.read(16) == b'Wine builtin DLL', 'i386 nvcuda.dll is not marked builtin'
+        assert stream.read(17) == b'Wine builtin DLL\0', 'i386 nvcuda.dll is not marked builtin'
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
