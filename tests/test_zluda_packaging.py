@@ -1029,6 +1029,11 @@ class AssemblyFixture(unittest.TestCase):
                     (tree / 'files/lib/wine/x86_64-unix').mkdir(parents=True)
                 inputs.manifest(tree)
                 trees[part + '.tar.gz'] = tree
+            nvapi = root / 'tree-nvapi'
+            nvapi.mkdir()
+            (nvapi / 'MANIFEST').write_text('')
+            (nvapi / 'SYMLINKS.json').write_text('{}')
+            trees['nvapi.tar.gz'] = nvapi
             def extract(archive, target, ge_base=False):
                 shutil.copytree(ge if archive.name.startswith('GE-') else trees[archive.name],
                                 target, symlinks=True)
@@ -1036,6 +1041,7 @@ class AssemblyFixture(unittest.TestCase):
                    'BUILD_ROOT': str(build), 'DESTDIR': str(root / 'result')}
             with mock.patch.dict(os.environ, env), mock.patch.object(overlay, 'LOCK', lock), \
                  mock.patch.object(overlay, 'extract', extract), \
+                 mock.patch.object(overlay.nvapi_package, 'admit', return_value={'proton':commit}), \
                  mock.patch.object(cuda_package.policy, 'STUB_SHA256', stub_hashes):
                 overlay.assemble(overlays)
                 dest = root / 'result'

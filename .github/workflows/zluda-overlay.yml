@@ -338,9 +338,63 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+  nvapi:
+    if: inputs.profile != 'x64-draft'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Checkout exact upstream NVAPI and recursive headers
+        run: |
+          set -euo pipefail
+          git submodule update --init --recursive -- dxvk-nvapi
+          git -C dxvk-nvapi lfs pull
+          git -C dxvk-nvapi submodule foreach --recursive 'git lfs pull'
+      - name: Static tests
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests
+          for script in packaging/zluda-overlay/*.sh; do bash -n "$script"; done
+      - name: Build both NVAPI DLL architectures and unit executables in locked SDK
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nvapi-work"
+          docker pull "$SDK_IMAGE"
+          docker run --rm --init --cpus=3 --memory=6g \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/nvapi-work:/work" \
+            -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build -e DESTDIR=/work/overlay \
+            -e NVAPI_TESTS_ROOT=/work/tests -e JOBS=3 \
+            "$SDK_IMAGE" bash -c 'git config --global --add safe.directory "*"; bash /src/packaging/zluda-overlay/build-nvapi.sh' \
+            2>&1 | tee "$RUNNER_TEMP/nvapi-build.log"
+          tar -C "$RUNNER_TEMP/nvapi-work/overlay" -czf "$RUNNER_TEMP/nvapi.tar.gz" .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rebuilt-nvapi
+          path: ${{ runner.temp }}/nvapi.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nvapi-unit-fixtures
+          path: ${{ runner.temp }}/nvapi-work/tests
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: logs-nvapi
+          path: |
+            ${{ runner.temp }}/nvapi-build.log
+            ${{ runner.temp }}/nvapi-work/build/**/meson-logs
+            ${{ runner.temp }}/nvapi-work/tests/*.json
+          retention-days: 14
+
   assemble:
-    if: always() && inputs.profile != 'x64-draft' && (inputs.components_run != '' || needs.components.result == 'success')
-    needs: components
+    if: always() && inputs.profile != 'x64-draft' && needs.nvapi.result == 'success' && (inputs.components_run != '' || needs.components.result == 'success')
+    needs: [components, nvapi]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -376,6 +430,16 @@ jobs:
           github-token: ${{ github.token }}
           merge-multiple: true
           path: ${{ runner.temp }}/overlays
+      - name: Download freshly rebuilt NVAPI overlay
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rebuilt-nvapi
+          path: ${{ runner.temp }}/overlays
+      - name: Download NVAPI CPU unit executables
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nvapi-unit-fixtures
+          path: ${{ runner.temp }}/nvapi-tests
       - name: Assemble GE plus verified overlays
         env:
           SOURCE_ROOT: ${{ github.workspace }}
@@ -437,11 +501,48 @@ jobs:
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
             -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" \
-            -v "$RUNNER_TEMP/a1-tool:/a1-tool:ro" -e JOBS=3 \
+            -v "$RUNNER_TEMP/a1-tool:/a1-tool:ro" -v "$RUNNER_TEMP/nvapi-tests:/nvapi-tests:ro" -e JOBS=3 \
             -e REUSE_COMPONENTS_COMMIT \
-            "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
-            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures --a1-tool /a1-tool \
+            "$SDK_IMAGE" bash -c 'python3 /src/packaging/zluda-overlay/nvapi_cpu.py \
+            --source /src --tool /tool --fixtures /nvapi-tests --work /work/nvapi && \
+            python3 /src/packaging/zluda-overlay/wine_cpu.py \
+            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures --a1-tool /a1-tool' \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
+      - name: Try real provider discovery with a CPU Vulkan adapter
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/provider-cpu"
+          # Test-only runtime packages; production DLLs remain those built in
+          # the pinned SDK. No /dev/dri or other GPU device is passed through.
+          docker run --rm --init --cpus=3 --memory=6g --pids-limit=512 \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$RUNNER_TEMP/nvapi-tests:/fixtures:ro" -v "$RUNNER_TEMP/provider-cpu:/work" \
+            "$SDK_IMAGE" bash -c '
+              set -euo pipefail
+              apt-get update >/work/apt-update.log 2>&1
+              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb mesa-vulkan-drivers >/work/apt-install.log 2>&1
+              dpkg-query -W xvfb mesa-vulkan-drivers libvulkan1 > /work/RUNTIME-PACKAGES.txt
+              Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/work/xvfb.log 2>&1 &
+              export DISPLAY=:99
+              git config --global --add safe.directory /src
+              trap "kill $! || true" EXIT
+              python3 /src/packaging/zluda-overlay/nvapi_provider.py --source /src --tool /tool --fixtures /fixtures --work /work/run
+            ' 2>&1 | tee "$RUNNER_TEMP/provider-cpu.log"
+      - name: Retain provider experiment evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nvapi-provider-cpu-evidence
+          path: |
+            ${{ runner.temp }}/provider-cpu.log
+            ${{ runner.temp }}/provider-cpu/RUNTIME-PACKAGES.txt
+            ${{ runner.temp }}/provider-cpu/apt-*.log
+            ${{ runner.temp }}/provider-cpu/xvfb.log
+            ${{ runner.temp }}/provider-cpu/run/RESULT.json
+            ${{ runner.temp }}/provider-cpu/run/*/*/*.log
+          if-no-files-found: warn
+          retention-days: 90
       - name: Stage bounded CPU evidence without prefix traversal
         if: always()
         run: |

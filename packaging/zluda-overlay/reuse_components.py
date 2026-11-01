@@ -2,6 +2,7 @@
 """Explicit manual iteration only: admit unchanged compiled component inputs."""
 import argparse
 import ast
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,14 +14,41 @@ from inputs import git, sha256
 PREFIX = 'packaging/zluda-overlay/'
 ALLOWED = {'proton', 'proton_zluda.py', 'default_pfx.py', 'README.md', '.github/workflows/zluda-overlay.yml'} | {
     PREFIX + name for name in ['README.md', 'wine_cpu.py', 'lifecycle_cpu.py', 'launcher_cpu.py',
-                              'pinned_fixture_runner.py', 'reuse_components.py']}
+                              'pinned_fixture_runner.py', 'reuse_components.py', 'build-nvapi.sh',
+                              'nvapi_package.py', 'nvapi_cpu.py', 'stage_cpu_evidence.py', 'nvapi_provider.py',
+                              'nvapi-provider-probe.cpp', 'nvapi-provider-backend.c']}
+
+
+def original_lock(source, commit):
+    return git(source, 'show', commit + ':' + PREFIX + 'inputs.lock.json')
+
+
+def validate_lock(before, after):
+    before, after = json.loads(before), json.loads(after)
+    # The reused bridge/backend bytes are unchanged. NVAPI is rebuilt in a
+    # separate, mandatory job and replaces the old NVAPI payload and sources.
+    for lock in [before, after]:
+        lock['component_patches'].pop('dxvk-nvapi')
+    if before != after:
+        raise ValueError('component reuse changed a non-NVAPI lock input')
+
+
+def expected_lock_sha256(source):
+    commit = os.environ.get('REUSE_COMPONENTS_COMMIT')
+    if commit:
+        validate_changes(source, commit)
+        # git() strips trailing whitespace; JSON is stored with one newline.
+        return hashlib.sha256((original_lock(source, commit) + '\n').encode()).hexdigest()
+    return sha256(Path(__file__).with_name('inputs.lock.json'))
 
 
 def admission_ast(data, functions):
     tree = ast.parse(data)
     tree.body = [node for node in tree.body if not (
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in functions or
-        isinstance(node, ast.Import) and all(alias.name == 'reuse_components' for alias in node.names))]
+        isinstance(node, ast.Import) and all(alias.name in (
+            {'reuse_components', 'nvapi_package'} if 'assemble' in functions else {'reuse_components'})
+            for alias in node.names))]
     return ast.dump(tree, include_attributes=False)
 
 
@@ -30,6 +58,11 @@ def validate_changes(source, commit):
     subprocess.run(['git', '-C', str(source), 'merge-base', '--is-ancestor', commit, 'HEAD'], check=True)
     for name in git(source, 'diff', '--name-only', commit, 'HEAD').splitlines():
         if name in ALLOWED or name.startswith('tests/'):
+            continue
+        if name.startswith('patches/dxvk-nvapi/'):
+            continue
+        if name == PREFIX + 'inputs.lock.json':
+            validate_lock(original_lock(source, commit), original_lock(source, 'HEAD'))
             continue
         functions = {PREFIX + 'overlay.py': {'assemble'}, PREFIX + 'cpu_fixtures.py': {'admit'},
                      PREFIX + 'cuda_package.py': {'materialize_template', 'ge_cuda_path', 'audit'}}.get(name)
@@ -50,8 +83,10 @@ def expected_commit(source):
 def receipt(source, run, artifacts):
     if run['repository']['full_name'] != 'chkuendig/proton-ge-custom':
         raise ValueError('unexpected component source repository')
-    if run['head_branch'] != 'bridge/nvcuda-guard-20261030':
+    if run['head_branch'] not in ('bridge/w1-candidate-20261031', 'bridge/dxvk-nvapi-provider-20261031'):
         raise ValueError('unexpected component source branch')
+    if run['status'] != 'completed' or run['conclusion'] != 'success':
+        raise ValueError('component source run is not successful')
     commit = validate_changes(source, run['head_sha'])
     required = {'overlay-zluda', 'overlay-bridges', 'wine-cpu-fixtures'}
     selected = [item for item in artifacts['artifacts'] if item['name'] in required]
@@ -63,7 +98,7 @@ def receipt(source, run, artifacts):
     return {'format': 'manual-component-reuse-1', 'run_id': run['id'], 'commit': commit,
             'artifacts': [{key: item[key] for key in ['id', 'name', 'digest', 'size_in_bytes']}
                           for item in selected],
-            'qualification': 'Iteration only; frozen W1 candidate requires a full rebuild with reuse off'}
+            'qualification': 'Explicit provider integration reuse; frozen W1 candidate unchanged, NVAPI always rebuilt'}
 
 
 if __name__ == '__main__':

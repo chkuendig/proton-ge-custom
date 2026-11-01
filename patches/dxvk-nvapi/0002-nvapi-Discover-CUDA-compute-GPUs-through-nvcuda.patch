@@ -1,0 +1,953 @@
+From 9088f35cb356a8bf4b33d9efc15425bf22649428 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sat, 31 Oct 2026 16:23:19 +0100
+Subject: [PATCH 2/6] nvapi: Discover CUDA compute GPUs through nvcuda
+
+CudaEnumComputeCapableGpus reported compute GPUs by guessing from the
+driver and architecture, so GPUs whose CUDA is provided by other means
+were never reported. Ask the public CUDA driver API instead: load
+nvcuda.dll, call cuInit, enumerate the devices and match each device's
+LUID and node mask against the LUIDs of the adapters DXVK exposes.
+Matched adapters are reported in CUDA device order. Adapters reported
+by the previous heuristic are kept after them, so nothing changes when
+nvcuda.dll is absent, fails to initialize or reports no matching device.
+
+Discovery happens lazily on the first topology query, never during
+NvAPI_Initialize, and is cached until the final NvAPI_Unload. Other
+entry points never load nvcuda.dll. Concurrent first queries wait for a
+single discovery. A CUDA implementation that calls back into NVAPI on
+the discovering thread receives the heuristic result instead of
+deadlocking.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ README.md                               |   2 +
+ src/meson.build                         |   1 +
+ src/nvapi/nvapi_adapter.cpp             |   4 +
+ src/nvapi/nvapi_adapter.h               |   1 +
+ src/nvapi/nvapi_adapter_registry.cpp    | 111 +++++++++
+ src/nvapi/nvapi_adapter_registry.h      |  22 ++
+ src/nvapi/nvapi_resource_factory.cpp    |   4 +
+ src/nvapi/nvapi_resource_factory.h      |   2 +
+ src/nvapi/nvcuda.cpp                    |  66 ++++++
+ src/nvapi/nvcuda.h                      |  41 ++++
+ src/nvapi_gpu.cpp                       |  16 +-
+ tests/meson.build                       |   2 +
+ tests/mocks/nvcuda_mocks.h              |  12 +
+ tests/nvapi/default_test_environment.h  |   3 +
+ tests/nvapi/extended_test_environment.h |   3 +
+ tests/nvapi/mock_factory.cpp            |  15 ++
+ tests/nvapi/mock_factory.h              |   6 +
+ tests/nvapi_main.cpp                    |   4 +-
+ tests/nvapi_sysinfo_cuda.cpp            | 296 ++++++++++++++++++++++++
+ 19 files changed, 596 insertions(+), 15 deletions(-)
+ create mode 100644 src/nvapi/nvcuda.cpp
+ create mode 100644 src/nvapi/nvcuda.h
+ create mode 100644 tests/mocks/nvcuda_mocks.h
+ create mode 100644 tests/nvapi_sysinfo_cuda.cpp
+
+diff --git a/README.md b/README.md
+index c2bc647..c49b818 100644
+--- a/README.md
++++ b/README.md
+@@ -30,6 +30,8 @@ In order to support Vulkan flavor of NVIDIA Reflex, one of two backing implement
+ 
+ When available, DXVK-NVAPI uses NVIDIA's NVML management library to query temperature, utilization and others for NVIDIA GPUs. See [wine-nvml](https://github.com/Saancreed/wine-nvml) how to add NVML support to Wine/Proton.
+ 
++When available, DXVK-NVAPI uses `nvcuda.dll` to report CUDA capable GPUs to applications like PhysX. On the first CUDA topology query, it loads `nvcuda.dll` and matches the LUID and node mask of every CUDA device (`cuDeviceGetLuid`) with the LUIDs of the GPUs it knows from DXVK. This works the same for every GPU vendor and CUDA implementation, as long as the GPU is not skipped (see below). Without a usable `nvcuda.dll`, or without a matching device, only GPUs running the NVIDIA proprietary driver are reported as before.
++
+ ## How to build
+ 
+ Like DXVK, this library is being built as a Windows DLL using MinGW. DXVK-NVAPI requires MinGW-w64 compiler and headers version 9 or newer, the Meson build system at least version 0.58 and Python 3 (needed for a prebuild validation script). This project uses git submodules. Ensure to fetch the submodules while or after cloning the repository, e.g. with `git clone --recurse-submodules git@github.com:jp7677/dxvk-nvapi.git`.
+diff --git a/src/meson.build b/src/meson.build
+index 3b13e5a..1c3e27f 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -6,6 +6,7 @@ nvapi_src = files([
+   'shared/vk.cpp',
+   'shared/resource_factory.cpp',
+   'nvapi/nvml.cpp',
++  'nvapi/nvcuda.cpp',
+   'nvapi/low_latency_frame_id_generator.cpp',
+   'nvapi/nvapi_resource_factory.cpp',
+   'nvapi/nvapi_d3d_low_latency_device.cpp',
+diff --git a/src/nvapi/nvapi_adapter.cpp b/src/nvapi/nvapi_adapter.cpp
+index 9587ff6..e4448b1 100644
+--- a/src/nvapi/nvapi_adapter.cpp
++++ b/src/nvapi/nvapi_adapter.cpp
+@@ -239,6 +239,10 @@ namespace dxvk {
+         return std::make_optional(luid);
+     }
+ 
++    uint32_t NvapiAdapter::GetLuidNodeMask() const {
++        return m_vkIdProperties.deviceLUIDValid ? m_vkIdProperties.deviceNodeMask : 0;
++    }
++
+     std::array<uint8_t, NVAPI_UUID_LEN> NvapiAdapter::GetUuid() const {
+         static_assert(NVAPI_UUID_LEN == VK_UUID_SIZE);
+         static_assert(sizeof(NV_GPU_UUID_V1::uuid) == sizeof(VkPhysicalDeviceIDProperties::deviceUUID));
+diff --git a/src/nvapi/nvapi_adapter.h b/src/nvapi/nvapi_adapter.h
+index 1c8102b..1130e8c 100644
+--- a/src/nvapi/nvapi_adapter.h
++++ b/src/nvapi/nvapi_adapter.h
+@@ -37,6 +37,7 @@ namespace dxvk {
+         [[nodiscard]] uint32_t GetPciDeviceId() const;
+         [[nodiscard]] uint32_t GetBoardId() const;
+         [[nodiscard]] std::optional<LUID> GetLuid() const;
++        [[nodiscard]] uint32_t GetLuidNodeMask() const;
+         [[nodiscard]] std::array<uint8_t, NVAPI_UUID_LEN> GetUuid() const;
+         [[nodiscard]] NV_GPU_ARCHITECTURE_ID GetArchitectureId() const;
+         [[nodiscard]] VkRayTracingInvocationReorderModeNV GetReorderingHint() const;
+diff --git a/src/nvapi/nvapi_adapter_registry.cpp b/src/nvapi/nvapi_adapter_registry.cpp
+index c05641e..82be146 100644
+--- a/src/nvapi/nvapi_adapter_registry.cpp
++++ b/src/nvapi/nvapi_adapter_registry.cpp
+@@ -5,6 +5,7 @@
+ #include "nvapi_d3d12_graphics_command_list.h"
+ #include "nvapi_d3d_low_latency_device.h"
+ #include "nvapi_vulkan_low_latency_device_factory.h"
++#include "../util/util_string.h"
+ #include "../util/util_log.h"
+ 
+ namespace dxvk {
+@@ -61,6 +62,13 @@ namespace dxvk {
+                 delete nvapiAdapter;
+         }
+ 
++        for (const auto adapter : m_nvapiAdapters) {
++            if (!adapter->HasNvProprietaryDriver() || adapter->GetArchitectureId() < NV_GPU_ARCHITECTURE_GM000) // Maxwell is the oldest generation we can detect
++                continue;
++
++            m_heuristicComputeGpuTopology.gpus.push_back({reinterpret_cast<NvPhysicalGpuHandle>(adapter), ComputeGpuFlags});
++        }
++
+         return !m_nvapiAdapters.empty();
+     }
+ 
+@@ -92,6 +100,109 @@ namespace dxvk {
+         return std::find(m_nvapiAdapters.begin(), m_nvapiAdapters.end(), handle) != m_nvapiAdapters.end();
+     }
+ 
++    const NvapiComputeGpuTopology& NvapiAdapterRegistry::GetComputeGpuTopology() {
++        std::unique_lock lock(m_computeGpuTopologyMutex);
++
++        // A CUDA provider may call back into NVAPI on the discovering thread,
++        // answer such calls without CUDA instead of waiting for ourselves
++        if (m_computeGpuTopologyThread == std::this_thread::get_id())
++            return m_heuristicComputeGpuTopology;
++
++        m_computeGpuTopologyCondition.wait(lock, [this] { return !m_computeGpuTopologyThread.has_value(); });
++        if (m_computeGpuTopology.has_value())
++            return m_computeGpuTopology.value();
++
++        // Load and query CUDA outside of the lock, the provider may call back into NVAPI
++        m_computeGpuTopologyThread = std::this_thread::get_id();
++        lock.unlock();
++
++        std::unique_ptr<NvCuda> nvcuda;
++        auto topology = DiscoverComputeGpuTopology(nvcuda);
++
++        lock.lock();
++        m_nvcuda = std::move(nvcuda);
++        m_computeGpuTopology = std::move(topology);
++        m_computeGpuTopologyThread.reset();
++        m_computeGpuTopologyCondition.notify_all();
++
++        return m_computeGpuTopology.value();
++    }
++
++    NvapiComputeGpuTopology NvapiAdapterRegistry::DiscoverComputeGpuTopology(std::unique_ptr<NvCuda>& nvcuda) const {
++        auto topology = NvapiComputeGpuTopology{};
++
++        // Without any LUID there is nothing to correlate, so do not load CUDA at all
++        if (std::none_of(m_nvapiAdapters.begin(), m_nvapiAdapters.end(),
++                [](const auto& adapter) { return adapter->GetLuid().has_value(); }))
++            return m_heuristicComputeGpuTopology;
++
++        nvcuda = m_resourceFactory.CreateNvCuda();
++        if (!nvcuda->IsAvailable()) {
++            nvcuda.reset();
++            return m_heuristicComputeGpuTopology;
++        }
++
++        // Once initialized, keep nvcuda.dll loaded until the final NvAPI_Unload
++        if (auto result = nvcuda->Init(0); result != CUDA_SUCCESS) {
++            log::info(str::format("CUDA initialization failed with error: ", result));
++            return m_heuristicComputeGpuTopology;
++        }
++
++        auto deviceCount = 0;
++        if (auto result = nvcuda->DeviceGetCount(&deviceCount); result != CUDA_SUCCESS) {
++            log::info(str::format("Querying CUDA device count failed with error: ", result));
++            return m_heuristicComputeGpuTopology;
++        }
++
++        for (auto ordinal = 0; ordinal < deviceCount; ordinal++) {
++            CUdevice device{};
++            if (auto result = nvcuda->DeviceGet(&device, ordinal); result != CUDA_SUCCESS) {
++                log::info(str::format("Querying CUDA device ", ordinal, " failed with error: ", result));
++                continue;
++            }
++
++            LUID luid{};
++            static_assert(sizeof(luid) == 8);
++            auto nodeMask = 0U;
++            if (auto result = nvcuda->DeviceGetLuid(reinterpret_cast<char*>(&luid), &nodeMask, device); result != CUDA_SUCCESS) {
++                log::info(str::format("Querying LUID of CUDA device ", ordinal, " failed with error: ", result));
++                continue;
++            }
++
++            std::vector<NvapiAdapter*> matches;
++            std::copy_if(m_nvapiAdapters.begin(), m_nvapiAdapters.end(), std::back_inserter(matches),
++                [&luid, nodeMask](const auto& adapter) {
++                    auto adapterLuid = adapter->GetLuid();
++                    return adapterLuid.has_value()
++                        && adapterLuid.value().HighPart == luid.HighPart
++                        && adapterLuid.value().LowPart == luid.LowPart
++                        && adapter->GetLuidNodeMask() == nodeMask;
++                });
++
++            if (matches.size() != 1) {
++                log::info(str::format("CUDA device ", ordinal, " matches ", matches.size(), " adapters, ignoring"));
++                continue;
++            }
++
++            auto handle = reinterpret_cast<NvPhysicalGpuHandle>(matches.front());
++            if (std::any_of(topology.gpus.begin(), topology.gpus.end(),
++                    [handle](const auto& gpu) { return gpu.hPhysicalGpu == handle; }))
++                continue; // Report every adapter only once
++
++            log::info(str::format("CUDA device ", ordinal, " corresponds to ", matches.front()->GetDeviceName()));
++            topology.gpus.push_back({handle, ComputeGpuFlags});
++        }
++
++        topology.hasCudaDevices = !topology.gpus.empty();
++
++        for (const auto& gpu : m_heuristicComputeGpuTopology.gpus)
++            if (std::none_of(topology.gpus.begin(), topology.gpus.end(),
++                    [&gpu](const auto& cudaGpu) { return cudaGpu.hPhysicalGpu == gpu.hPhysicalGpu; }))
++                topology.gpus.push_back(gpu);
++
++        return topology;
++    }
++
+     uint32_t NvapiAdapterRegistry::GetOutputCount(NvapiAdapter* handle) const {
+         return std::count_if(m_nvapiOutputs.begin(), m_nvapiOutputs.end(),
+             [&handle](const auto& output) {
+diff --git a/src/nvapi/nvapi_adapter_registry.h b/src/nvapi/nvapi_adapter_registry.h
+index 523a49a..656e765 100644
+--- a/src/nvapi/nvapi_adapter_registry.h
++++ b/src/nvapi/nvapi_adapter_registry.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <condition_variable>
++#include <thread>
+ #include "../nvapi_private.h"
+ #include "nvapi_resource_factory.h"
+ #include "nvapi_adapter.h"
+@@ -7,6 +9,13 @@
+ #include "../interfaces/dxvk_interfaces.h"
+ 
+ namespace dxvk {
++    struct NvapiComputeGpuTopology {
++        // Ordered by CUDA device ordinal, followed by adapters that are only known by heuristic
++        std::vector<NV_COMPUTE_GPU> gpus;
++        // True when at least one entry was confirmed by the CUDA driver API
++        bool hasCudaDevices{};
++    };
++
+     class NvapiAdapterRegistry {
+ 
+       public:
+@@ -20,6 +29,7 @@ namespace dxvk {
+         [[nodiscard]] NvapiAdapter* GetFirstAdapter() const;
+         [[nodiscard]] NvapiAdapter* FindAdapter(const LUID& luid) const;
+         [[nodiscard]] bool IsAdapter(NvapiAdapter* handle) const;
++        [[nodiscard]] const NvapiComputeGpuTopology& GetComputeGpuTopology();
+ 
+         [[nodiscard]] uint32_t GetOutputCount(NvapiAdapter* handle) const;
+         [[nodiscard]] NvapiOutput* GetOutput(uint32_t index) const;
+@@ -31,6 +41,9 @@ namespace dxvk {
+ 
+         [[nodiscard]] const Com<IDXGIVkInteropFactory1>& GetInteropFactory() const { return m_dxgiVkInterop; }
+ 
++        // Those flags match NVAPI on Windows for a normal desktop machine
++        constexpr static NvU32 ComputeGpuFlags = NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_CAPABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_ENABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_RECOMMENDED;
++
+       private:
+         NvapiResourceFactory& m_resourceFactory;
+         Com<IDXGIFactory1> m_dxgiFactory;
+@@ -39,5 +52,14 @@ namespace dxvk {
+         std::unique_ptr<Nvml> m_nvml;
+         std::vector<NvapiAdapter*> m_nvapiAdapters;
+         std::vector<NvapiOutput*> m_nvapiOutputs;
++
++        std::mutex m_computeGpuTopologyMutex;
++        std::condition_variable m_computeGpuTopologyCondition;
++        std::optional<std::thread::id> m_computeGpuTopologyThread;
++        std::optional<NvapiComputeGpuTopology> m_computeGpuTopology;
++        NvapiComputeGpuTopology m_heuristicComputeGpuTopology;
++        std::unique_ptr<NvCuda> m_nvcuda;
++
++        [[nodiscard]] NvapiComputeGpuTopology DiscoverComputeGpuTopology(std::unique_ptr<NvCuda>& nvcuda) const;
+     };
+ }
+diff --git a/src/nvapi/nvapi_resource_factory.cpp b/src/nvapi/nvapi_resource_factory.cpp
+index 3cdb735..3edcde9 100644
+--- a/src/nvapi/nvapi_resource_factory.cpp
++++ b/src/nvapi/nvapi_resource_factory.cpp
+@@ -35,4 +35,8 @@ namespace dxvk {
+     std::unique_ptr<Nvml> NvapiResourceFactory::CreateNvml() {
+         return std::make_unique<Nvml>();
+     }
++
++    std::unique_ptr<NvCuda> NvapiResourceFactory::CreateNvCuda() {
++        return std::make_unique<NvCuda>();
++    }
+ }
+diff --git a/src/nvapi/nvapi_resource_factory.h b/src/nvapi/nvapi_resource_factory.h
+index dbd592f..73dfb12 100644
+--- a/src/nvapi/nvapi_resource_factory.h
++++ b/src/nvapi/nvapi_resource_factory.h
+@@ -5,6 +5,7 @@
+ #include "../shared/resource_factory.h"
+ #include "../shared/vk.h"
+ #include "nvml.h"
++#include "nvcuda.h"
+ 
+ namespace dxvk {
+     class NvapiResourceFactory : ResourceFactory {
+@@ -15,5 +16,6 @@ namespace dxvk {
+         virtual Com<IDXGIFactory1> CreateDXGIFactory1();
+         virtual Com<ID3D12Device> CreateD3D12Device(Com<IDXGIAdapter3>& dxgiAdapter, D3D_FEATURE_LEVEL featureLevel);
+         virtual std::unique_ptr<Nvml> CreateNvml();
++        virtual std::unique_ptr<NvCuda> CreateNvCuda();
+     };
+ }
+diff --git a/src/nvapi/nvcuda.cpp b/src/nvapi/nvcuda.cpp
+new file mode 100644
+index 0000000..f3817f5
+--- /dev/null
++++ b/src/nvapi/nvcuda.cpp
+@@ -0,0 +1,66 @@
++#include "nvcuda.h"
++#include "../util/util_string.h"
++#include "../util/util_log.h"
++
++namespace dxvk {
++    NvCuda::NvCuda() {
++        const auto nvcudaModuleName = "nvcuda.dll";
++        m_nvcudaModule = ::LoadLibraryA(nvcudaModuleName);
++        if (m_nvcudaModule)
++            log::info(str::format("Successfully loaded ", nvcudaModuleName));
++
++        if (!m_nvcudaModule) {
++            auto lastError = ::GetLastError();
++            if (lastError != ERROR_MOD_NOT_FOUND) // Ignore library not found
++                log::info(str::format("Loading ", nvcudaModuleName, " failed with error code: ", lastError));
++
++            return;
++        }
++
++        m_cuInit = GetProcAddress<PFN_cuInit>("cuInit");
++        m_cuDeviceGetCount = GetProcAddress<PFN_cuDeviceGetCount>("cuDeviceGetCount");
++        m_cuDeviceGet = GetProcAddress<PFN_cuDeviceGet>("cuDeviceGet");
++        m_cuDeviceGetLuid = GetProcAddress<PFN_cuDeviceGetLuid>("cuDeviceGetLuid");
++
++        if (m_cuInit && m_cuDeviceGetCount && m_cuDeviceGet && m_cuDeviceGetLuid)
++            return;
++
++        log::info(str::format(nvcudaModuleName, " loaded but does not provide the required CUDA driver API entry points"));
++
++        ::FreeLibrary(m_nvcudaModule);
++        m_nvcudaModule = nullptr;
++    }
++
++    NvCuda::~NvCuda() {
++        if (!m_nvcudaModule)
++            return;
++
++        ::FreeLibrary(m_nvcudaModule);
++        m_nvcudaModule = nullptr;
++    }
++
++    bool NvCuda::IsAvailable() const {
++        return m_nvcudaModule != nullptr;
++    }
++
++    CUresult NvCuda::Init(unsigned int flags) const {
++        return m_cuInit(flags);
++    }
++
++    CUresult NvCuda::DeviceGetCount(int* count) const {
++        return m_cuDeviceGetCount(count);
++    }
++
++    CUresult NvCuda::DeviceGet(CUdevice* device, int ordinal) const {
++        return m_cuDeviceGet(device, ordinal);
++    }
++
++    CUresult NvCuda::DeviceGetLuid(char* luid, unsigned int* deviceNodeMask, CUdevice device) const {
++        return m_cuDeviceGetLuid(luid, deviceNodeMask, device);
++    }
++
++    template <typename T>
++    T NvCuda::GetProcAddress(const char* name) {
++        return reinterpret_cast<T>(reinterpret_cast<void*>(::GetProcAddress(m_nvcudaModule, name)));
++    }
++}
+diff --git a/src/nvapi/nvcuda.h b/src/nvapi/nvcuda.h
+new file mode 100644
+index 0000000..42cd11a
+--- /dev/null
++++ b/src/nvapi/nvcuda.h
+@@ -0,0 +1,41 @@
++#pragma once
++
++#include "../nvapi_private.h"
++
++namespace dxvk {
++    // Minimal subset of the public CUDA driver API (cuda.h) that is needed
++    // to correlate CUDA devices with DXGI adapters.
++    using CUresult = int;
++    using CUdevice = int;
++    constexpr CUresult CUDA_SUCCESS = 0;
++
++    class NvCuda {
++
++      public:
++        NvCuda();
++        virtual ~NvCuda();
++
++        [[nodiscard]] virtual bool IsAvailable() const;
++        [[nodiscard]] virtual CUresult Init(unsigned int flags) const;
++        [[nodiscard]] virtual CUresult DeviceGetCount(int* count) const;
++        [[nodiscard]] virtual CUresult DeviceGet(CUdevice* device, int ordinal) const;
++        [[nodiscard]] virtual CUresult DeviceGetLuid(char* luid, unsigned int* deviceNodeMask, CUdevice device) const;
++
++      private:
++        HMODULE m_nvcudaModule{};
++
++        // CUDAAPI is __stdcall on Windows
++        using PFN_cuInit = CUresult(__stdcall*)(unsigned int);
++        using PFN_cuDeviceGetCount = CUresult(__stdcall*)(int*);
++        using PFN_cuDeviceGet = CUresult(__stdcall*)(CUdevice*, int);
++        using PFN_cuDeviceGetLuid = CUresult(__stdcall*)(char*, unsigned int*, CUdevice);
++
++        PFN_cuInit m_cuInit{};
++        PFN_cuDeviceGetCount m_cuDeviceGetCount{};
++        PFN_cuDeviceGet m_cuDeviceGet{};
++        PFN_cuDeviceGetLuid m_cuDeviceGetLuid{};
++
++        template <typename T>
++        T GetProcAddress(const char* name);
++    };
++}
+diff --git a/src/nvapi_gpu.cpp b/src/nvapi_gpu.cpp
+index aaa5575..2a72861 100644
+--- a/src/nvapi_gpu.cpp
++++ b/src/nvapi_gpu.cpp
+@@ -678,17 +678,7 @@ NVAPI_FUNCTION NvAPI_GPU_CudaEnumComputeCapableGpus(NV_COMPUTE_GPU_TOPOLOGY* pCo
+     if (pComputeTopo->version != NV_COMPUTE_GPU_TOPOLOGY_VER1)
+         return IncompatibleStructVersion(n, pComputeTopo->version);
+ 
+-    auto cudaCapableGpus = std::vector<NvPhysicalGpuHandle>(0);
+-    for (auto i = 0U; i < nvapiAdapterRegistry->GetAdapterCount(); i++) {
+-        auto adapter = nvapiAdapterRegistry->GetAdapter(i);
+-        if (!adapter->HasNvProprietaryDriver() || adapter->GetArchitectureId() < NV_GPU_ARCHITECTURE_GM000) // Maxwell is the oldest generation we can detect
+-            continue;
+-
+-        cudaCapableGpus.push_back(reinterpret_cast<NvPhysicalGpuHandle>(adapter));
+-    }
+-
+-    // Those flags match NVAPI on Windows for a normal desktop machine
+-    auto flags = NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_CAPABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_ENABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_RECOMMENDED;
++    const auto& cudaCapableGpus = nvapiAdapterRegistry->GetComputeGpuTopology().gpus;
+ 
+     switch (pComputeTopo->version) {
+         case NV_COMPUTE_GPU_TOPOLOGY_VER1: {
+@@ -697,8 +687,8 @@ NVAPI_FUNCTION NvAPI_GPU_CudaEnumComputeCapableGpus(NV_COMPUTE_GPU_TOPOLOGY* pCo
+             if (cudaCapableGpus.size() > NVAPI_MAX_GPU_PER_TOPOLOGY)
+                 return InsufficientBuffer(n);
+             for (auto i = 0U; i < cudaCapableGpus.size(); i++) {
+-                pComputeTopoV1->computeGpus[i].hPhysicalGpu = cudaCapableGpus[i];
+-                pComputeTopoV1->computeGpus[i].flags = flags;
++                pComputeTopoV1->computeGpus[i].hPhysicalGpu = cudaCapableGpus[i].hPhysicalGpu;
++                pComputeTopoV1->computeGpus[i].flags = NvapiAdapterRegistry::ComputeGpuFlags;
+             }
+             break;
+         }
+diff --git a/tests/meson.build b/tests/meson.build
+index 946bc75..98da9e2 100644
+--- a/tests/meson.build
++++ b/tests/meson.build
+@@ -6,6 +6,7 @@ nvapi_src = files([
+   '../src/shared/vk.cpp',
+   '../src/shared/resource_factory.cpp',
+   '../src/nvapi/nvml.cpp',
++  '../src/nvapi/nvcuda.cpp',
+   '../src/nvapi/low_latency_frame_id_generator.cpp',
+   '../src/nvapi/nvapi_as_convert.cpp',
+   '../src/nvapi/nvapi_resource_factory.cpp',
+@@ -45,6 +46,7 @@ nvapi_tests_src = files([
+   'nvapi_ngx.cpp',
+   'nvapi_sysinfo.cpp',
+   'nvapi_sysinfo_topo.cpp',
++  'nvapi_sysinfo_cuda.cpp',
+   'nvapi_sysinfo_nvml.cpp',
+   'nvapi_sysinfo_hdr.cpp',
+   'nvapi_system.cpp',
+diff --git a/tests/mocks/nvcuda_mocks.h b/tests/mocks/nvcuda_mocks.h
+new file mode 100644
+index 0000000..151d6ba
+--- /dev/null
++++ b/tests/mocks/nvcuda_mocks.h
+@@ -0,0 +1,12 @@
++#pragma once
++
++#include "../../src/nvapi_private.h"
++#include "../../src/nvapi/nvcuda.h"
++
++class NvCudaMock final : public trompeloeil::mock_interface<dxvk::NvCuda> {
++    IMPLEMENT_CONST_MOCK0(IsAvailable);
++    IMPLEMENT_CONST_MOCK1(Init);
++    IMPLEMENT_CONST_MOCK1(DeviceGetCount);
++    IMPLEMENT_CONST_MOCK2(DeviceGet);
++    IMPLEMENT_CONST_MOCK3(DeviceGetLuid);
++};
+diff --git a/tests/nvapi/default_test_environment.h b/tests/nvapi/default_test_environment.h
+index 2c6abbe..59a84de 100644
+--- a/tests/nvapi/default_test_environment.h
++++ b/tests/nvapi/default_test_environment.h
+@@ -4,6 +4,7 @@
+ #include "../mocks/vulkan_mocks.h"
+ #include "../mocks/dxgi_mocks.h"
+ #include "../mocks/nvml_mocks.h"
++#include "../mocks/nvcuda_mocks.h"
+ #include "mock_factory.h"
+ 
+ using namespace trompeloeil;
+@@ -18,6 +19,8 @@ class DefaultTestEnvironment {
+     [[nodiscard]] D3D12Vkd3dDeviceMock* D3D12Device() const { return mockFactory->GetD3D12DeviceMock(); }
+     [[nodiscard]] VkMock* Vk() const { return mockFactory->GetVkMock(); }
+     [[nodiscard]] NvmlMock* Nvml() const { return mockFactory->GetNvmlMock(); }
++    [[nodiscard]] NvCudaMock* Cuda() const { return mockFactory->GetNvCudaMock(); }
++    [[nodiscard]] uint32_t CudaCreationCount() const { return mockFactory->GetNvCudaCreationCount(); }
+     [[nodiscard]] DXGIDxvkAdapterMock* DXGIAdapter() const { return adapter; }
+     [[nodiscard]] DXGIOutput6Mock* DXGIOutput() const { return output; }
+ 
+diff --git a/tests/nvapi/extended_test_environment.h b/tests/nvapi/extended_test_environment.h
+index 7b63f0a..e0b4c39 100644
+--- a/tests/nvapi/extended_test_environment.h
++++ b/tests/nvapi/extended_test_environment.h
+@@ -4,6 +4,7 @@
+ #include "../mocks/vulkan_mocks.h"
+ #include "../mocks/dxgi_mocks.h"
+ #include "../mocks/nvml_mocks.h"
++#include "../mocks/nvcuda_mocks.h"
+ #include "mock_factory.h"
+ 
+ using namespace trompeloeil;
+@@ -17,6 +18,8 @@ class ExtendedTestEnvironment {
+     [[nodiscard]] DXGIDxvkFactoryMock* DXGIFactory() const { return mockFactory->GetDXGIFactoryMock(); }
+     [[nodiscard]] VkMock* Vk() const { return mockFactory->GetVkMock(); }
+     [[nodiscard]] NvmlMock* Nvml() const { return mockFactory->GetNvmlMock(); }
++    [[nodiscard]] NvCudaMock* Cuda() const { return mockFactory->GetNvCudaMock(); }
++    [[nodiscard]] uint32_t CudaCreationCount() const { return mockFactory->GetNvCudaCreationCount(); }
+     [[nodiscard]] DXGIDxvkAdapterMock* DXGIAdapter1() const { return adapter1; }
+     [[nodiscard]] DXGIDxvkAdapterMock* DXGIAdapter2() const { return adapter2; }
+     [[nodiscard]] DXGIOutput6Mock* DXGIOutput1() const { return output1; }
+diff --git a/tests/nvapi/mock_factory.cpp b/tests/nvapi/mock_factory.cpp
+index 32f01c7..6d7eb52 100644
+--- a/tests/nvapi/mock_factory.cpp
++++ b/tests/nvapi/mock_factory.cpp
+@@ -7,6 +7,7 @@ MockFactory::MockFactory() {
+     m_d3d12DeviceMock = std::make_unique<D3D12Vkd3dDeviceMock>();
+     m_vkMock = std::make_unique<VkMock>();
+     m_nvmlMock = std::make_unique<NvmlMock>();
++    m_nvcudaMock = std::make_unique<NvCudaMock>();
+ }
+ 
+ dxvk::Com<IDXGIFactory1> MockFactory::CreateDXGIFactory1() {
+@@ -29,6 +30,11 @@ std::unique_ptr<dxvk::Nvml> MockFactory::CreateNvml() {
+     return std::move(m_nvmlMock);
+ }
+ 
++std::unique_ptr<dxvk::NvCuda> MockFactory::CreateNvCuda() {
++    m_nvcudaCreationCount++;
++    return std::move(m_nvcudaMock);
++}
++
+ DXGIDxvkFactoryMock* MockFactory::GetDXGIFactoryMock() const {
+     return m_dxgiFactoryMock.get();
+ }
+@@ -47,6 +53,15 @@ NvmlMock* MockFactory::GetNvmlMock() const {
+     return m_nvmlMock.get();
+ }
+ 
++NvCudaMock* MockFactory::GetNvCudaMock() const {
++    REQUIRE(m_nvcudaMock); // will be moved after the first CUDA topology query
++    return m_nvcudaMock.get();
++}
++
++uint32_t MockFactory::GetNvCudaCreationCount() const {
++    return m_nvcudaCreationCount;
++}
++
+ DXGIDxvkAdapterMock* MockFactory::CreateDXGIDxvkAdapterMock() {
+     auto mock = std::make_unique<DXGIDxvkAdapterMock>();
+     return m_dxgiAdapterMocks.emplace_back(std::move(mock)).get();
+diff --git a/tests/nvapi/mock_factory.h b/tests/nvapi/mock_factory.h
+index 361dac6..e5f21be 100644
+--- a/tests/nvapi/mock_factory.h
++++ b/tests/nvapi/mock_factory.h
+@@ -5,6 +5,7 @@
+ #include "../mocks/vulkan_mocks.h"
+ #include "../mocks/dxgi_mocks.h"
+ #include "../mocks/nvml_mocks.h"
++#include "../mocks/nvcuda_mocks.h"
+ #include "../mocks/d3d12_mocks.h"
+ 
+ using namespace trompeloeil;
+@@ -19,11 +20,14 @@ class MockFactory final : public dxvk::NvapiResourceFactory {
+     std::unique_ptr<dxvk::Vk> CreateVulkan(dxvk::Com<IDXGIFactory1>& dxgiFactory) override;
+     std::unique_ptr<dxvk::Vk> CreateVulkan(const char* moduleName) override;
+     std::unique_ptr<dxvk::Nvml> CreateNvml() override;
++    std::unique_ptr<dxvk::NvCuda> CreateNvCuda() override;
+ 
+     [[nodiscard]] DXGIDxvkFactoryMock* GetDXGIFactoryMock() const;
+     [[nodiscard]] D3D12Vkd3dDeviceMock* GetD3D12DeviceMock() const;
+     [[nodiscard]] VkMock* GetVkMock() const;
+     [[nodiscard]] NvmlMock* GetNvmlMock() const;
++    [[nodiscard]] NvCudaMock* GetNvCudaMock() const;
++    [[nodiscard]] uint32_t GetNvCudaCreationCount() const;
+ 
+     [[nodiscard]] DXGIDxvkAdapterMock* CreateDXGIDxvkAdapterMock();
+     [[nodiscard]] DXGIOutput6Mock* CreateDXGIOutput6Mock();
+@@ -34,6 +38,8 @@ class MockFactory final : public dxvk::NvapiResourceFactory {
+     std::unique_ptr<D3D12Vkd3dDeviceMock> m_d3d12DeviceMock;
+     std::unique_ptr<VkMock> m_vkMock;
+     std::unique_ptr<NvmlMock> m_nvmlMock;
++    std::unique_ptr<NvCudaMock> m_nvcudaMock;
++    std::atomic<uint32_t> m_nvcudaCreationCount{};
+ 
+     std::vector<std::unique_ptr<DXGIDxvkAdapterMock>> m_dxgiAdapterMocks;
+     std::vector<std::unique_ptr<DXGIOutput6Mock>> m_dxgiOutputMocks;
+diff --git a/tests/nvapi_main.cpp b/tests/nvapi_main.cpp
+index 4a0ac96..d062b30 100644
+--- a/tests/nvapi_main.cpp
++++ b/tests/nvapi_main.cpp
+@@ -1,8 +1,8 @@
+ #define CATCH_CONFIG_MAIN
+ #include "nvapi/section_listener.h"
+ 
+-CATCH_REGISTER_TAG_ALIAS("[@unit-tests]", "[d3d],[d3d11],[d3d12],[drs],[ngx],[sysinfo],[sysinfo-topo],[sysinfo-nvml],[sysinfo-hdr],[util],[vulkan]")
++CATCH_REGISTER_TAG_ALIAS("[@unit-tests]", "[d3d],[d3d11],[d3d12],[drs],[ngx],[sysinfo],[sysinfo-topo],[sysinfo-cuda],[sysinfo-nvml],[sysinfo-hdr],[util],[vulkan]")
+ CATCH_REGISTER_TAG_ALIAS("[@system]", "[system]")
+-CATCH_REGISTER_TAG_ALIAS("[@all]", "[d3d],[d3d11],[d3d12],[drs],[ngx],[sysinfo],[sysinfo-topo],[sysinfo-nvml],[sysinfo-hdr],[util],[system],[vulkan]")
++CATCH_REGISTER_TAG_ALIAS("[@all]", "[d3d],[d3d11],[d3d12],[drs],[ngx],[sysinfo],[sysinfo-topo],[sysinfo-cuda],[sysinfo-nvml],[sysinfo-hdr],[util],[system],[vulkan]")
+ 
+ CATCH_REGISTER_LISTENER(SectionListener)
+diff --git a/tests/nvapi_sysinfo_cuda.cpp b/tests/nvapi_sysinfo_cuda.cpp
+new file mode 100644
+index 0000000..64160de
+--- /dev/null
++++ b/tests/nvapi_sysinfo_cuda.cpp
+@@ -0,0 +1,296 @@
++#include <thread>
++#include "nvapi_tests_private.h"
++#include "nvapi/default_test_environment.h"
++#include "nvapi/extended_test_environment.h"
++
++using namespace trompeloeil;
++
++namespace {
++    constexpr auto luid1 = LUID{0x04030211, 0x08070655};
++    constexpr auto luid2 = LUID{0x14131211, 0x18171615};
++    constexpr auto luid3 = LUID{0x24232221, 0x28272625};
++
++    void ConfigureVkProps(ConfigureProps vkProps, VkDriverId driverId, const LUID& luid) {
++        vkProps.props->vendorID = driverId == VK_DRIVER_ID_NVIDIA_PROPRIETARY ? 0x10de : 0x1002;
++        vkProps.driverProps->driverID = driverId;
++        memcpy(&vkProps.idProps->deviceLUID, &luid, sizeof(luid));
++        vkProps.idProps->deviceLUIDValid = VK_TRUE;
++        vkProps.idProps->deviceNodeMask = 1;
++    }
++
++    // Reports one CUDA device with node mask 1 per given LUID
++    std::vector<std::unique_ptr<expectation>> ConfigureCudaDevices(NvCudaMock& cuda, std::vector<LUID> luids) {
++        std::vector<std::unique_ptr<expectation>> e;
++        e.emplace_back(NAMED_ALLOW_CALL(cuda, IsAvailable()).RETURN(true));
++        e.emplace_back(NAMED_ALLOW_CALL(cuda, Init(0U)).RETURN(CUDA_SUCCESS));
++        e.emplace_back(NAMED_ALLOW_CALL(cuda, DeviceGetCount(_))
++                .SIDE_EFFECT(*_1 = static_cast<int>(luids.size()))
++                .RETURN(CUDA_SUCCESS));
++        // Use device handles that differ from the ordinals
++        e.emplace_back(NAMED_ALLOW_CALL(cuda, DeviceGet(_, _))
++                .SIDE_EFFECT(*_1 = _2 + 0x10)
++                .RETURN(CUDA_SUCCESS));
++        e.emplace_back(NAMED_ALLOW_CALL(cuda, DeviceGetLuid(_, _, _))
++                .WITH(_3 >= 0x10 && static_cast<size_t>(_3 - 0x10) < luids.size())
++                .SIDE_EFFECT(memcpy(_1, &luids[_3 - 0x10], sizeof(LUID)))
++                .SIDE_EFFECT(*_2 = 1)
++                .RETURN(CUDA_SUCCESS));
++        return e;
++    }
++
++    NV_COMPUTE_GPU_TOPOLOGY_V1 EnumComputeCapableGpus() {
++        NV_COMPUTE_GPU_TOPOLOGY_V1 topology{};
++        topology.version = NV_COMPUTE_GPU_TOPOLOGY_VER1;
++        REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(reinterpret_cast<NV_COMPUTE_GPU_TOPOLOGY*>(&topology)) == NVAPI_OK);
++        return topology;
++    }
++}
++
++TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
++    auto t = std::make_unique<DefaultTestEnvironment>();
++    auto e = t->ConfigureExpectations();
++
++    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
++
++    auto driverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
++    ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
++        .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
++    ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, _, _))
++        .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
++            [driverId](auto vkProps) { ConfigureVkProps(vkProps, driverId, luid1); }));
++
++    // Upstream behavior without CUDA: only NVIDIA's proprietary driver is reported, based on its architecture
++    auto heuristicGpuCount = driverId == VK_DRIVER_ID_NVIDIA_PROPRIETARY ? 1U : 0U;
++
++    SECTION("CUDA device with matching LUID and node mask is reported") {
++        auto c = ConfigureCudaDevices(*t->Cuda(), {luid1});
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(t->CudaCreationCount() == 0);
++
++        auto topology = EnumComputeCapableGpus();
++        REQUIRE(topology.gpuCount == 1);
++        REQUIRE(topology.computeGpus[0].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetFirstAdapter()));
++        REQUIRE(topology.computeGpus[0].flags == 0x0b);
++        REQUIRE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
++        REQUIRE(t->CudaCreationCount() == 1);
++    }
++
++    SECTION("CUDA device with different LUID or node mask is not reported") {
++        auto mismatch = GENERATE(std::make_pair(luid2, 1U), std::make_pair(luid1, 2U));
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        ALLOW_CALL(*t->Cuda(), Init(0U)).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGetCount(_)).SIDE_EFFECT(*_1 = 1).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGet(_, 0)).SIDE_EFFECT(*_1 = 0).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGetLuid(_, _, 0))
++            .LR_SIDE_EFFECT(memcpy(_1, &mismatch.first, sizeof(LUID)))
++            .LR_SIDE_EFFECT(*_2 = mismatch.second)
++            .RETURN(CUDA_SUCCESS);
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
++        REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
++    }
++
++    SECTION("Unavailable nvcuda falls back to upstream behavior") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(false);
++        FORBID_CALL(*t->Cuda(), Init(_));
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
++        REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
++        REQUIRE(t->CudaCreationCount() == 1);
++    }
++
++    SECTION("Failing cuInit falls back to upstream behavior") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        REQUIRE_CALL(*t->Cuda(), Init(0U)).RETURN(100); // CUDA_ERROR_NO_DEVICE
++        FORBID_CALL(*t->Cuda(), DeviceGetCount(_));
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
++        REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
++    }
++
++    SECTION("Failing device count query falls back to upstream behavior") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        ALLOW_CALL(*t->Cuda(), Init(0U)).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGetCount(_)).RETURN(3); // CUDA_ERROR_NOT_INITIALIZED
++        FORBID_CALL(*t->Cuda(), DeviceGet(_, _));
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
++    }
++
++    SECTION("Failing device or LUID queries skip that device") {
++        auto failingDeviceGet = GENERATE(true, false);
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        ALLOW_CALL(*t->Cuda(), Init(0U)).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGetCount(_)).SIDE_EFFECT(*_1 = 1).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGet(_, 0))
++            .SIDE_EFFECT(*_1 = 0)
++            .RETURN(failingDeviceGet ? 101 : CUDA_SUCCESS); // CUDA_ERROR_INVALID_DEVICE
++        ALLOW_CALL(*t->Cuda(), DeviceGetLuid(_, _, 0))
++            .SIDE_EFFECT(memcpy(_1, &luid1, sizeof(luid1)))
++            .SIDE_EFFECT(*_2 = 1)
++            .RETURN(801); // CUDA_ERROR_NOT_SUPPORTED, outputs must be ignored
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
++        REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
++    }
++
++    SECTION("Discovery result is cached until unload") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        REQUIRE_CALL(*t->Cuda(), Init(0U)).RETURN(CUDA_SUCCESS);
++        REQUIRE_CALL(*t->Cuda(), DeviceGetCount(_)).SIDE_EFFECT(*_1 = 1).RETURN(CUDA_SUCCESS);
++        REQUIRE_CALL(*t->Cuda(), DeviceGet(_, 0)).SIDE_EFFECT(*_1 = 0).RETURN(CUDA_SUCCESS);
++        REQUIRE_CALL(*t->Cuda(), DeviceGetLuid(_, _, 0))
++            .SIDE_EFFECT(memcpy(_1, &luid1, sizeof(luid1)))
++            .SIDE_EFFECT(*_2 = 1)
++            .RETURN(CUDA_SUCCESS);
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        auto& snapshot = nvapiAdapterRegistry->GetComputeGpuTopology();
++        for (auto i = 0; i < 3; i++)
++            REQUIRE(EnumComputeCapableGpus().gpuCount == 1);
++
++        REQUIRE(&nvapiAdapterRegistry->GetComputeGpuTopology() == &snapshot);
++        REQUIRE(t->CudaCreationCount() == 1);
++    }
++
++    SECTION("Concurrent first queries discover CUDA devices once") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        REQUIRE_CALL(*t->Cuda(), Init(0U))
++            .SIDE_EFFECT(std::this_thread::sleep_for(std::chrono::milliseconds(50)))
++            .RETURN(CUDA_SUCCESS);
++        REQUIRE_CALL(*t->Cuda(), DeviceGetCount(_)).SIDE_EFFECT(*_1 = 1).RETURN(CUDA_SUCCESS);
++        REQUIRE_CALL(*t->Cuda(), DeviceGet(_, 0)).SIDE_EFFECT(*_1 = 0).RETURN(CUDA_SUCCESS);
++        REQUIRE_CALL(*t->Cuda(), DeviceGetLuid(_, _, 0))
++            .SIDE_EFFECT(memcpy(_1, &luid1, sizeof(luid1)))
++            .SIDE_EFFECT(*_2 = 1)
++            .RETURN(CUDA_SUCCESS);
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++
++        constexpr auto threadCount = 8U;
++        std::array<NvAPI_Status, threadCount> statuses{};
++        std::array<NV_COMPUTE_GPU_TOPOLOGY_V1, threadCount> topologies{};
++        std::vector<std::thread> threads;
++        for (auto i = 0U; i < threadCount; i++)
++            threads.emplace_back([i, &statuses, &topologies] {
++                topologies[i].version = NV_COMPUTE_GPU_TOPOLOGY_VER1;
++                statuses[i] = NvAPI_GPU_CudaEnumComputeCapableGpus(reinterpret_cast<NV_COMPUTE_GPU_TOPOLOGY*>(&topologies[i]));
++            });
++
++        for (auto& thread : threads)
++            thread.join();
++
++        for (auto i = 0U; i < threadCount; i++) {
++            REQUIRE(statuses[i] == NVAPI_OK);
++            REQUIRE(topologies[i].gpuCount == 1);
++            REQUIRE(topologies[i].computeGpus[0].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetFirstAdapter()));
++        }
++
++        REQUIRE(t->CudaCreationCount() == 1);
++    }
++
++    SECTION("Reentrant calls from the CUDA provider do not deadlock") {
++        NvAPI_Status nestedInitialize = NVAPI_ERROR, nestedEnum = NVAPI_ERROR, nestedUnload = NVAPI_ERROR;
++        NV_COMPUTE_GPU_TOPOLOGY_V1 nested{};
++        nested.version = NV_COMPUTE_GPU_TOPOLOGY_VER1;
++
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(true);
++        ALLOW_CALL(*t->Cuda(), Init(0U))
++            .LR_SIDE_EFFECT(nestedInitialize = NvAPI_Initialize())
++            .LR_SIDE_EFFECT(nestedEnum = NvAPI_GPU_CudaEnumComputeCapableGpus(reinterpret_cast<NV_COMPUTE_GPU_TOPOLOGY*>(&nested)))
++            .LR_SIDE_EFFECT(nestedUnload = NvAPI_Unload())
++            .RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGetCount(_)).SIDE_EFFECT(*_1 = 1).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGet(_, 0)).SIDE_EFFECT(*_1 = 0).RETURN(CUDA_SUCCESS);
++        ALLOW_CALL(*t->Cuda(), DeviceGetLuid(_, _, 0))
++            .SIDE_EFFECT(memcpy(_1, &luid1, sizeof(luid1)))
++            .SIDE_EFFECT(*_2 = 1)
++            .RETURN(CUDA_SUCCESS);
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == 1);
++
++        // The nested query is answered without CUDA, and is not cached
++        REQUIRE(nestedInitialize == NVAPI_OK);
++        REQUIRE(nestedEnum == NVAPI_OK);
++        REQUIRE(nested.gpuCount == heuristicGpuCount);
++        REQUIRE(nestedUnload == NVAPI_OK);
++        REQUIRE(EnumComputeCapableGpus().gpuCount == 1);
++        REQUIRE(t->CudaCreationCount() == 1);
++    }
++}
++
++TEST_CASE("CUDA topology does not load nvcuda unnecessarily", "[.sysinfo-cuda]") {
++    auto t = std::make_unique<DefaultTestEnvironment>();
++    auto e = t->ConfigureExpectations();
++
++    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
++
++    SECTION("Other NVAPI methods do not load nvcuda") {
++        ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, _, _))
++            .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
++                [](auto vkProps) { ConfigureVkProps(vkProps, VK_DRIVER_ID_MESA_RADV, luid1); }));
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++
++        NvPhysicalGpuHandle handles[NVAPI_MAX_PHYSICAL_GPUS]{};
++        NvU32 count = 0;
++        REQUIRE(NvAPI_EnumPhysicalGPUs(handles, &count) == NVAPI_OK);
++        NvU32 gpuId = 0;
++        REQUIRE(NvAPI_GetGPUIDfromPhysicalGPU(handles[0], &gpuId) == NVAPI_OK);
++        NvPhysicalGpuHandle handle{};
++        REQUIRE(NvAPI_GetPhysicalGPUFromGPUID(gpuId, &handle) == NVAPI_OK);
++        NvU32 version = 0;
++        NvAPI_ShortString branch;
++        REQUIRE(NvAPI_SYS_GetDriverAndBranchVersion(&version, branch) == NVAPI_OK);
++        LUID luid{};
++        REQUIRE(NvAPI_GPU_GetAdapterIdFromPhysicalGpu(handle, &luid) == NVAPI_OK);
++        REQUIRE(NvAPI_Unload() == NVAPI_OK);
++
++        REQUIRE(t->CudaCreationCount() == 0);
++    }
++
++    SECTION("Adapters without LUID do not load nvcuda") {
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        EnumComputeCapableGpus();
++        REQUIRE(t->CudaCreationCount() == 0);
++    }
++}
++
++TEST_CASE("CUDA topology reports multiple adapters in CUDA device order", "[.sysinfo-cuda]") {
++    auto t = std::make_unique<ExtendedTestEnvironment>();
++    auto e = t->ConfigureExpectations();
++
++    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
++
++    auto adapter1DriverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
++    ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
++        .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
++    ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, reinterpret_cast<VkPhysicalDevice>(0x01), _))
++        .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
++            [adapter1DriverId](auto vkProps) { ConfigureVkProps(vkProps, adapter1DriverId, luid1); }));
++    ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, reinterpret_cast<VkPhysicalDevice>(0x02), _))
++        .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
++            [](auto vkProps) { ConfigureVkProps(vkProps, VK_DRIVER_ID_MESA_RADV, luid2); }));
++
++    // CUDA device 0 is adapter 2, devices 1 and 2 are adapter 1 (only reported once), device 3 is not visible to NVAPI
++    auto cudaSeesAdapter1 = GENERATE(true, false);
++    auto c = ConfigureCudaDevices(*t->Cuda(), {luid2, cudaSeesAdapter1 ? luid1 : luid3, cudaSeesAdapter1 ? luid1 : luid3, luid3});
++
++    REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++
++    // Adapters that CUDA does not report keep upstream behavior and follow the CUDA devices
++    auto adapter1Reported = cudaSeesAdapter1 || adapter1DriverId == VK_DRIVER_ID_NVIDIA_PROPRIETARY;
++    auto topology = EnumComputeCapableGpus();
++    REQUIRE(topology.gpuCount == (adapter1Reported ? 2 : 1));
++    REQUIRE(topology.computeGpus[0].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetAdapter(1)));
++    if (adapter1Reported)
++        REQUIRE(topology.computeGpus[1].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetAdapter(0)));
++    REQUIRE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
++}

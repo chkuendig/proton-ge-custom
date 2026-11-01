@@ -268,18 +268,38 @@
   "component_patches": {
     "dxvk-nvapi": {
       "upstream_tree": "c18f660124c0ebcc3a134a697a83cad392154e61",
-      "fork_commit": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
-      "fork_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
-      "prepared_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
+      "fork_commit": "7d2fa4f1bcc31a52698f4f4d63e2dbe280b6ac55",
+      "fork_tree": "6088b8214be9dc6ceb9ef2d980003f3828e5c542",
+      "prepared_tree": "6088b8214be9dc6ceb9ef2d980003f3828e5c542",
       "patches": [
         {
-          "path": "patches/dxvk-nvapi/0001-zluda-physx-honor-DXVK_NVAPI_ALLOW_OTHER_DRIVERS-in-.patch",
-          "sha256": "5b6fe887cfa84f9f8cebe29b749dd572cb0c85b4840e3847b2dab56950704f35",
+          "path": "patches/dxvk-nvapi/0001-nvapi-gpu-Bound-CUDA-topology-V1-writes.patch",
+          "sha256": "ed9ccfee488e8bca6aa8b31eb66e3c74f967ffd7349da7bb1b7db59aa62dd89c",
           "fork_change": true
         },
         {
-          "path": "patches/dxvk-nvapi/0002-Handle-the-legacy-PhysX-compute-topology-V2-query-Ar.patch",
-          "sha256": "8dbd3b387fbaa96d749b407e1d2591d1848e0e1b5b68664833cb48c77310f893",
+          "path": "patches/dxvk-nvapi/0002-nvapi-Discover-CUDA-compute-GPUs-through-nvcuda.patch",
+          "sha256": "f970f4b825c3538445c9e41605d9d29ebf80e1047f1866f09fb7d6be86fa59b1",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0003-nvapi-gpu-Allow-CUDA-topology-V2-for-GPUs-confirmed-.patch",
+          "sha256": "30e132e6152d8e6046f877ede22d440955f5c7b35886632fd140349c6be9e021",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0004-nvapi-Add-undocumented-CUDA-topology-entry-point-0x3.patch",
+          "sha256": "cd995601793ca20d1cac07c5c2068246734c9ee82c81939900b6715765e17cdb",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0005-tests-Allow-other-drivers-in-every-CUDA-topology-sec.patch",
+          "sha256": "dd7cfa072d9900d04199b5cb7268ee89dd7872cd82e79a89c6c745f4d1efacdf",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0006-nvapi-Match-CUDA-devices-by-PCI-location-instead-of-.patch",
+          "sha256": "e1fd056f485aa76540939f0fae662a090ed687482850eeb5c46c4096d4ba1f61",
           "fork_change": true
         }
       ]

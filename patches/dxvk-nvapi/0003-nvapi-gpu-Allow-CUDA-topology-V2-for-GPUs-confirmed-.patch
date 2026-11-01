@@ -1,0 +1,184 @@
+From ed1072dbcdc34214bb33605701952ccd22872c6e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sat, 31 Oct 2026 16:24:31 +0100
+Subject: [PATCH 3/6] nvapi-gpu: Allow CUDA topology V2 for GPUs confirmed by
+ CUDA
+
+V2 is denied since NVAPI on Windows denies it and callers do not
+initialize computeGpus. Legacy PhysX (e.g. PhysXDevice 18.12.7.2 as
+used by Mirror's Edge) nevertheless queries V2 first, initializes only
+the version and reads the returned count and array. When V2 fails, it
+falls back to another undocumented entry point (0xd875b6c5) that
+DXVK-NVAPI does not implement.
+
+Accept V2 when at least one GPU was confirmed through nvcuda. Read only
+the version and return the cached discovery result, which stays valid
+until the final NvAPI_Unload. Report CUDA available, CUDA capable and
+PhysX available in addition for those GPUs, as the legacy runtimes were
+exercised with. V1 keeps the flags reported by NVAPI on Windows, and V2
+keeps being denied when CUDA did not confirm any GPU.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ README.md                            |  2 +
+ src/nvapi/nvapi_adapter_registry.cpp |  2 +-
+ src/nvapi/nvapi_adapter_registry.h   |  5 ++-
+ src/nvapi_gpu.cpp                    | 16 ++++++-
+ tests/nvapi_sysinfo_cuda.cpp         | 62 ++++++++++++++++++++++++++++
+ 5 files changed, 83 insertions(+), 4 deletions(-)
+
+diff --git a/README.md b/README.md
+index c49b818..45781f2 100644
+--- a/README.md
++++ b/README.md
+@@ -32,6 +32,8 @@ When available, DXVK-NVAPI uses NVIDIA's NVML management library to query temper
+ 
+ When available, DXVK-NVAPI uses `nvcuda.dll` to report CUDA capable GPUs to applications like PhysX. On the first CUDA topology query, it loads `nvcuda.dll` and matches the LUID and node mask of every CUDA device (`cuDeviceGetLuid`) with the LUIDs of the GPUs it knows from DXVK. This works the same for every GPU vendor and CUDA implementation, as long as the GPU is not skipped (see below). Without a usable `nvcuda.dll`, or without a matching device, only GPUs running the NVIDIA proprietary driver are reported as before.
+ 
++NVIDIA's NVAPI on Windows rejects version 2 of `NvAPI_GPU_CudaEnumComputeCapableGpus`. DXVK-NVAPI accepts it when at least one GPU was confirmed by CUDA, since legacy PhysX versions rely on it. In that case only the version field is read, and the returned GPU array is owned by DXVK-NVAPI. It stays valid until the final `NvAPI_Unload` and must not be modified. GPUs confirmed by CUDA additionally report the CUDA available, CUDA capable and PhysX available flags in version 2.
++
+ ## How to build
+ 
+ Like DXVK, this library is being built as a Windows DLL using MinGW. DXVK-NVAPI requires MinGW-w64 compiler and headers version 9 or newer, the Meson build system at least version 0.58 and Python 3 (needed for a prebuild validation script). This project uses git submodules. Ensure to fetch the submodules while or after cloning the repository, e.g. with `git clone --recurse-submodules git@github.com:jp7677/dxvk-nvapi.git`.
+diff --git a/src/nvapi/nvapi_adapter_registry.cpp b/src/nvapi/nvapi_adapter_registry.cpp
+index 82be146..af47ecd 100644
+--- a/src/nvapi/nvapi_adapter_registry.cpp
++++ b/src/nvapi/nvapi_adapter_registry.cpp
+@@ -190,7 +190,7 @@ namespace dxvk {
+                 continue; // Report every adapter only once
+ 
+             log::info(str::format("CUDA device ", ordinal, " corresponds to ", matches.front()->GetDeviceName()));
+-            topology.gpus.push_back({handle, ComputeGpuFlags});
++            topology.gpus.push_back({handle, CudaComputeGpuFlags});
+         }
+ 
+         topology.hasCudaDevices = !topology.gpus.empty();
+diff --git a/src/nvapi/nvapi_adapter_registry.h b/src/nvapi/nvapi_adapter_registry.h
+index 656e765..1e5dad6 100644
+--- a/src/nvapi/nvapi_adapter_registry.h
++++ b/src/nvapi/nvapi_adapter_registry.h
+@@ -10,7 +10,8 @@
+ 
+ namespace dxvk {
+     struct NvapiComputeGpuTopology {
+-        // Ordered by CUDA device ordinal, followed by adapters that are only known by heuristic
++        // Ordered by CUDA device ordinal, followed by adapters that are only known by heuristic,
++        // the vector is returned to callers of topology V2 and must not change after discovery
+         std::vector<NV_COMPUTE_GPU> gpus;
+         // True when at least one entry was confirmed by the CUDA driver API
+         bool hasCudaDevices{};
+@@ -43,6 +44,8 @@ namespace dxvk {
+ 
+         // Those flags match NVAPI on Windows for a normal desktop machine
+         constexpr static NvU32 ComputeGpuFlags = NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_CAPABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_ENABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_RECOMMENDED;
++        // GPUs confirmed by CUDA additionally report CUDA and PhysX availability, but only for topology V2
++        constexpr static NvU32 CudaComputeGpuFlags = ComputeGpuFlags | NV_COMPUTE_GPU_TOPOLOGY_CUDA_AVAILABLE | NV_COMPUTE_GPU_TOPOLOGY_CUDA_CAPABLE | NV_COMPUTE_GPU_TOPOLOGY_PHYSICS_AVAILABLE;
+ 
+       private:
+         NvapiResourceFactory& m_resourceFactory;
+diff --git a/src/nvapi_gpu.cpp b/src/nvapi_gpu.cpp
+index 2a72861..8b3facc 100644
+--- a/src/nvapi_gpu.cpp
++++ b/src/nvapi_gpu.cpp
+@@ -675,10 +675,11 @@ NVAPI_FUNCTION NvAPI_GPU_CudaEnumComputeCapableGpus(NV_COMPUTE_GPU_TOPOLOGY* pCo
+     if (!pComputeTopo)
+         return InvalidArgument(n);
+ 
+-    if (pComputeTopo->version != NV_COMPUTE_GPU_TOPOLOGY_VER1)
++    if (pComputeTopo->version != NV_COMPUTE_GPU_TOPOLOGY_VER1 && pComputeTopo->version != NV_COMPUTE_GPU_TOPOLOGY_VER)
+         return IncompatibleStructVersion(n, pComputeTopo->version);
+ 
+-    const auto& cudaCapableGpus = nvapiAdapterRegistry->GetComputeGpuTopology().gpus;
++    const auto& topology = nvapiAdapterRegistry->GetComputeGpuTopology();
++    const auto& cudaCapableGpus = topology.gpus;
+ 
+     switch (pComputeTopo->version) {
+         case NV_COMPUTE_GPU_TOPOLOGY_VER1: {
+@@ -692,6 +693,17 @@ NVAPI_FUNCTION NvAPI_GPU_CudaEnumComputeCapableGpus(NV_COMPUTE_GPU_TOPOLOGY* pCo
+             }
+             break;
+         }
++        case NV_COMPUTE_GPU_TOPOLOGY_VER: {
++            // NVAPI on Windows denies V2, so keep doing that unless CUDA confirmed a GPU. Legacy PhysX
++            // initializes only the version and expects to receive an array, so ignore the other fields.
++            // The array stays valid until NvAPI_Unload and must not be modified by the caller.
++            if (!topology.hasCudaDevices)
++                return IncompatibleStructVersion(n, pComputeTopo->version);
++
++            pComputeTopo->gpuCount = cudaCapableGpus.size();
++            pComputeTopo->computeGpus = const_cast<NV_COMPUTE_GPU*>(cudaCapableGpus.data());
++            break;
++        }
+         default:
+             return Error(n); // Unreachable, but just to be sure
+     }
+diff --git a/tests/nvapi_sysinfo_cuda.cpp b/tests/nvapi_sysinfo_cuda.cpp
+index 64160de..88e6ee5 100644
+--- a/tests/nvapi_sysinfo_cuda.cpp
++++ b/tests/nvapi_sysinfo_cuda.cpp
+@@ -294,3 +294,65 @@ TEST_CASE("CUDA topology reports multiple adapters in CUDA device order", "[.sys
+         REQUIRE(topology.computeGpus[1].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetAdapter(0)));
+     REQUIRE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
+ }
++
++TEST_CASE("CUDA topology V2 returns GPUs confirmed by CUDA", "[.sysinfo-cuda]") {
++    auto t = std::make_unique<DefaultTestEnvironment>();
++    auto e = t->ConfigureExpectations();
++
++    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
++
++    auto driverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
++    ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
++        .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
++    ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, _, _))
++        .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
++            [driverId](auto vkProps) { ConfigureVkProps(vkProps, driverId, luid1); }));
++
++    // Legacy PhysX initializes only the version
++    NV_COMPUTE_GPU_TOPOLOGY_V2 topology;
++    topology.version = NV_COMPUTE_GPU_TOPOLOGY_VER;
++    topology.gpuCount = 0xdeadbeef;
++    topology.computeGpus = reinterpret_cast<NV_COMPUTE_GPU*>(0x1);
++
++    SECTION("V2 returns an NVAPI owned array") {
++        auto c = ConfigureCudaDevices(*t->Cuda(), {luid1});
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++
++        auto status = NVAPI_ERROR;
++        std::thread([&status, &topology] { status = NvAPI_GPU_CudaEnumComputeCapableGpus(&topology); }).join();
++        REQUIRE(status == NVAPI_OK);
++        REQUIRE(topology.version == NV_COMPUTE_GPU_TOPOLOGY_VER);
++        REQUIRE(topology.gpuCount == 1);
++        REQUIRE(topology.computeGpus == nvapiAdapterRegistry->GetComputeGpuTopology().gpus.data());
++        REQUIRE(topology.computeGpus[0].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetFirstAdapter()));
++        REQUIRE(topology.computeGpus[0].flags == 0x21001b);
++
++        // The array outlives the producing thread and is not changed by subsequent queries
++        NV_COMPUTE_GPU_TOPOLOGY_V2 repeated{};
++        repeated.version = NV_COMPUTE_GPU_TOPOLOGY_VER;
++        REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(&repeated) == NVAPI_OK);
++        REQUIRE(repeated.computeGpus == topology.computeGpus);
++        REQUIRE(EnumComputeCapableGpus().computeGpus[0].flags == 0x0b);
++        REQUIRE(topology.computeGpus[0].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetFirstAdapter()));
++        REQUIRE(topology.computeGpus[0].flags == 0x21001b);
++    }
++
++    SECTION("V2 returns incompatible-struct-version without GPUs confirmed by CUDA") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(false);
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(&topology) == NVAPI_INCOMPATIBLE_STRUCT_VERSION);
++        REQUIRE(topology.gpuCount == 0xdeadbeef);
++        REQUIRE(topology.computeGpus == reinterpret_cast<NV_COMPUTE_GPU*>(0x1));
++    }
++
++    SECTION("Unknown struct version returns incompatible-struct-version") {
++        FORBID_CALL(*t->Cuda(), IsAvailable());
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        topology.version = NV_COMPUTE_GPU_TOPOLOGY_VER + 1;
++        REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(&topology) == NVAPI_INCOMPATIBLE_STRUCT_VERSION);
++        REQUIRE(t->CudaCreationCount() == 0);
++    }
++}

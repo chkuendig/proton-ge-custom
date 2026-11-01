@@ -137,7 +137,7 @@ GE preparation applies `patches/dxvk-nvapi/*.patch` and
 `patches/protonfixes/*.patch` in filename order. The overlay builder applies the
 same checksum-locked series in private source copies, leaving checkout HEADs
 at their admitted upstream pins. Patch failures and differing resulting trees
-are fatal. Offline fixtures prove that our two NVAPI and five game-fix patches
+are fatal. Offline fixtures prove that our locked NVAPI and game-fix patches
 reproduce the original fork trees exactly, and that GE's two OptiScaler patches
 commute with the game fixes. Prepared source archives include expanded recursive
 submodules, the applied patch files, and upstream/prepared tree provenance.
@@ -462,3 +462,26 @@ gitlink update. The pinned ABI/lifecycle fixtures run unchanged, including canon
 admission: no CUDA module may appear in dll_dir. The durable upgrade cases are
 labelled "A1-layout (stand-in modules)" and reject seeds already matching GE
 stubs or the expected transition output.
+
+
+## Provider-agnostic NVAPI integration lane
+
+The six patches in `patches/dxvk-nvapi/README.md` discover CUDA providers through
+`nvcuda.dll` and match PCI domain/bus/device to admitted DXVK adapters. The launcher's existing
+ZLUDA hook keeps `DXVK_NVAPI_ALLOW_OTHER_DRIVERS=1`; no provider-specific switch is needed.
+The frozen W1 candidate remains separate. For this integration, an explicit
+`components_run=41291852855` reuses unchanged Wine/DXVK/bridge/backend components;
+the input is empty by default. Admission rejects non-NVAPI lock/build changes and
+records the source commit, run and artifact digests in the tool provenance.
+Both NVAPI DLL architectures and test executables always rebuild from the locked
+six-patch tree. The PE32 adapter changes only a private test copy and retains all
+seven CUDA discovery tests. Fresh Wine CPU/launcher/lifecycle/durable gates and the
+pinned W1 fixtures run against the resulting assembled tool. The offline triad
+rebuild evidence belongs to the unchanged bridge component's freeze run.
+
+The optional CPU software-Vulkan probe loads the freshly rebuilt production
+NVAPI DLL and real ZLUDA builtin with a test-only native backend. It checks both
+architectures with matching PCI location, mismatched PCI location and GE-stub controls. Test-only
+Xvfb/Mesa package versions are retained. If Wine/DXVK cannot enumerate a software
+adapter exposing VK_EXT_pci_bus_info, this experiment reports unqualified; it does not turn
+mocked unit tests into a claim of end-to-end adapter matching.

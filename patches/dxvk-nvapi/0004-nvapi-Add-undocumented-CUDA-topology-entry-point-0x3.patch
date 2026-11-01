@@ -1,0 +1,349 @@
+From 13d0e78269efe70a8155c2121b1aa7326a79377d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sat, 31 Oct 2026 16:26:01 +0100
+Subject: [PATCH 4/6] nvapi: Add undocumented CUDA topology entry point
+ 0x36e39e6b
+
+Legacy PhysX looks up the undocumented entry point 0x36e39e6b (see
+issue #313) next to CudaEnumComputeCapableGpus. PhysXDevice 18.12.7.2
+uses it to select the PhysX GPU and its CUDA ordinal, and passes a V2
+topology followed by three zero arguments. Name it
+NvAPI_CUDA_EnumComputeCapableByTopology and return the same array as
+CudaEnumComputeCapableGpus V2 for GPUs confirmed by CUDA, without
+checking or changing the version. Use a variadic cdecl signature that
+only reads the first argument. Return NVAPI_NO_IMPLEMENTATION when CUDA
+did not confirm any GPU.
+
+Keep such entry points in a separate table, include it in
+DXVK_NVAPI_DISABLE_ENTRYPOINTS and in validate-methods.py. 0xd875b6c5,
+which is called differently, stays unknown.
+
+Link the real nvapi_QueryInterface into the tests and check lookups,
+including disabled entry points in separate processes.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ README.md                          |  2 +
+ src/nvapi_gpu.cpp                  | 24 +++++++++
+ src/nvapi_interface.cpp            | 26 +++++++--
+ src/nvapi_interface_undocumented.h | 17 ++++++
+ tests/meson.build                  | 10 ++++
+ tests/nvapi_sysinfo_cuda.cpp       | 87 ++++++++++++++++++++++++++++++
+ tests/nvapi_system.cpp             |  6 ++-
+ validate-methods.py                |  8 +++
+ 8 files changed, 174 insertions(+), 6 deletions(-)
+ create mode 100644 src/nvapi_interface_undocumented.h
+
+diff --git a/README.md b/README.md
+index 45781f2..9954f1a 100644
+--- a/README.md
++++ b/README.md
+@@ -34,6 +34,8 @@ When available, DXVK-NVAPI uses `nvcuda.dll` to report CUDA capable GPUs to appl
+ 
+ NVIDIA's NVAPI on Windows rejects version 2 of `NvAPI_GPU_CudaEnumComputeCapableGpus`. DXVK-NVAPI accepts it when at least one GPU was confirmed by CUDA, since legacy PhysX versions rely on it. In that case only the version field is read, and the returned GPU array is owned by DXVK-NVAPI. It stays valid until the final `NvAPI_Unload` and must not be modified. GPUs confirmed by CUDA additionally report the CUDA available, CUDA capable and PhysX available flags in version 2.
+ 
++The undocumented entry point `0x36e39e6b`, named `NvAPI_CUDA_EnumComputeCapableByTopology` here, is queried by legacy PhysX versions. It returns the same GPU array as version 2 of `NvAPI_GPU_CudaEnumComputeCapableGpus`, without checking or changing the version field, and `NVAPI_NO_IMPLEMENTATION` when no GPU was confirmed by CUDA. Its signature is inferred from callers. Use its name to disable it with `DXVK_NVAPI_DISABLE_ENTRYPOINTS`.
++
+ ## How to build
+ 
+ Like DXVK, this library is being built as a Windows DLL using MinGW. DXVK-NVAPI requires MinGW-w64 compiler and headers version 9 or newer, the Meson build system at least version 0.58 and Python 3 (needed for a prebuild validation script). This project uses git submodules. Ensure to fetch the submodules while or after cloning the repository, e.g. with `git clone --recurse-submodules git@github.com:jp7677/dxvk-nvapi.git`.
+diff --git a/src/nvapi_gpu.cpp b/src/nvapi_gpu.cpp
+index 8b3facc..0c602a5 100644
+--- a/src/nvapi_gpu.cpp
++++ b/src/nvapi_gpu.cpp
+@@ -1,4 +1,5 @@
+ #include "nvapi_private.h"
++#include "nvapi_interface_undocumented.h"
+ #include "nvapi_globals.h"
+ #include "util/util_statuscode.h"
+ #include "util/util_string.h"
+@@ -1312,3 +1313,26 @@ NVAPI_FUNCTION NvAPI_GPU_GetPstates20(NvPhysicalGpuHandle hPhysicalGpu, NV_GPU_P
+ 
+     return NoImplementation(n, alreadyLoggedNoImplementation);
+ }
++
++NVAPI_FUNCTION NvAPI_CUDA_EnumComputeCapableByTopology(NV_COMPUTE_GPU_TOPOLOGY_V2* pComputeTopo, ...) {
++    static constexpr auto n = FUNC;
++
++    if (log::tracing())
++        log::trace(n, log::fmt::ptr(pComputeTopo));
++
++    if (!nvapiAdapterRegistry)
++        return ApiNotInitialized(n);
++
++    if (!pComputeTopo)
++        return InvalidArgument(n);
++
++    const auto& topology = nvapiAdapterRegistry->GetComputeGpuTopology();
++    if (!topology.hasCudaDevices)
++        return NoImplementation(n);
++
++    // Same output as CudaEnumComputeCapableGpus V2, though the version is neither checked nor changed
++    pComputeTopo->gpuCount = topology.gpus.size();
++    pComputeTopo->computeGpus = const_cast<NV_COMPUTE_GPU*>(topology.gpus.data());
++
++    return Ok(n);
++}
+diff --git a/src/nvapi_interface.cpp b/src/nvapi_interface.cpp
+index 3e45558..e80d66f 100644
+--- a/src/nvapi_interface.cpp
++++ b/src/nvapi_interface.cpp
+@@ -1,5 +1,6 @@
+ #include "nvapi_private.h"
+ #include "nvapi_interface.h"
++#include "nvapi_interface_undocumented.h"
+ #include "util/util_string.h"
+ #include "util/util_log.h"
+ 
+@@ -21,6 +22,9 @@ static void logDisabled() {
+         std::inserter(known, known.begin()),
+         [](const auto& iface) { return std::string_view(iface.func); });
+ 
++    for (const auto& iface : nvapi_undocumented_interface_table)
++        known.insert(iface.func);
++
+     for (const auto& name : disabled) {
+         if (name.empty())
+             continue;
+@@ -54,17 +58,28 @@ NVAPI_QUERY_INTERFACE nvapi_QueryInterface(NvU32 id) {
+ 
+     std::call_once(logDisabledOnceFlag, logDisabled);
+ 
++    auto name = std::string_view();
++
+     auto it = std::find_if(
+         std::begin(nvapi_interface_table),
+         std::end(nvapi_interface_table),
+         [id](const auto& item) { return item.id == id; });
+ 
+-    if (it == std::end(nvapi_interface_table)) {
+-        log::info(str::format(n, " (0x", std::hex, id, "): Unknown function ID"));
+-        return registry.insert({id, nullptr}).first->second;
+-    }
++    if (it != std::end(nvapi_interface_table))
++        name = it->func;
++    else {
++        auto undocumentedIt = std::find_if(
++            std::begin(nvapi_undocumented_interface_table),
++            std::end(nvapi_undocumented_interface_table),
++            [id](const auto& item) { return item.id == id; });
++
++        if (undocumentedIt == std::end(nvapi_undocumented_interface_table)) {
++            log::info(str::format(n, " (0x", std::hex, id, "): Unknown function ID"));
++            return registry.insert({id, nullptr}).first->second;
++        }
+ 
+-    auto name = std::string_view(it->func);
++        name = undocumentedIt->func;
++    }
+ 
+     if (disabled.find(name) != disabled.end()) {
+         log::info(str::format(n, " (", name, "): Disabled"));
+@@ -172,6 +187,7 @@ NVAPI_QUERY_INTERFACE nvapi_QueryInterface(NvU32 id) {
+     INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_GPU_GetUUID)
+     INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_GPU_GetArchInfo)
+     INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_GPU_CudaEnumComputeCapableGpus)
++    INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_CUDA_EnumComputeCapableByTopology)
+     INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_GPU_GetGPUInfo)
+     INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_GPU_GetDynamicPstatesInfoEx)
+     INSERT_AND_RETURN_WHEN_EQUALS(NvAPI_GPU_GetTachReading)
+diff --git a/src/nvapi_interface_undocumented.h b/src/nvapi_interface_undocumented.h
+new file mode 100644
+index 0000000..743fede
+--- /dev/null
++++ b/src/nvapi_interface_undocumented.h
+@@ -0,0 +1,17 @@
++#pragma once
++
++#include "nvapi_private.h"
++
++// Undocumented entry points that are not part of the NVAPI SDK. Their signatures and
++// semantics are inferred from callers, the native ones are not known to be identical.
++
++// Queried by legacy PhysX, e.g. PhysXDevice 18.12.7.2 calls it with three additional zero
++// arguments. Only the first argument is used, the cdecl variadic signature accepts both shapes.
++NVAPI_FUNCTION NvAPI_CUDA_EnumComputeCapableByTopology(NV_COMPUTE_GPU_TOPOLOGY_V2* pComputeTopo, ...);
++
++static constexpr struct {
++    const char* func;
++    NvU32 id;
++} nvapi_undocumented_interface_table[] = {
++    { "NvAPI_CUDA_EnumComputeCapableByTopology", 0x36e39e6b },
++};
+diff --git a/tests/meson.build b/tests/meson.build
+index 98da9e2..c171db8 100644
+--- a/tests/meson.build
++++ b/tests/meson.build
+@@ -32,6 +32,7 @@ nvapi_src = files([
+   '../src/nvapi_ngx.cpp',
+   '../src/nvapi_sys.cpp',
+   '../src/nvapi_vulkan.cpp',
++  '../src/nvapi_interface.cpp',
+ ])
+ 
+ nvapi_tests_src = files([
+@@ -61,6 +62,15 @@ nvapi_exe = executable(target_name, [ nvapi_src, catch2_src, nvapi_tests_src, dx
+   include_directories : [ nvapi_headers, vk_headers, dx_headers, nvml_headers, catch2_headers, trompeloeil_headers ],
+   install             : true)
+ 
++test('nvapi-unit-tests', nvapi_exe, args : ['[@unit-tests]'], timeout : 300)
++
++# Entry points are disabled at process start, so check this in separate processes
++foreach disabled_name : ['NvAPI_CUDA_EnumComputeCapableByTopology', 'nvapi_cuda_enumcomputecapablebytopology', 'NvAPI_GPU_CudaEnumComputeCapableGpus']
++  test('nvapi-disable-' + disabled_name, nvapi_exe,
++    args : ['PhysX private interface lookup'],
++    env : ['DXVK_NVAPI_DISABLE_ENTRYPOINTS=' + disabled_name])
++endforeach
++
+ nvofapi_src = files([
+   '../src/util/util_string.cpp',
+   '../src/util/util_env.cpp',
+diff --git a/tests/nvapi_sysinfo_cuda.cpp b/tests/nvapi_sysinfo_cuda.cpp
+index 88e6ee5..7bcd684 100644
+--- a/tests/nvapi_sysinfo_cuda.cpp
++++ b/tests/nvapi_sysinfo_cuda.cpp
+@@ -1,10 +1,14 @@
+ #include <thread>
+ #include "nvapi_tests_private.h"
++#include "../src/nvapi_interface_undocumented.h"
++#include "../src/util/util_string.h"
+ #include "nvapi/default_test_environment.h"
+ #include "nvapi/extended_test_environment.h"
+ 
+ using namespace trompeloeil;
+ 
++NVAPI_QUERY_INTERFACE nvapi_QueryInterface(NvU32 id);
++
+ namespace {
+     constexpr auto luid1 = LUID{0x04030211, 0x08070655};
+     constexpr auto luid2 = LUID{0x14131211, 0x18171615};
+@@ -356,3 +360,86 @@ TEST_CASE("CUDA topology V2 returns GPUs confirmed by CUDA", "[.sysinfo-cuda]")
+         REQUIRE(t->CudaCreationCount() == 0);
+     }
+ }
++
++// Also run in separate processes with DXVK_NVAPI_DISABLE_ENTRYPOINTS set, see meson.build
++TEST_CASE("PhysX private interface lookup", "[.sysinfo-cuda]") {
++    auto disabled = dxvk::str::fromnullable(std::getenv("DXVK_NVAPI_DISABLE_ENTRYPOINTS"));
++    auto privateDisabled = disabled == "NvAPI_CUDA_EnumComputeCapableByTopology" || disabled == "nvapi_cuda_enumcomputecapablebytopology";
++    auto publicDisabled = disabled == "NvAPI_GPU_CudaEnumComputeCapableGpus";
++
++    void* concurrent = nullptr;
++    std::thread lookup([&concurrent] { concurrent = nvapi_QueryInterface(0x36e39e6b); });
++    auto method = nvapi_QueryInterface(0x36e39e6b);
++    lookup.join();
++
++    REQUIRE(concurrent == method);
++    REQUIRE((method == nullptr) == privateDisabled);
++    if (!privateDisabled) {
++        REQUIRE(method == reinterpret_cast<void*>(NvAPI_CUDA_EnumComputeCapableByTopology));
++        auto entry = reinterpret_cast<decltype(&NvAPI_CUDA_EnumComputeCapableByTopology)>(method);
++        REQUIRE(entry(nullptr) == NVAPI_API_NOT_INITIALIZED);
++        REQUIRE(entry(nullptr, 0U, 0U, 0U) == NVAPI_API_NOT_INITIALIZED);
++    }
++
++    REQUIRE((nvapi_QueryInterface(0x5786cc6e) == nullptr) == publicDisabled);
++    REQUIRE(nvapi_QueryInterface(0xd875b6c5) == nullptr); // Different undocumented entry point, not implemented
++    REQUIRE(nvapi_QueryInterface(0x36e39e6b) == method);
++}
++
++TEST_CASE("PhysX private topology returns GPUs confirmed by CUDA", "[.sysinfo-cuda]") {
++    REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(nullptr) == NVAPI_API_NOT_INITIALIZED);
++
++    auto t = std::make_unique<DefaultTestEnvironment>();
++    auto e = t->ConfigureExpectations();
++
++    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
++
++    auto driverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
++    ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
++        .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
++    ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, _, _))
++        .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
++            [driverId](auto vkProps) { ConfigureVkProps(vkProps, driverId, luid1); }));
++
++    NV_COMPUTE_GPU_TOPOLOGY_V2 topology;
++    topology.version = 0xdeadbeef;
++    topology.gpuCount = 0xbaadf00d;
++    topology.computeGpus = reinterpret_cast<NV_COMPUTE_GPU*>(0x1);
++
++    SECTION("Private topology returns the V2 array") {
++        auto c = ConfigureCudaDevices(*t->Cuda(), {luid1});
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(nullptr) == NVAPI_INVALID_ARGUMENT);
++        REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(&topology) == NVAPI_OK);
++        REQUIRE(topology.version == 0xdeadbeef);
++        REQUIRE(topology.gpuCount == 1);
++        REQUIRE(topology.computeGpus[0].hPhysicalGpu == reinterpret_cast<NvPhysicalGpuHandle>(nvapiAdapterRegistry->GetFirstAdapter()));
++        REQUIRE(topology.computeGpus[0].flags == 0x21001b);
++
++        NV_COMPUTE_GPU_TOPOLOGY_V2 publicTopology{};
++        publicTopology.version = NV_COMPUTE_GPU_TOPOLOGY_VER;
++        REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(&publicTopology) == NVAPI_OK);
++        REQUIRE(topology.computeGpus == publicTopology.computeGpus);
++
++        // PhysXDevice 18.12.7.2 passes three additional arguments and repeats the
++        // query with its own array, which is replaced and left untouched
++        NV_COMPUTE_GPU callerGpu{};
++        topology.computeGpus = &callerGpu;
++        REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(&topology, 0U, 0U, 0U) == NVAPI_OK);
++        REQUIRE(topology.version == 0xdeadbeef);
++        REQUIRE(topology.computeGpus == publicTopology.computeGpus);
++        REQUIRE(callerGpu.hPhysicalGpu == nullptr);
++        REQUIRE(callerGpu.flags == 0);
++    }
++
++    SECTION("Private topology returns no-implementation without GPUs confirmed by CUDA") {
++        ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(false);
++
++        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(&topology, 0U, 0U, 0U) == NVAPI_NO_IMPLEMENTATION);
++        REQUIRE(topology.version == 0xdeadbeef);
++        REQUIRE(topology.gpuCount == 0xbaadf00d);
++        REQUIRE(topology.computeGpus == reinterpret_cast<NV_COMPUTE_GPU*>(0x1));
++    }
++}
+diff --git a/tests/nvapi_system.cpp b/tests/nvapi_system.cpp
+index 0ff254a..0ddf8ce 100644
+--- a/tests/nvapi_system.cpp
++++ b/tests/nvapi_system.cpp
+@@ -1,8 +1,12 @@
+ #include <windows.h>
+ #include "nvapi_tests_private.h"
+-#include "nvapi_interface.h"
+ #include "nvapi/display_config.h"
+ 
++// The SDK header defines the table, which is also part of the linked nvapi_interface.cpp
++namespace {
++#include "nvapi_interface.h"
++}
++
+ using namespace Catch::Matchers;
+ 
+ typedef void* (*PFN_NvAPI_QueryInterface)(uint32_t id);
+diff --git a/validate-methods.py b/validate-methods.py
+index f7ec2b5..97ddd41 100644
+--- a/validate-methods.py
++++ b/validate-methods.py
+@@ -1,5 +1,6 @@
+ import sys
+ import re
++from pathlib import Path
+ 
+ if sys.version_info[0] < 3:
+     print("Method validation failed due to invalid Python interpreter. "
+@@ -42,6 +43,13 @@ with open(sys.argv[len(sys.argv) - 1]) as file:
+         if result:
+             availableMethods.append(result.group(1))
+ 
++# Undocumented entry points are listed separately from the NVAPI SDK's interface table
++with (Path(__file__).parent / "src/nvapi_interface_undocumented.h").open() as file:
++    for line in file:
++        result = regex.match(line)
++        if result:
++            availableMethods.append(result.group(1))
++
+ if len(expectedMethods) != len(foundMethods) or len(set(expectedMethods).intersection(foundMethods)) != len(
+         expectedMethods):
+     print("Method validation failed. "

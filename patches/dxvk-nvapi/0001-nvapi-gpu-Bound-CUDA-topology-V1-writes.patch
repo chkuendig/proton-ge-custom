@@ -1,0 +1,74 @@
+From d42d96641db16fcabb8c24b86ec9efdf69ed7789 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Fri, 30 Oct 2026 15:52:19 +0100
+Subject: [PATCH 1/6] nvapi-gpu: Bound CUDA topology V1 writes
+
+The V1 topology embeds room for eight GPUs, whereas adapter enumeration
+can return more. Return NVAPI_INSUFFICIENT_BUFFER before writing any
+array element if the eligible adapter count exceeds that capacity.
+Publish the required gpuCount on this error; this is a defensive policy,
+not a claim about native NVIDIA error semantics.
+
+Exercise eight and nine eligible adapters with an adjacent canary and
+verify that failure leaves every array byte untouched.
+
+Assisted-by: Codex:gpt-6.1-sol
+---
+ src/nvapi_gpu.cpp       |  2 ++
+ tests/nvapi_sysinfo.cpp | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+)
+
+diff --git a/src/nvapi_gpu.cpp b/src/nvapi_gpu.cpp
+index 1525ba7..aaa5575 100644
+--- a/src/nvapi_gpu.cpp
++++ b/src/nvapi_gpu.cpp
+@@ -694,6 +694,8 @@ NVAPI_FUNCTION NvAPI_GPU_CudaEnumComputeCapableGpus(NV_COMPUTE_GPU_TOPOLOGY* pCo
+         case NV_COMPUTE_GPU_TOPOLOGY_VER1: {
+             auto pComputeTopoV1 = reinterpret_cast<NV_COMPUTE_GPU_TOPOLOGY_V1*>(pComputeTopo);
+             pComputeTopoV1->gpuCount = cudaCapableGpus.size();
++            if (cudaCapableGpus.size() > NVAPI_MAX_GPU_PER_TOPOLOGY)
++                return InsufficientBuffer(n);
+             for (auto i = 0U; i < cudaCapableGpus.size(); i++) {
+                 pComputeTopoV1->computeGpus[i].hPhysicalGpu = cudaCapableGpus[i];
+                 pComputeTopoV1->computeGpus[i].flags = flags;
+diff --git a/tests/nvapi_sysinfo.cpp b/tests/nvapi_sysinfo.cpp
+index ea58277..6ec4f3b 100644
+--- a/tests/nvapi_sysinfo.cpp
++++ b/tests/nvapi_sysinfo.cpp
+@@ -981,3 +981,36 @@ TEST_CASE("GetDisplayViewportsByResolution returns mosaic-not-active", "[.sysinf
+     NV_RECT rect[NV_MOSAIC_MAX_DISPLAYS]{};
+     REQUIRE(NvAPI_Mosaic_GetDisplayViewportsByResolution(0, 0, 0, rect, &corrected) == NVAPI_MOSAIC_NOT_ACTIVE);
+ }
++
++TEST_CASE("CUDA topology V1 respects its fixed capacity", "[.sysinfo]") {
++    auto count = GENERATE(8U, 9U);
++    auto t = std::make_unique<DefaultTestEnvironment>();
++    auto e = t->ConfigureExpectations();
++    ALLOW_CALL(*t->DXGIFactory(), EnumAdapters1(_, _))
++        .LR_SIDE_EFFECT(*_2 = _1 < count ? static_cast<IDXGIAdapter1*>(t->DXGIAdapter()) : nullptr)
++        .LR_RETURN(_1 < count ? S_OK : DXGI_ERROR_NOT_FOUND);
++    ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
++        .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
++    REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++
++    struct {
++        NV_COMPUTE_GPU_TOPOLOGY_V1 topology;
++        std::array<unsigned char, 32> canary;
++    } output;
++    std::memset(&output, 0xa5, sizeof(output));
++    output.topology.version = NV_COMPUTE_GPU_TOPOLOGY_VER1;
++    auto before = output;
++    auto status = NvAPI_GPU_CudaEnumComputeCapableGpus(reinterpret_cast<NV_COMPUTE_GPU_TOPOLOGY*>(&output.topology));
++    REQUIRE(output.topology.gpuCount == count);
++    REQUIRE(output.canary == before.canary);
++    if (count > NVAPI_MAX_GPU_PER_TOPOLOGY) {
++        REQUIRE(status == NVAPI_INSUFFICIENT_BUFFER);
++        REQUIRE(std::memcmp(output.topology.computeGpus, before.topology.computeGpus, sizeof(output.topology.computeGpus)) == 0);
++    } else {
++        REQUIRE(status == NVAPI_OK);
++        for (auto i = 0U; i < count; i++) {
++            REQUIRE(output.topology.computeGpus[i].hPhysicalGpu);
++            REQUIRE(output.topology.computeGpus[i].flags == 0x0b);
++        }
++    }
++}

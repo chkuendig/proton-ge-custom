@@ -1,0 +1,270 @@
+From 8f3def5bf2ec080340590e691f11135a0eff92a6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=BCndig?= <christian@kuendig.info>
+Date: Sat, 31 Oct 2026 17:38:30 +0100
+Subject: [PATCH 5/6] tests: Allow other drivers in every CUDA topology section
+
+The section listener clears DXVK_NVAPI_ALLOW_OTHER_DRIVERS whenever a
+section starts, so setting it once per test case did not admit the
+mocked non-NVIDIA adapters and NvAPI_Initialize failed. Set it right
+before initializing instead. Also apply clang-format to the CUDA test
+helper, and keep the undocumented interface table in the SDK layout
+that validate-methods.py expects.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ src/nvapi_interface_undocumented.h |  3 ++
+ tests/nvapi_sysinfo_cuda.cpp       | 66 ++++++++++++++----------------
+ 2 files changed, 34 insertions(+), 35 deletions(-)
+
+diff --git a/src/nvapi_interface_undocumented.h b/src/nvapi_interface_undocumented.h
+index 743fede..4d6a052 100644
+--- a/src/nvapi_interface_undocumented.h
++++ b/src/nvapi_interface_undocumented.h
+@@ -9,9 +9,12 @@
+ // arguments. Only the first argument is used, the cdecl variadic signature accepts both shapes.
+ NVAPI_FUNCTION NvAPI_CUDA_EnumComputeCapableByTopology(NV_COMPUTE_GPU_TOPOLOGY_V2* pComputeTopo, ...);
+ 
++// validate-methods.py expects the layout of the SDK table
++// clang-format off
+ static constexpr struct {
+     const char* func;
+     NvU32 id;
+ } nvapi_undocumented_interface_table[] = {
+     { "NvAPI_CUDA_EnumComputeCapableByTopology", 0x36e39e6b },
+ };
++// clang-format on
+diff --git a/tests/nvapi_sysinfo_cuda.cpp b/tests/nvapi_sysinfo_cuda.cpp
+index 7bcd684..e3e0547 100644
+--- a/tests/nvapi_sysinfo_cuda.cpp
++++ b/tests/nvapi_sysinfo_cuda.cpp
+@@ -28,20 +28,26 @@ namespace {
+         e.emplace_back(NAMED_ALLOW_CALL(cuda, IsAvailable()).RETURN(true));
+         e.emplace_back(NAMED_ALLOW_CALL(cuda, Init(0U)).RETURN(CUDA_SUCCESS));
+         e.emplace_back(NAMED_ALLOW_CALL(cuda, DeviceGetCount(_))
+-                .SIDE_EFFECT(*_1 = static_cast<int>(luids.size()))
+-                .RETURN(CUDA_SUCCESS));
++                           .SIDE_EFFECT(*_1 = static_cast<int>(luids.size()))
++                           .RETURN(CUDA_SUCCESS));
+         // Use device handles that differ from the ordinals
+         e.emplace_back(NAMED_ALLOW_CALL(cuda, DeviceGet(_, _))
+-                .SIDE_EFFECT(*_1 = _2 + 0x10)
+-                .RETURN(CUDA_SUCCESS));
++                           .SIDE_EFFECT(*_1 = _2 + 0x10)
++                           .RETURN(CUDA_SUCCESS));
+         e.emplace_back(NAMED_ALLOW_CALL(cuda, DeviceGetLuid(_, _, _))
+-                .WITH(_3 >= 0x10 && static_cast<size_t>(_3 - 0x10) < luids.size())
+-                .SIDE_EFFECT(memcpy(_1, &luids[_3 - 0x10], sizeof(LUID)))
+-                .SIDE_EFFECT(*_2 = 1)
+-                .RETURN(CUDA_SUCCESS));
++                           .WITH(_3 >= 0x10 && static_cast<size_t>(_3 - 0x10) < luids.size())
++                           .SIDE_EFFECT(memcpy(_1, &luids[_3 - 0x10], sizeof(LUID)))
++                           .SIDE_EFFECT(*_2 = 1)
++                           .RETURN(CUDA_SUCCESS));
+         return e;
+     }
+ 
++    // The section listener resets the environment when a section starts
++    NvAPI_Status InitializeWithOtherDrivers() {
++        ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
++        return NvAPI_Initialize();
++    }
++
+     NV_COMPUTE_GPU_TOPOLOGY_V1 EnumComputeCapableGpus() {
+         NV_COMPUTE_GPU_TOPOLOGY_V1 topology{};
+         topology.version = NV_COMPUTE_GPU_TOPOLOGY_VER1;
+@@ -54,8 +60,6 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+     auto t = std::make_unique<DefaultTestEnvironment>();
+     auto e = t->ConfigureExpectations();
+ 
+-    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
+-
+     auto driverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
+     ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
+         .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
+@@ -69,7 +73,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+     SECTION("CUDA device with matching LUID and node mask is reported") {
+         auto c = ConfigureCudaDevices(*t->Cuda(), {luid1});
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(t->CudaCreationCount() == 0);
+ 
+         auto topology = EnumComputeCapableGpus();
+@@ -91,7 +95,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+             .LR_SIDE_EFFECT(*_2 = mismatch.second)
+             .RETURN(CUDA_SUCCESS);
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
+         REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
+     }
+@@ -100,7 +104,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+         ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(false);
+         FORBID_CALL(*t->Cuda(), Init(_));
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
+         REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
+         REQUIRE(t->CudaCreationCount() == 1);
+@@ -111,7 +115,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+         REQUIRE_CALL(*t->Cuda(), Init(0U)).RETURN(100); // CUDA_ERROR_NO_DEVICE
+         FORBID_CALL(*t->Cuda(), DeviceGetCount(_));
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
+         REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
+     }
+@@ -122,7 +126,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+         ALLOW_CALL(*t->Cuda(), DeviceGetCount(_)).RETURN(3); // CUDA_ERROR_NOT_INITIALIZED
+         FORBID_CALL(*t->Cuda(), DeviceGet(_, _));
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
+     }
+ 
+@@ -139,7 +143,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+             .SIDE_EFFECT(*_2 = 1)
+             .RETURN(801); // CUDA_ERROR_NOT_SUPPORTED, outputs must be ignored
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(EnumComputeCapableGpus().gpuCount == heuristicGpuCount);
+         REQUIRE_FALSE(nvapiAdapterRegistry->GetComputeGpuTopology().hasCudaDevices);
+     }
+@@ -154,7 +158,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+             .SIDE_EFFECT(*_2 = 1)
+             .RETURN(CUDA_SUCCESS);
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         auto& snapshot = nvapiAdapterRegistry->GetComputeGpuTopology();
+         for (auto i = 0; i < 3; i++)
+             REQUIRE(EnumComputeCapableGpus().gpuCount == 1);
+@@ -175,7 +179,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+             .SIDE_EFFECT(*_2 = 1)
+             .RETURN(CUDA_SUCCESS);
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+ 
+         constexpr auto threadCount = 8U;
+         std::array<NvAPI_Status, threadCount> statuses{};
+@@ -217,7 +221,7 @@ TEST_CASE("CUDA topology correlates CUDA devices by LUID", "[.sysinfo-cuda]") {
+             .SIDE_EFFECT(*_2 = 1)
+             .RETURN(CUDA_SUCCESS);
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(EnumComputeCapableGpus().gpuCount == 1);
+ 
+         // The nested query is answered without CUDA, and is not cached
+@@ -234,14 +238,12 @@ TEST_CASE("CUDA topology does not load nvcuda unnecessarily", "[.sysinfo-cuda]")
+     auto t = std::make_unique<DefaultTestEnvironment>();
+     auto e = t->ConfigureExpectations();
+ 
+-    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
+-
+     SECTION("Other NVAPI methods do not load nvcuda") {
+         ALLOW_CALL(*t->Vk(), GetPhysicalDeviceProperties2(_, _, _))
+             .SIDE_EFFECT(VkMock::ConfigureGetPhysicalDeviceProperties2(_3,
+                 [](auto vkProps) { ConfigureVkProps(vkProps, VK_DRIVER_ID_MESA_RADV, luid1); }));
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+ 
+         NvPhysicalGpuHandle handles[NVAPI_MAX_PHYSICAL_GPUS]{};
+         NvU32 count = 0;
+@@ -261,7 +263,7 @@ TEST_CASE("CUDA topology does not load nvcuda unnecessarily", "[.sysinfo-cuda]")
+     }
+ 
+     SECTION("Adapters without LUID do not load nvcuda") {
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         EnumComputeCapableGpus();
+         REQUIRE(t->CudaCreationCount() == 0);
+     }
+@@ -271,8 +273,6 @@ TEST_CASE("CUDA topology reports multiple adapters in CUDA device order", "[.sys
+     auto t = std::make_unique<ExtendedTestEnvironment>();
+     auto e = t->ConfigureExpectations();
+ 
+-    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
+-
+     auto adapter1DriverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
+     ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
+         .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
+@@ -287,7 +287,7 @@ TEST_CASE("CUDA topology reports multiple adapters in CUDA device order", "[.sys
+     auto cudaSeesAdapter1 = GENERATE(true, false);
+     auto c = ConfigureCudaDevices(*t->Cuda(), {luid2, cudaSeesAdapter1 ? luid1 : luid3, cudaSeesAdapter1 ? luid1 : luid3, luid3});
+ 
+-    REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++    REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+ 
+     // Adapters that CUDA does not report keep upstream behavior and follow the CUDA devices
+     auto adapter1Reported = cudaSeesAdapter1 || adapter1DriverId == VK_DRIVER_ID_NVIDIA_PROPRIETARY;
+@@ -303,8 +303,6 @@ TEST_CASE("CUDA topology V2 returns GPUs confirmed by CUDA", "[.sysinfo-cuda]")
+     auto t = std::make_unique<DefaultTestEnvironment>();
+     auto e = t->ConfigureExpectations();
+ 
+-    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
+-
+     auto driverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
+     ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
+         .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
+@@ -321,7 +319,7 @@ TEST_CASE("CUDA topology V2 returns GPUs confirmed by CUDA", "[.sysinfo-cuda]")
+     SECTION("V2 returns an NVAPI owned array") {
+         auto c = ConfigureCudaDevices(*t->Cuda(), {luid1});
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+ 
+         auto status = NVAPI_ERROR;
+         std::thread([&status, &topology] { status = NvAPI_GPU_CudaEnumComputeCapableGpus(&topology); }).join();
+@@ -345,7 +343,7 @@ TEST_CASE("CUDA topology V2 returns GPUs confirmed by CUDA", "[.sysinfo-cuda]")
+     SECTION("V2 returns incompatible-struct-version without GPUs confirmed by CUDA") {
+         ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(false);
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(&topology) == NVAPI_INCOMPATIBLE_STRUCT_VERSION);
+         REQUIRE(topology.gpuCount == 0xdeadbeef);
+         REQUIRE(topology.computeGpus == reinterpret_cast<NV_COMPUTE_GPU*>(0x1));
+@@ -354,7 +352,7 @@ TEST_CASE("CUDA topology V2 returns GPUs confirmed by CUDA", "[.sysinfo-cuda]")
+     SECTION("Unknown struct version returns incompatible-struct-version") {
+         FORBID_CALL(*t->Cuda(), IsAvailable());
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         topology.version = NV_COMPUTE_GPU_TOPOLOGY_VER + 1;
+         REQUIRE(NvAPI_GPU_CudaEnumComputeCapableGpus(&topology) == NVAPI_INCOMPATIBLE_STRUCT_VERSION);
+         REQUIRE(t->CudaCreationCount() == 0);
+@@ -392,8 +390,6 @@ TEST_CASE("PhysX private topology returns GPUs confirmed by CUDA", "[.sysinfo-cu
+     auto t = std::make_unique<DefaultTestEnvironment>();
+     auto e = t->ConfigureExpectations();
+ 
+-    ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
+-
+     auto driverId = GENERATE(VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_NVIDIA_PROPRIETARY);
+     ALLOW_CALL(*t->Vk(), GetDeviceExtensions(_, _))
+         .RETURN(std::set<std::string>{VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME, VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME});
+@@ -409,7 +405,7 @@ TEST_CASE("PhysX private topology returns GPUs confirmed by CUDA", "[.sysinfo-cu
+     SECTION("Private topology returns the V2 array") {
+         auto c = ConfigureCudaDevices(*t->Cuda(), {luid1});
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(nullptr) == NVAPI_INVALID_ARGUMENT);
+         REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(&topology) == NVAPI_OK);
+         REQUIRE(topology.version == 0xdeadbeef);
+@@ -436,7 +432,7 @@ TEST_CASE("PhysX private topology returns GPUs confirmed by CUDA", "[.sysinfo-cu
+     SECTION("Private topology returns no-implementation without GPUs confirmed by CUDA") {
+         ALLOW_CALL(*t->Cuda(), IsAvailable()).RETURN(false);
+ 
+-        REQUIRE(NvAPI_Initialize() == NVAPI_OK);
++        REQUIRE(InitializeWithOtherDrivers() == NVAPI_OK);
+         REQUIRE(NvAPI_CUDA_EnumComputeCapableByTopology(&topology, 0U, 0U, 0U) == NVAPI_NO_IMPLEMENTATION);
+         REQUIRE(topology.version == 0xdeadbeef);
+         REQUIRE(topology.gpuCount == 0xbaadf00d);

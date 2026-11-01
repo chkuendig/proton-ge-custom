@@ -14,6 +14,7 @@ import wine_scope
 import cuda_package
 import component_patches
 import reuse_components
+import nvapi_package
 
 
 def environment(name):
@@ -235,11 +236,24 @@ def assemble(overlays):
         record = json.loads((overlay / 'provenance' / (part + '.json')).read_text())
         if not (record['part'] == part and record['proton'] == component_commit):
             raise ValueError("overlay.py integrity gate failed: record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')")
-        if not (record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')):
+        if not (record['input_lock_sha256'] == reuse_components.expected_lock_sha256(source)):
             raise ValueError("overlay.py integrity gate failed: record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')")
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
+    # NVAPI always has its own fresh build and receipt, even when unaffected
+    # backend/Wine/DXVK/bridge components came from an older manual run.
+    nvapi = build / 'verified-nvapi'
+    extract(overlays / 'nvapi.tar.gz', nvapi)
+    nvapi_record = nvapi_package.admit(source, nvapi)
+    for name in ['MANIFEST', 'SYMLINKS.json']:
+        (nvapi / name).unlink()
+    shutil.rmtree(dest / 'sources/component-patches/patches/dxvk-nvapi', ignore_errors=True)
+    shutil.copytree(nvapi, dest, dirs_exist_ok=True, symlinks=True)
+    if reuse:
+        (dest / 'provenance/reused-inputs.lock.json').write_text(
+            reuse_components.original_lock(source, component_commit) + '\n')
+    shutil.copyfile(HERE / 'inputs.lock.json', dest / 'provenance/inputs.lock.json')
     scope = dest / 'provenance/WINE-SCOPE.json'
     if reuse:
         (dest / 'provenance/COMPONENT-REUSE.json').write_text(json.dumps(reuse, indent=2) + '\n')
@@ -282,6 +296,7 @@ def assemble(overlays):
             raise ValueError(name)
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
                   'component_build_proton': component_commit, 'component_reuse': reuse,
+                  'nvapi_rebuild': nvapi_record,
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'component_patches': LOCK['component_patches'],
                   'wine_bridge': LOCK['wine_bridge'],
@@ -290,7 +305,7 @@ def assemble(overlays):
                   'qualification': 'CI assembly is not target-runtime or GPU qualification'}
     (dest / 'provenance/PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
     sbom = {'format': 'zluda-overlay-sbom-1', 'base': ge,
-            'component_inventories': ['zluda-SBOM.json', 'bridges-SBOM.json'],
+            'component_inventories': ['zluda-SBOM.json', 'bridges-SBOM.json', 'NVAPI-BUILD.json'],
             'licenses': 'licenses/', 'sources': 'sources/'}
     (dest / 'provenance/SBOM.json').write_text(json.dumps(sbom, indent=2) + '\n')
     # Names, aliases and installed bytes are recorded before archive compression.
