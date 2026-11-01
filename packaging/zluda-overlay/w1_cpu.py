@@ -10,13 +10,14 @@ files/lib/wine-cuda/{zluda,stub} (the fully rebuilt candidate from this workflow
 with a deadline and records stdout JSONL, stderr and the exit code. The
 expectations below are what a fixture must do without a GPU: terminate in time,
 print parseable start/finish records, and, for the PE32 stack fixture, detect
-all 24 corrected cleanup widths on the clean-room candidate. The old stub
+all 25 cleanup widths (24 corrected and the unchanged LUID width) on the clean-room candidate. The old stub
 remains the negative control. Expectations are selected before observing data.
 Writes WORK/CPU-RESULT.json and exits 1 if any expectation is not met.
 """
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -90,7 +91,7 @@ def terminated(result):
         bool(events(result, 'finish')) or result['exit'] == 2)
 
 
-FIXTURE_PIN = '20d2e76cf34e9819cca4ac137953c90d7d93ab2b'
+FIXTURE_PIN = 'f61fda4e73c88b71303806a27775803524f30ae7'
 
 def admit_fixtures(fixtures, source):
     if git(source, 'rev-parse', 'HEAD') != FIXTURE_PIN:
@@ -107,7 +108,13 @@ def admit_fixtures(fixtures, source):
         if not entries:
             raise ValueError('empty W1 fixture inventory')
         seen[inventory] = entries
-    return {'source_pin': FIXTURE_PIN, 'inventories': seen}
+    widths = source / 'wine/w1-fixtures/src/pe32_widths.h'
+    cases = [(name, int(correct), int(old)) for name, correct, old in
+             re.findall(r'X\((\w+),\s*(\d+),\s*(\d+),', widths.read_text())]
+    if len(cases) != 25 or sum(correct == old for _, correct, old in cases) != 1:
+        raise ValueError('W1 fixture width list differs from reviewed 25-case scope')
+    return {'source_pin': FIXTURE_PIN, 'inventories': seen, 'stack_cases': cases,
+            'stack_total': len(cases), 'stack_unchanged': 1}
 
 
 def main():
@@ -147,11 +154,11 @@ def main():
                  {'W1_NVCUDA': 'w1stub_old.dll'})
     results += [good, old, detect]
     summary = lambda r: (events(r, 'summary') or [{}])[0]
-    expect('self-test: correct stub balanced 24/24', good['exit'] == 0 and summary(good).get('matched') == 24)
-    expect('self-test: old stub shows the exact historical displacement 24/24',
-           old['exit'] == 0 and summary(old).get('matched') == 24)
-    expect('self-test: old stub FAILS the correct-width gate on all 24',
-           detect['exit'] == 1 and summary(detect).get('matched') == 0)
+    expect('self-test: correct stub balanced 25/25', good['exit'] == 0 and summary(good).get('matched') == 25)
+    expect('self-test: old stub shows the all 25 expected historical widths (including unchanged LUID)',
+           old['exit'] == 0 and summary(old).get('matched') == 25)
+    expect('self-test: old stub FAILS the correct-width gate on 24, with only unchanged LUID matching',
+           detect['exit'] == 1 and summary(detect).get('matched') == 1)
     candidate = {}
     for backend, path in BACKENDS.items():
         env = environment(a.tool, work, 'wow64', 'zluda', True, path)
@@ -161,11 +168,11 @@ def main():
         candidate[backend] = {'loaded': any(r.get('label') == 'nvcuda' for r in events(correct, 'module')),
                               'correct_matched': summary(correct).get('matched'),
                               'old_matched': summary(old).get('matched')}
-        expect(f'candidate PE32 {backend}: correct widths 24/24',
-               candidate[backend]['loaded'] and correct['exit'] == 0 and summary(correct).get('matched') == 24,
+        expect(f'candidate PE32 {backend}: correct widths 25/25',
+               candidate[backend]['loaded'] and correct['exit'] == 0 and summary(correct).get('matched') == 25,
                candidate[backend])
-        expect(f'candidate PE32 {backend}: old widths rejected 24/24',
-               old['exit'] == 1 and summary(old).get('matched') == 0, candidate[backend])
+        expect(f'candidate PE32 {backend}: 24 historical widths rejected, only unchanged LUID matching',
+               old['exit'] == 1 and summary(old).get('matched') == 1, candidate[backend])
 
     # 2. identity: off = GE empty stub; on = bridge surface (788 / 690 names)
     for arch, d, n in (('win64', x64, 788), ('wow64', pe32, 690)):

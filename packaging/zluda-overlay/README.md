@@ -111,9 +111,9 @@ Wine/Proton under their own terms, and retain all provenance/ABI/receipt documen
 root MIT/Apache texts and Cargo notices.
 Full hosted candidate gates include ABI, lifecycle, launcher and durable A1-layout
 transitions. A separate W1 fixture job uses source at the same clean ZLUDA pin and the
-matching fixture artifact from clean CI run 41216249728,
-with correct PE32 widths chosen before execution, requiring 24/24 in both backend
-modes and rejecting the old-width oracle. GPU, game and Deck W1/W2 remain pending. Full-source `make redist` builds the bridge after the prepared
+matching fixture artifact from clean CI run 41290291619,
+with correct PE32 widths chosen before execution, requiring 25/25 in both backend
+modes and rejecting all 24 historically bad widths, with only the unchanged LUID width matching the old-width oracle. PE32 LUID remains an 801 stub with balanced 12-byte cleanup and no transport; x64 LUID is unchanged. The Windows probe checks PCI attribute forwarding and v3/v4 mismatch refusal, and native scope tests compare 18 PCI cases across x64 and PE32. GPU, game and Deck W1/W2 remain pending. Full-source `make redist` builds the bridge after the prepared
 Wine SDK and installs after both Wine architectures; backend/ROCm provisioning
 still belongs to the separate native component.
 
@@ -428,7 +428,7 @@ validator still requires all three modules, 788/690 exports and both tables.
 Draft mode does not build the native CUDA/LLVM backend, generate an overlay
 tarball, install modules into a tool or run the assembly job. Default dispatch
 `profile=overlay` retains the full three-module path. The pinned WoW64 draft
-now supplies both PE frontends, all 59 bounded operations and both ELF tables.
+now supplies both PE frontends, the protocol v4 bounded operations (op59 reserved) and both ELF tables.
 Original-C dispatcher CPU comparisons and hosted ordinary PE32/PE64 Wine
 execution are recorded in the evidence. Full GPU/private-table/callback parity
 and target-game adoption remain pending. The package gate rejects missing or partial output without a C fallback;

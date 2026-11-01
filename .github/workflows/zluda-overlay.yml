@@ -205,6 +205,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  scope-cpu:
+    if: inputs.profile != 'x64-draft'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_BUILD_JOBS: "3"
+      ZLUDA_WINE_DECLARATIONS_ONLY: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: chkuendig/ZLUDA
+          ref: f61fda4e73c88b71303806a27775803524f30ae7
+          path: scope-source
+          persist-credentials: false
+      - name: Verify source pin and run native scope tests including 18 PCI parity cases
+        run: |
+          set -euo pipefail
+          expected=$(python3 -c 'import json; print(json.load(open("packaging/zluda-overlay/inputs.lock.json"))["components"]["zluda"])')
+          test "$(git -C scope-source rev-parse HEAD)" = "$expected"
+          rustup toolchain install 1.99.0 --profile minimal
+          python3 scope-source/wine/zluda_wine/tests/run_native_tests.py
+
   pe32-luid:
     if: inputs.profile != 'x64-draft'
     runs-on: windows-latest
@@ -223,7 +248,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: 20d2e76cf34e9819cca4ac137953c90d7d93ab2b
+          ref: f61fda4e73c88b71303806a27775803524f30ae7
           path: luid-source
           persist-credentials: false
       - name: Verify source admission and install the pinned PE32 toolchain
@@ -235,7 +260,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           rustup target add --toolchain 1.99.0 i686-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run actual PE32 LUID stdcall and failure-path probe
+      - name: Run PE32 801 stub, PCI forwarding and v3/v4 refusal probe
         run: |
           python luid-source/wine/zluda_wine/tests/run_pe32_luid.py 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/pe32-luid.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -249,7 +274,7 @@ jobs:
           retention-days: 90
 
   w1-fixtures:
-    if: inputs.profile != 'x64-draft'
+    if: always() && inputs.profile != 'x64-draft' && needs.assemble.result == 'success'
     needs: assemble
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -261,7 +286,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: 20d2e76cf34e9819cca4ac137953c90d7d93ab2b
+          ref: f61fda4e73c88b71303806a27775803524f30ae7
           path: w1-source
           sparse-checkout: wine/w1-fixtures
           persist-credentials: false
@@ -270,7 +295,7 @@ jobs:
         with:
           name: w1-fixtures
           repository: chkuendig/ZLUDA
-          run-id: 41216249728
+          run-id: 41290291619
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/w1-fixtures
       - name: Download this run's fully rebuilt candidate
