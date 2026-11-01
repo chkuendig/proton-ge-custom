@@ -40,7 +40,7 @@ def launch(tool, work, name, probe, iterations, extra_env=None, timeout=420, zlu
     env = {k: v for k, v in os.environ.items() if not k.startswith(('WINE', 'PROTON_', 'LD_'))}
     env.update(STEAM_COMPAT_DATA_PATH=str(compat), STEAM_COMPAT_CLIENT_INSTALL_PATH=str(steam),
                UMU_ID='0', PROTON_USE_WOW64='1', PROTON_LOG='1', PROTON_LOG_DIR=str(work),
-               SteamGameId=name, WINEDEBUG='err+all,fixme+nvcuda,-fixme+all')
+               SteamGameId=name, WINEDEBUG='err+all,warn+module,+loaddll,fixme+nvcuda,-fixme+all')
     if zluda:
         env['PROTON_ENABLE_ZLUDA'] = '1'
     env.update(extra_env or {})
@@ -71,8 +71,13 @@ def launch(tool, work, name, probe, iterations, extra_env=None, timeout=420, zlu
     except subprocess.TimeoutExpired:
         (work / (name + '.wineserver-timeout')).write_text('wineserver -w exceeded 60 s; killed\n')
         subprocess.run([str(tool / 'files/bin/wineserver'), '-k'], env=server_env, timeout=60)
+    # With PROTON_LOG the game's stdout goes to steam-<SteamGameId>.log.
+    log = work / ('steam-' + name + '.log')
+    text = out + (log.read_text(errors='replace') if log.is_file() else '')
+    loader = [l for l in text.splitlines() if 'nvcuda' in l.lower() or ':module:' in l]
+    print('   loader:', *loader[:30], sep='\n     ', flush=True)
     rows = []
-    for line in out.splitlines():
+    for line in text.splitlines():
         line = line.strip()
         if line.startswith('{'):
             try:
