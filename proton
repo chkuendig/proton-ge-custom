@@ -2914,6 +2914,15 @@ if __name__ == "__main__":
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
 
     proton_zluda.configure_launch(g_session, g_proton, sys.argv[2:], ld_path_var, log)
+    try:
+        if (g_session.env.get("PROTON_ENABLE_ZLUDA") == "1"
+                and "HSA_OVERRIDE_GFX_VERSION" not in g_session.env
+                and any(gpu.vendorID == 0x1002 and "VANGOGH" in gpu.deviceName.upper()
+                        for gpu in utilities.get_vulkan_gpus())):
+            g_session.env["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+    except Exception:
+        # GPU detection is optional; enumeration failure leaves the ISA unchanged.
+        pass
 
     #determine mode
     rc = 0

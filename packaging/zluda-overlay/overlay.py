@@ -246,7 +246,7 @@ def assemble(overlays):
         shutil.copytree(HERE, dest / 'sources/overlay-recipes', dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__'))
     wine_scope.verify(dest, json.loads(scope.read_text()))
-    for name in ['proton', 'proton_zluda.py']:
+    for name in ['proton', 'proton_zluda.py', 'utilities.py']:
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
     (dest / 'proton').chmod(0o755)
     base = git(source, 'rev-parse', LOCK['ge_source'] + ':protonfixes')
