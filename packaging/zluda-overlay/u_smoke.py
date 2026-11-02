@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import time
@@ -194,8 +195,12 @@ def main():
         checks['server_loaded_tool_' + name] = bool(paths) and all(
             p.resolve().is_relative_to(tool / 'files/lib64') for p in paths)
     checks['packaged_no_stray_server'] = not r['servers_after']
+    # A 32-bit WoW64 process sees syswow64 as system32, so Wine logs e.g.
+    # 'Loaded L"C:\\windows\\system32\\nvcuda.dll" at 7B7C0000: native'.
+    # Tell the game's load from the 64-bit server's by the 8-digit address.
     checks['packaged_client_loaded_native'] = any(
-        'syswow64\\\\nvcuda.dll' in l and ': native' in l for l in r['loader'])
+        'loaddll' in l and 'system32' in l and 'nvcuda.dll' in l and re.search(r' at [0-9A-F]{8}: native$', l.rstrip())
+        for l in r['loader'])
     # GE resets syswow64/nvcuda.dll each launch; the glue must restore both files.
     if not (windows / 'syswow64').is_dir():
         for key in ['relaunch_restores_client', 'relaunch_restores_server', 'relaunch_same_cuInit',
