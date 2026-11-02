@@ -4,7 +4,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from proton_zluda import configure_hardware, enabled, install_wow64_client
+import os
+from proton_zluda import configure_hardware, enabled, install_wow64_client, is_game_launch
 
 
 class LaunchPolicy(unittest.TestCase):
@@ -56,50 +57,134 @@ class LaunchPolicy(unittest.TestCase):
 
 
 class Wow64Client(unittest.TestCase):
-    def tool(self, root):
-        lib = root / "files/lib"
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        lib = self.root / "u/files/lib"
         (lib / "wine/i386-windows").mkdir(parents=True)
         (lib / "wine/zluda").mkdir(parents=True)
         (lib / "wine/i386-windows/nvcuda.dll").write_bytes(b"zluda32")
         (lib / "wine/zluda/zluda64_server.exe").write_bytes(b"server")
-        prefix = root / "pfx"
-        (prefix / "drive_c/windows/syswow64").mkdir(parents=True)
-        return str(lib) + "/", str(prefix) + "/"
+        self.lib = str(lib) + "/"
+        # Another installed tool (A1), read-only like a packaged tree.
+        self.other = self.root / "a1/files/lib/wine/i386-windows"
+        self.other.mkdir(parents=True)
+        (self.other / "nvcuda.dll").write_bytes(b"a1 relay")
+        (self.other / "zluda64_server.exe").write_bytes(b"a1 other")
+        self.prefix = self.root / "pfx"
+        self.windows = self.prefix / "drive_c/windows"
 
-    def test_replaces_ge_placeholder_and_installs_server(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            lib, prefix = self.tool(root)
-            windows = root / "pfx/drive_c/windows"
-            # GE restores the default-prefix copy on every launch.
-            (windows / "syswow64/nvcuda.dll").write_bytes(b"placeholder")
-            install_wow64_client(lib, prefix)
-            self.assertEqual((windows / "syswow64/nvcuda.dll").read_bytes(), b"zluda32")
-            self.assertEqual((windows / "zluda64_server.exe").read_bytes(), b"server")
-            self.assertEqual(sorted(p.name for p in windows.iterdir()), ["syswow64", "zluda64_server.exe"])
+    def tearDown(self):
+        for path in [self.other, *self.other.iterdir()]:
+            os.chmod(path, 0o755)
+        self.temp.cleanup()
 
-    def test_replaces_links_and_stale_server(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            lib, prefix = self.tool(root)
-            windows = root / "pfx/drive_c/windows"
-            other = root / "other.dll"
-            other.write_bytes(b"zluda32")
-            (windows / "syswow64/nvcuda.dll").symlink_to(other)
-            (windows / "zluda64_server.exe").write_bytes(b"old server")
-            install_wow64_client(lib, prefix)
-            self.assertFalse((windows / "syswow64/nvcuda.dll").is_symlink())
-            self.assertEqual((windows / "syswow64/nvcuda.dll").read_bytes(), b"zluda32")
-            self.assertEqual((windows / "zluda64_server.exe").read_bytes(), b"server")
-            self.assertEqual(other.read_bytes(), b"zluda32")
+    def plain_prefix(self):
+        (self.windows / "syswow64").mkdir(parents=True)
+
+    def freeze_other(self):
+        for path in self.other.iterdir():
+            os.chmod(path, 0o444)
+        os.chmod(self.other, 0o555)
+
+    def assert_other_unchanged(self):
+        self.assertEqual((self.other / "nvcuda.dll").read_bytes(), b"a1 relay")
+        self.assertEqual((self.other / "zluda64_server.exe").read_bytes(), b"a1 other")
+        self.assertEqual(sorted(p.name for p in self.other.iterdir()), ["nvcuda.dll", "zluda64_server.exe"])
+
+    def assert_installed(self):
+        for path, data in [(self.windows / "syswow64/nvcuda.dll", b"zluda32"),
+                           (self.windows / "zluda64_server.exe", b"server")]:
+            self.assertFalse(path.is_symlink())
+            self.assertEqual(path.stat().st_nlink, 1)
+            self.assertEqual(path.read_bytes(), data)
+        self.assertEqual(sorted(p.name for p in (self.windows / "syswow64").iterdir()), ["nvcuda.dll"])
+
+    def test_symlink_into_read_only_other_tool(self):
+        self.plain_prefix()
+        (self.windows / "syswow64/nvcuda.dll").symlink_to(self.other / "nvcuda.dll")
+        (self.windows / "zluda64_server.exe").symlink_to(self.other / "zluda64_server.exe")
+        self.freeze_other()
+        self.assertTrue(install_wow64_client(self.lib, self.prefix))
+        self.assert_installed()
+        self.assert_other_unchanged()
+
+    def test_hardlink_to_other_tool_file(self):
+        self.plain_prefix()
+        os.link(self.other / "nvcuda.dll", self.windows / "syswow64/nvcuda.dll")
+        os.link(self.other / "zluda64_server.exe", self.windows / "zluda64_server.exe")
+        self.assertTrue(install_wow64_client(self.lib, self.prefix))
+        self.assert_installed()
+        self.assert_other_unchanged()
+
+    def test_hardlink_with_identical_bytes_is_still_replaced(self):
+        self.plain_prefix()
+        (self.other / "nvcuda.dll").write_bytes(b"zluda32")
+        os.link(self.other / "nvcuda.dll", self.windows / "syswow64/nvcuda.dll")
+        self.assertTrue(install_wow64_client(self.lib, self.prefix))
+        self.assert_installed()
+        (self.windows / "syswow64/nvcuda.dll").write_bytes(b"later write")
+        self.assertEqual((self.other / "nvcuda.dll").read_bytes(), b"zluda32")
+
+    def test_regular_files_and_repeat(self):
+        self.plain_prefix()
+        (self.windows / "syswow64/nvcuda.dll").write_bytes(b"GE placeholder")
+        (self.windows / "zluda64_server.exe").write_bytes(b"old server")
+        self.assertTrue(install_wow64_client(self.lib, self.prefix))
+        self.assert_installed()
+        inode = (self.windows / "syswow64/nvcuda.dll").stat().st_ino
+        self.assertTrue(install_wow64_client(self.lib, self.prefix))
+        self.assertEqual((self.windows / "syswow64/nvcuda.dll").stat().st_ino, inode)
+
+    def test_missing_destinations(self):
+        self.plain_prefix()
+        self.assertTrue(install_wow64_client(self.lib, self.prefix))
+        self.assert_installed()
+
+    def test_symlinked_syswow64_directory_is_refused(self):
+        # The Deck incident shape: the directory resolves into A1's builtins.
+        self.windows.mkdir(parents=True)
+        (self.windows / "syswow64").symlink_to(self.other, target_is_directory=True)
+        self.freeze_other()
+        self.assertFalse(install_wow64_client(self.lib, self.prefix))
+        self.assert_other_unchanged()
+        self.assertFalse((self.windows / "zluda64_server.exe").exists())
+
+    def test_symlinked_windows_directory_is_refused(self):
+        self.prefix.mkdir()
+        (self.prefix / "drive_c").mkdir()
+        target = self.root / "elsewhere"
+        (target / "syswow64").mkdir(parents=True)
+        (self.prefix / "drive_c/windows").symlink_to(target, target_is_directory=True)
+        self.assertFalse(install_wow64_client(self.lib, self.prefix))
+        self.assertEqual(list((target / "syswow64").iterdir()), [])
+
+    def test_symlinked_prefix_root_is_followed_once(self):
+        real = self.root / "real-pfx"
+        (real / "drive_c/windows/syswow64").mkdir(parents=True)
+        self.prefix.symlink_to(real, target_is_directory=True)
+        self.assertTrue(install_wow64_client(self.lib, str(self.prefix) + "/"))
+        self.assertEqual((real / "drive_c/windows/syswow64/nvcuda.dll").read_bytes(), b"zluda32")
 
     def test_missing_client_fails_the_launch(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            lib, prefix = self.tool(root)
-            (root / "files/lib/wine/zluda/zluda64_server.exe").unlink()
-            with self.assertRaises(FileNotFoundError):
-                install_wow64_client(lib, prefix)
+        self.plain_prefix()
+        (self.root / "u/files/lib/wine/zluda/zluda64_server.exe").unlink()
+        with self.assertRaises(FileNotFoundError):
+            install_wow64_client(self.lib, self.prefix)
+
+
+class GameLaunchGate(unittest.TestCase):
+    def test_steam_helpers_and_other_verbs_do_not_install(self):
+        for argv in (["proton", "run", "C:\\Program Files (x86)\\Steam\\d3ddriverquery64.exe"],
+                     ["proton", "run", "/steam/legacycompat/d3ddriverquery64.exe"],
+                     ["proton", "waitforexitandrun", "D3DDriverQuery64.EXE"],
+                     ["proton", "getcompatpath", "/x/Game.exe"], ["proton", "run"], ["proton"]):
+            self.assertFalse(is_game_launch(argv), argv)
+
+    def test_game_launch(self):
+        for argv in (["proton", "waitforexitandrun", "/games/Batman/Binaries/ShippingPC-BmGame.exe"],
+                     ["proton", "run", "Z:\\tmp\\probe32.exe", "200"]):
+            self.assertTrue(is_game_launch(argv), argv)
 
 
 if __name__ == "__main__":

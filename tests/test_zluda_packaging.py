@@ -173,6 +173,14 @@ class PackageContract(unittest.TestCase):
         # Route U has no WoW64 relay Unix library.
         self.assertNotIn('files/lib/wine/x86_64-unix/nvcuda.so', required)
 
+    def test_client_install_only_for_zluda_game_launches(self):
+        text = (ROOT / 'proton').read_text()
+        start = text.index('if zluda_enabled(g_session.env):')
+        block = text[start:text.index('#determine mode', start)]
+        self.assertEqual(text.count('install_wow64_client(g_proton.lib_dir'), 1)
+        self.assertIn('if is_game_launch(sys.argv) and not install_wow64_client(g_proton.lib_dir, '
+                      'g_compatdata.prefix_dir):', block)
+
     def test_launcher_loader_order_is_preserved(self):
         text = (ROOT / 'proton').read_text()
         start = text.index('if zluda_enabled(g_session.env):')

@@ -2,6 +2,8 @@
 
 import os
 from pathlib import Path
+import stat
+import tempfile
 
 
 def enabled(env):
@@ -40,19 +42,65 @@ def configure_hardware(env, sys_root=Path("/sys")):
         return
 
 
+# Steam runs these under every installed tool, outside any game.
+STEAM_HELPERS = {"d3ddriverquery64.exe", "d3ddriverquery.exe"}
+
+
+def is_game_launch(argv):
+    """Only a real app launch installs the 32-bit client, never a Steam helper."""
+    if len(argv) < 3 or argv[1] not in ("run", "waitforexitandrun"):
+        return False
+    target = argv[2].replace("\\", "/").rsplit("/", 1)[-1].lower()
+    return target not in STEAM_HELPERS
+
+
+def _install(source, target, directory):
+    """Swap `target`'s directory entry for a new file; never write through links."""
+    data = source.read_bytes()
+    try:
+        st = os.lstat(target)
+        if stat.S_ISREG(st.st_mode) and st.st_nlink == 1 and target.read_bytes() == data:
+            return
+    except FileNotFoundError:
+        pass
+    fd, partial = tempfile.mkstemp(dir=directory, prefix="." + target.name + ".")
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(partial, 0o755)
+        os.replace(partial, target)
+    except BaseException:
+        if os.path.lexists(partial):
+            os.unlink(partial)
+        raise
+    dir_fd = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
+
 def install_wow64_client(lib_dir, prefix_dir):
     """Reinstall upstream's 32-bit CUDA client and its server in the prefix.
 
     GE runs WoW64 without 32-bit nvidia-libs and resets syswow64/nvcuda.dll
     to the default-prefix placeholder on every launch. zluda32 starts
     zluda64_server.exe from its module directory's parent, C:\\windows.
+
+    Each destination directory must resolve to the prefix's own directory.
+    A symlinked windows or syswow64 directory could point into another
+    tool's lib/wine tree, so such a prefix is refused and left untouched.
+    Returns whether both files are installed.
     """
-    windows = Path(prefix_dir) / "drive_c/windows"
-    for source, target in [(Path(lib_dir) / "wine/i386-windows/nvcuda.dll", windows / "syswow64/nvcuda.dll"),
-                           (Path(lib_dir) / "wine/zluda/zluda64_server.exe", windows / "zluda64_server.exe")]:
-        data = source.read_bytes()
-        if not target.is_symlink() and target.is_file() and target.read_bytes() == data:
-            continue
-        partial = target.with_name(target.name + ".zluda-partial")
-        partial.write_bytes(data)
-        os.replace(partial, target)
+    prefix = Path(os.path.realpath(prefix_dir))
+    windows = prefix / "drive_c/windows"
+    pairs = [(Path(lib_dir) / "wine/i386-windows/nvcuda.dll", windows / "syswow64", "nvcuda.dll"),
+             (Path(lib_dir) / "wine/zluda/zluda64_server.exe", windows, "zluda64_server.exe")]
+    for _, directory, _ in pairs:
+        if os.path.realpath(directory) != str(directory) or not directory.is_dir():
+            return False
+    for source, directory, name in pairs:
+        _install(source, directory / name, directory)
+    return True

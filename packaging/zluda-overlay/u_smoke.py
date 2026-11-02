@@ -114,6 +114,18 @@ def main():
     # handling). If this cannot run, the harness rather than U is at fault.
     r = results['launcher'] = launch(tool, work / 'launcher', 'launcher', args.probe, 10, zluda=False)
     checks['launcher_runs_probe'] = r['exit'] != 'timeout' and row(r['rows'], probe='start') is not None
+    # Both files are installed together; the server is the unambiguous witness
+    # (GE itself copies U's builtin nvcuda.dll into syswow64).
+    checks['zluda_off_installs_nothing'] = not (work / 'launcher/compat/pfx/drive_c/windows/zluda64_server.exe').exists()
+
+    # Steam runs d3ddriverquery64.exe under every tool; even with ZLUDA on
+    # in the environment, a helper launch must not touch the prefix.
+    helper = work / 'helper/d3ddriverquery64.exe'
+    helper.parent.mkdir(parents=True)
+    shutil.copyfile(args.probe, helper)
+    r = results['helper'] = launch(tool, work / 'helper', 'helper', helper, 10)
+    checks['helper_runs'] = r['exit'] != 'timeout'
+    checks['helper_installs_nothing'] = not (work / 'helper/compat/pfx/drive_c/windows/zluda64_server.exe').exists()
 
     # Packaged tool, real ZLUDA, no GPU.
     packaged = work / 'packaged'
