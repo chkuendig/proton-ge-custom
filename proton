@@ -1469,8 +1469,10 @@ class CompatData:
                     nvcuda32_dll = self.prefix_dir + "drive_c/windows/syswow64/nvcuda.dll"
                     if file_exists(nvcuda32_dll, follow_symlinks=False):
                         os.unlink(nvcuda32_dll)
+                    # Route U ships no i386 nvcuda builtin (no default-prefix copy);
+                    # ZLUDA launches install zluda32 natively after this point.
                     try_copy(g_proton.default_pfx_dir + "drive_c/windows/syswow64/nvcuda.dll", "drive_c/windows/syswow64",
-                             prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+                             prefix=self.prefix_dir, track_file=tracked_files, link_debug=True, optional=True)
 
                 if use_nvenc and use_nvapi:
                     try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvenc", False) + "nvcuvid.dll.so", "drive_c/windows/system32/nvcuvid.dll",

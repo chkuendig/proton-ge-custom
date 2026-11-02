@@ -151,6 +151,11 @@ class PackageContract(unittest.TestCase):
         # No i386 nvcuda builtin at all (Wine fake-dll write-through hazard).
         self.assertNotIn('files/lib/wine/i386-windows/nvcuda.dll', required)
 
+    def test_missing_default_prefix_i386_nvcuda_is_optional(self):
+        text = (ROOT / 'proton').read_text()
+        call = text[text.index('try_copy(g_proton.default_pfx_dir + "drive_c/windows/syswow64/nvcuda.dll"'):]
+        self.assertIn('optional=True)', call[:call.index('\n', call.index('\n') + 1)])
+
     def test_release_archive_keeps_ge_mtimes(self):
         text = (inputs.HERE / 'assemble.sh').read_text()
         self.assertIn('--clamp-mtime', text[text.index('tar --sort=name'):])
