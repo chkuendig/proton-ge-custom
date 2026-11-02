@@ -938,6 +938,7 @@ class AssemblyFixture(unittest.TestCase):
             run(source, 'init', '-q')
             (source / 'proton').write_text('launcher')
             (source / 'proton_zluda.py').write_text('helper')
+            (source / 'utilities.py').write_text('Vulkan helper')
             pf = source / 'protonfixes'
             pf.mkdir()
             run(pf, 'init', '-q')
@@ -1043,6 +1044,7 @@ class AssemblyFixture(unittest.TestCase):
                 self.assertEqual((dest / 'protonfixes/changed.py').read_text(), 'new')
                 self.assertFalse((dest / 'protonfixes/deleted.py').exists())
                 self.assertEqual((dest / 'proton_zluda.py').read_text(), 'helper')
+                self.assertEqual((dest / 'utilities.py').read_text(), 'Vulkan helper')
                 self.assertTrue((dest / 'files/lib/wine/nvidia-libs/nvcuda').exists())
                 self.assertIn('GE-Proton11-7-zluda', (dest / 'compatibilitytool.vdf').read_text())
                 shutil.rmtree(dest)
