@@ -994,12 +994,48 @@ class CompatData:
                 # wine builtin dll
                 # make the destination an absolute symlink
                 contents = os.path.normpath(os.path.join(os.path.dirname(src), contents))
+                dll_copy = dll_copy or os.environ.get("PROTON_DLL_COPY") == "*"
             if dll_copy:
                 try_copyfile(src, dst)
             else:
                 os.symlink(contents, dst)
         else:
             try_copyfile(src, dst)
+
+    def isolate_module_links(self, tool_root):
+        # A prior tool may have left builtins linked into its installation.
+        windows = Path(self.prefix_dir) / "drive_c/windows"
+        for directory in (Path(self.prefix_dir), windows.parent, windows):
+            if directory.is_symlink():
+                raise RuntimeError("Refusing linked prefix directory: " + str(directory))
+        if not windows.exists():
+            return
+        def walk_error(error):
+            raise error
+        own_root = Path(tool_root).resolve()
+        for root, directories, files in os.walk(windows, followlinks=False, onerror=walk_error):
+            for name in directories:
+                if (Path(root) / name).is_symlink():
+                    raise RuntimeError("Refusing linked Windows directory: " + str(Path(root) / name))
+            for name in files:
+                path = Path(root) / name
+                symlink = path.is_symlink()
+                if not symlink and path.stat().st_nlink == 1:
+                    continue
+                if not (file_is_wine_builtin_dll(str(path)) or
+                        name.lower() in ("icuin68.dll", "icuuc68.dll", "icudt68.dll")):
+                    continue
+                if symlink and path.resolve().is_relative_to(own_root):
+                    continue
+                if not path.exists():
+                    path.unlink()  # Only the broken prefix entry, never its target.
+                    continue
+                temporary = path.with_name(name + "." + uuid.uuid4().hex + ".tmp")
+                try:
+                    copyfile(str(path), str(temporary))
+                    os.replace(temporary, path)
+                finally:
+                    temporary.unlink(missing_ok=True)
 
     def copy_pfx(self):
         with open(self.tracked_files_file, "w") as tracked_files:
@@ -1407,15 +1443,10 @@ class CompatData:
                     g_session.dlloverrides[f] = "n"
 
                 for f in icufiles:
-                    dst = "drive_c/windows/system32/" + f + ".dll"
-                    if not file_exists(self.prefix_dir + dst, follow_symlinks=False):
-                        tracked_files.write(dst + '\n')
-                    self.create_symlink(self.prefix_dir + dst, g_proton.arch_pe_dir("wine/icu", False) + f + ".dll")
-
-                    dst = "drive_c/windows/syswow64/" + f + ".dll"
-                    if not file_exists(self.prefix_dir + dst, follow_symlinks=False):
-                        tracked_files.write(dst + '\n')
-                    self.create_symlink(self.prefix_dir + dst, g_proton.arch_pe_dir("wine/icu", True) + f + ".dll")
+                    try_copy(g_proton.arch_pe_dir("wine/icu", False) + f + ".dll", "drive_c/windows/system32",
+                            prefix=self.prefix_dir, track_file=tracked_files)
+                    try_copy(g_proton.arch_pe_dir("wine/icu", True) + f + ".dll", "drive_c/windows/syswow64",
+                            prefix=self.prefix_dir, track_file=tracked_files)
 
                 allow_nvidia_libs = os.path.isdir(g_proton.lib_dir + "wine/nvidia-libs")
                 disable_nvlibs32 = "nvidialibsno32" in g_session.compat_config or "wow64" in g_session.compat_config
@@ -2877,6 +2908,8 @@ if __name__ == "__main__":
         log("No compat data path?")
         sys.exit(1)
 
+    os.environ.setdefault("PROTON_DLL_COPY", "*")
+
     g_proton = Proton(os.path.dirname(sys.argv[0]))
 
     g_proton.cleanup_legacy_dist()
@@ -2887,6 +2920,9 @@ if __name__ == "__main__":
     g_session = Session()
 
     g_session.init_wine()
+
+    with g_compatdata.prefix_lock:
+        g_compatdata.isolate_module_links(g_proton.base_dir)
 
     proton_zluda.bootstrap(g_session, g_proton, ld_path_var)
 
