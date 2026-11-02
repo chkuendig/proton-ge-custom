@@ -16,6 +16,9 @@ DIRECTORIES += [f'wine-cpu/run/{arch}' for arch in PROFILES]
 DIRECTORIES += [f'wine-cpu/run/launcher/{arch}' for arch in PROFILES]
 DIRECTORIES += [f'wine-cpu/run/launcher/{arch}/a1-create' for arch in PROFILES]
 DIRECTORIES += [f'wine-cpu/run/launcher/{arch}/{phase}' for arch in PROFILES for phase in PHASES]
+# Historical real-byte runs have separate bounded receipts and logs.
+DIRECTORIES += [path.replace('/launcher', '/launcher-historical', 1)
+                for path in list(DIRECTORIES) if '/launcher' in path]
 TREES = ['wine-cpu/run/build', 'wine-cpu/run/production', 'wine-cpu/run/lifecycle/results']
 TREES += [f'wine-cpu/run/{arch}/results' for arch in PROFILES]
 FILES = ['wine-cpu.log']

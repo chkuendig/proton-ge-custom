@@ -378,4 +378,8 @@ if __name__ == '__main__':
     import lifecycle_cpu
     lifecycle_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'lifecycle')
     import launcher_cpu
-    launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher', args.a1_tool if args.a1_tool and (args.a1_tool / 'proton').is_file() else None)
+    # Always retain the durable stand-in gate; a historical artifact adds its
+    # own gate instead of silently replacing durable coverage.
+    launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher')
+    if args.a1_tool and (args.a1_tool / 'proton').is_file():
+        launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher-historical', args.a1_tool)

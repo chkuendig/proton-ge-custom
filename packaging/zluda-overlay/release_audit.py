@@ -17,7 +17,7 @@ def digest(path):
     return h.hexdigest()
 
 
-def inventory(path):
+def inventory(path, label):
     entries = {}
     with tarfile.open(path, 'r|gz') as archive:
         for member in archive:
@@ -32,17 +32,21 @@ def inventory(path):
                 stream = archive.extractfile(member)
                 h = hashlib.sha256()
                 first = b''
+                knight = b''
                 for data in iter(lambda: stream.read(1024 * 1024), b''):
                     if not first:
                         first = data[:128]
                     h.update(data)
+                    if name == 'protonfixes/gamefixes-steam/208650.py':
+                        knight += data
                 record.update(kind='file', sha256=h.hexdigest())
                 if b'Wine builtin DLL' in first:
                     record['signature'] = 'Wine builtin DLL'
                 elif b'Wine placeholder DLL' in first:
                     record['signature'] = 'Wine placeholder DLL'
                 if name == 'protonfixes/gamefixes-steam/208650.py':
-                    assert b'ZLUDA_D3D11_CPU_COPY' not in first or path.name != 'B.tar.gz'
+                    if label == 'B':
+                        assert b'ZLUDA_D3D11_CPU_COPY' not in knight, 'Knight relay setter survived'
             elif member.issym() or member.islnk():
                 record.update(kind='symlink' if member.issym() else 'hardlink', target=member.linkname)
             else:
@@ -72,7 +76,7 @@ def main():
     urllib.request.urlretrieve(ge['url'], ge_path)
     assert digest(ge_path) == ge['sha256'], 'stock GE archive digest'
     archives = {'B': args.candidate, 'A1': args.a1, 'GE': ge_path}
-    trees = {name: inventory(path) for name, path in archives.items()}
+    trees = {name: inventory(path, name) for name, path in archives.items()}
     wineinf = 'files/share/wine/wine.inf'
     assert trees['B'][wineinf]['sha256'] == trees['GE'][wineinf]['sha256'], 'wine.inf bytes changed'
     assert trees['B'][wineinf]['mtime'] == trees['GE'][wineinf]['mtime'], 'wine.inf mtime differs from GE'
