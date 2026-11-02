@@ -117,7 +117,7 @@ no-op pass. It tests symlink/hardlink outbound transitions, inbound template
 copies and linked-parent refusal on both arches (14 cases). It is a module-tree
 regression, not two complete packaged-tool or game qualification runs.
 
-The dedicated manual workflow reuses only the explicitly pinned reference
+The dedicated prototype-branch workflow reuses only the explicitly pinned reference
 runtime from run `41422471027`, artifact `13135828280`; it assembles no product.
 API ZIP digest:
 `85f65edf14bd06986f00ce8f0747eac04c54dc9d2e45888b2e76c5cc2f431ac3`.
