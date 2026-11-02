@@ -70,6 +70,10 @@ class ComponentPatches(unittest.TestCase):
                                 namespace = {}
                                 exec(code, namespace)
                                 namespace['early']()
+                                if app == '208650':
+                                    util.protontricks = lambda *args: True
+                                    namespace['main']()
+                                    self.assertFalse(any(k.startswith('ZLUDA_D3D11_CPU_COPY') for k in os.environ))
                                 self.assertEqual(os.environ['PROTON_ENABLE_ZLUDA'], requested or '1')
                                 self.assertEqual(os.environ.get('PROTON_USE_WOW64'),
                                                  '1' if app != '208650' and requested != '0' else None)

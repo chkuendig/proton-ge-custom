@@ -470,3 +470,47 @@ jobs:
             ${{ runner.temp }}/assembly.log
             ${{ runner.temp }}/loader.log
           retention-days: 14
+
+  release-audit:
+    needs: assemble
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Download this run's candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: GE-Proton11-7-zluda
+          path: ${{ runner.temp }}/B
+      - name: Download CI-built A1 at Proton 0fb8d56a
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: GE-Proton11-7-zluda
+          repository: chkuendig/proton-ge-custom
+          run-id: 40906607864
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/A1
+      - name: Verify both tool archives and compare every Wine builtin against A1 and stock GE
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/B"
+          sha256sum -c SHA256SUMS
+          cd "$RUNNER_TEMP/A1"
+          sha256sum -c SHA256SUMS
+          cd "$GITHUB_WORKSPACE"
+          python3 packaging/zluda-overlay/release_audit.py --source . \
+            --candidate "$RUNNER_TEMP/B/GE-Proton11-7-zluda.tar.gz" \
+            --a1 "$RUNNER_TEMP/A1/GE-Proton11-7-zluda.tar.gz" \
+            --output "$RUNNER_TEMP/release-audit"
+      - name: Retain the complete builtin and timestamp inventory
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-audit
+          path: |
+            ${{ runner.temp }}/release-audit/*.json
+            ${{ runner.temp }}/release-audit/*.tsv
+          if-no-files-found: error
+          retention-days: 90
