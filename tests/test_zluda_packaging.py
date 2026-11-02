@@ -21,42 +21,18 @@ import native_plan
 import wine_targets
 import wine_sdk
 import bridge_tools
-import pe_builtin
 
 # Route U: upstream's i386 client and x86_64 server come from the zluda part.
-U_CLIENT = {'files/lib/wine/i386-windows/nvcuda.dll', 'files/lib/wine/zluda/zluda64_server.exe'}
+U_CLIENT = {'files/lib/wine/zluda/i386-windows/nvcuda.dll', 'files/lib/wine/zluda/zluda64_server.exe'}
 
 
-def builtin_pe(marked=True, lfanew=0x80):
-    image = bytearray(lfanew + 4)
+def client_pe(marked=False):
+    image = bytearray(0x84)
     image[:2] = b'MZ'
-    image[0x3c:0x40] = lfanew.to_bytes(4, 'little')
-    image[lfanew:lfanew + 4] = b'PE\0\0'
-    # A DOS stub message, as in MinGW/Rust output: byte 0x50 is not zero.
-    stub = b'This program cannot be r'[:lfanew - 0x40]
-    image[0x40:0x40 + len(stub)] = stub
-    if marked:
-        image[0x40:0x51] = pe_builtin.SIGNATURE
+    image[0x3c:0x40] = (0x80).to_bytes(4, 'little')
+    image[0x40:0x58] = b'Wine builtin DLL\0' if marked else b'This program cannot be r'
+    image[0x80:0x84] = b'PE\0\0'
     return bytes(image)
-
-
-class WineBuiltinMarker(unittest.TestCase):
-    def test_marks_like_winebuild_and_rejects_non_pe(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / 'nvcuda.dll'
-            path.write_bytes(builtin_pe(marked=False))
-            pe_builtin.mark(str(path))
-            self.assertEqual(path.read_bytes(), builtin_pe())
-            pe_builtin.mark(str(path))
-            self.assertEqual(path.read_bytes(), builtin_pe())
-            # Wine matches 17 bytes including the NUL, as winebuild writes.
-            self.assertEqual(path.read_bytes()[0x40:0x51], b'Wine builtin DLL\0')
-            path.write_bytes(builtin_pe(marked=False, lfanew=0x50))
-            with self.assertRaisesRegex(ValueError, 'too small'):
-                pe_builtin.mark(str(path))
-            path.write_bytes(b'\x7fELF' + bytes(0x100))
-            with self.assertRaisesRegex(ValueError, 'not a PE'):
-                pe_builtin.mark(str(path))
 
 
 class PayloadManifest(unittest.TestCase):
@@ -166,20 +142,28 @@ class PackageContract(unittest.TestCase):
         for name in inputs.LOCK['rocm_runtime']:
             self.assertNotIn('*', name)
         required = overlay.required_payload()
-        for name in ['files/lib/wine/i386-windows/nvcuda.dll',
+        for name in ['files/lib/wine/zluda/i386-windows/nvcuda.dll',
                      'files/lib/wine/zluda/zluda64_server.exe',
                      'files/lib/wine/nvapi/i386-windows/nvapi.dll', 'proton_zluda.py']:
             self.assertIn(name, required)
         # Route U has no WoW64 relay Unix library.
         self.assertNotIn('files/lib/wine/x86_64-unix/nvcuda.so', required)
+        # No i386 nvcuda builtin at all (Wine fake-dll write-through hazard).
+        self.assertNotIn('files/lib/wine/i386-windows/nvcuda.dll', required)
+
+    def test_release_archive_keeps_ge_mtimes(self):
+        text = (inputs.HERE / 'assemble.sh').read_text()
+        self.assertIn('--clamp-mtime', text[text.index('tar --sort=name'):])
 
     def test_client_install_only_for_zluda_game_launches(self):
         text = (ROOT / 'proton').read_text()
         start = text.index('if zluda_enabled(g_session.env):')
         block = text[start:text.index('#determine mode', start)]
         self.assertEqual(text.count('install_wow64_client(g_proton.lib_dir'), 1)
-        self.assertIn('if is_game_launch(sys.argv) and not install_wow64_client(g_proton.lib_dir, '
-                      'g_compatdata.prefix_dir):', block)
+        self.assertIn('        if is_game_launch(sys.argv):\n'
+                      '            if install_wow64_client(g_proton.lib_dir, g_compatdata.prefix_dir):\n'
+                      '                force_native_nvcuda(g_session.env)\n', block)
+        self.assertEqual(text.count('force_native_nvcuda(g_session.env)'), 1)
 
     def test_launcher_loader_order_is_preserved(self):
         text = (ROOT / 'proton').read_text()
@@ -1168,6 +1152,11 @@ class AssemblyFixture(unittest.TestCase):
                 path.write_bytes(b'stock GE ' + name.encode())
                 stock[name] = inputs.sha256(path)
             (tool / 'protonfixes/deleted.py').write_text('old')
+            # Stock GE ships an i386 nvcuda builtin and a default-prefix link to it.
+            (tool / 'files/lib/wine/i386-windows/nvcuda.dll').write_bytes(client_pe(marked=True))
+            syswow = tool / 'files/share/default_pfx/drive_c/windows/syswow64'
+            syswow.mkdir(parents=True)
+            (syswow / 'nvcuda.dll').symlink_to('../../../../../lib/wine/i386-windows/nvcuda.dll')
             (tool / 'compatibilitytool.vdf').write_text(
                 '\n"GE-Proton11-7" // Internal name\n"display_name" "GE"\n')
             (cache / 'GE-Proton11-7-x86_64.tar.gz').write_bytes(b'fake GE for extraction fixture')
@@ -1195,8 +1184,8 @@ class AssemblyFixture(unittest.TestCase):
                     path = tree / name
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(b'component')
-                    if name == 'files/lib/wine/i386-windows/nvcuda.dll':
-                        path.write_bytes(builtin_pe())
+                    if name == 'files/lib/wine/zluda/i386-windows/nvcuda.dll':
+                        path.write_bytes(client_pe())
                 if part == 'zluda':
                     (tree / 'files/lib64/wine').symlink_to('../lib/wine')
                     (tree / 'files/lib/wine/x86_64-unix').mkdir(parents=True)
@@ -1218,19 +1207,32 @@ class AssemblyFixture(unittest.TestCase):
                 vdf = (dest / 'compatibilitytool.vdf').read_text()
                 self.assertIn('"' + lock['tool_name'] + '" // Internal name', vdf)
                 self.assertIn('"display_name" "' + lock['display_name'] + '"', vdf)
+                for name in overlay.I386_NVCUDA:
+                    self.assertFalse(os.path.lexists(dest / name), name)
                 def retry():
                     shutil.rmtree(dest, ignore_errors=True)
                     shutil.rmtree(build)
                     build.mkdir()
                     inputs.manifest(trees['zluda.tar.gz'])
-                client = trees['zluda.tar.gz'] / 'files/lib/wine/i386-windows/nvcuda.dll'
-                client.write_bytes(builtin_pe(marked=False))
+                client = trees['zluda.tar.gz'] / 'files/lib/wine/zluda/i386-windows/nvcuda.dll'
+                client.write_bytes(client_pe(marked=True))
                 retry()
-                with self.assertRaisesRegex(AssertionError, 'not marked builtin'):
+                with self.assertRaisesRegex(AssertionError, 'must not be marked as a Wine builtin'):
                     overlay.assemble(overlays)
+                # An overlay that brings back an i386 builtin loses it too.
+                client.write_bytes(client_pe())
+                stray = trees['bridges.tar.gz'] / 'files/lib/wine/i386-windows/nvcuda.dll'
+                stray.parent.mkdir(parents=True, exist_ok=True)
+                stray.write_bytes(client_pe(marked=True))
+                inputs.manifest(trees['bridges.tar.gz'])
+                retry()
+                overlay.assemble(overlays)
+                self.assertFalse(os.path.lexists(dest / 'files/lib/wine/i386-windows/nvcuda.dll'))
+                stray.unlink()
+                inputs.manifest(trees['bridges.tar.gz'])
                 client.unlink()
                 retry()
-                with self.assertRaisesRegex(AssertionError, 'i386-windows/nvcuda.dll'):
+                with self.assertRaisesRegex(AssertionError, 'zluda/i386-windows/nvcuda.dll'):
                     overlay.assemble(overlays)
 
 

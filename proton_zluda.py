@@ -85,9 +85,11 @@ def _install(source, target, directory):
 def install_wow64_client(lib_dir, prefix_dir):
     """Reinstall upstream's 32-bit CUDA client and its server in the prefix.
 
-    GE runs WoW64 without 32-bit nvidia-libs and resets syswow64/nvcuda.dll
-    to the default-prefix placeholder on every launch. zluda32 starts
-    zluda64_server.exe from its module directory's parent, C:\\windows.
+    zluda32 is not a Wine builtin: the tool ships it outside Wine's DLL
+    path, and it is installed as a native DLL only into ZLUDA game prefixes
+    (pair it with `force_native_nvcuda`). GE resets syswow64/nvcuda.dll on
+    every launch. zluda32 starts zluda64_server.exe from its module
+    directory's parent, C:\\windows.
 
     Each destination directory must resolve to the prefix's own directory.
     A symlinked windows or syswow64 directory could point into another
@@ -96,7 +98,7 @@ def install_wow64_client(lib_dir, prefix_dir):
     """
     prefix = Path(os.path.realpath(prefix_dir))
     windows = prefix / "drive_c/windows"
-    pairs = [(Path(lib_dir) / "wine/i386-windows/nvcuda.dll", windows / "syswow64", "nvcuda.dll"),
+    pairs = [(Path(lib_dir) / "wine/zluda/i386-windows/nvcuda.dll", windows / "syswow64", "nvcuda.dll"),
              (Path(lib_dir) / "wine/zluda/zluda64_server.exe", windows, "zluda64_server.exe")]
     for _, directory, _ in pairs:
         if os.path.realpath(directory) != str(directory) or not directory.is_dir():
@@ -104,3 +106,22 @@ def install_wow64_client(lib_dir, prefix_dir):
     for source, directory, name in pairs:
         _install(source, directory / name, directory)
     return True
+
+
+def force_native_nvcuda(env):
+    """Load the prefix's native zluda32 first: nvcuda=n,b for this launch.
+
+    GE serializes its override list into WINEDLLOVERRIDES before the ZLUDA
+    hook runs, with nvcuda=b when NVAPI is on. Drop every existing nvcuda
+    entry (Wine's choice among duplicate keys is not something to rely on),
+    keep all other entries, and append ours.
+    """
+    kept = []
+    for entry in env.get("WINEDLLOVERRIDES", "").split(";"):
+        if not entry.strip():
+            continue
+        names, sep, value = entry.partition("=")
+        rest = [n for n in names.split(",") if n.strip().lower() not in ("nvcuda", "nvcuda.dll")]
+        if rest:
+            kept.append(",".join(rest) + sep + value)
+    env["WINEDLLOVERRIDES"] = ";".join(kept + ["nvcuda=n,b"])

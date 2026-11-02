@@ -89,8 +89,39 @@ def launch(tool, work, name, probe, iterations, extra_env=None, timeout=420, zlu
         print('  ', json.dumps(row), flush=True)
     if not rows:
         print('   stdout tail:', out[-1500:], '\n   stderr tail:', err[-3000:], flush=True)
-    return {'exit': code, 'seconds': seconds, 'rows': rows, 'stub_tex': [l for l in err.splitlines() if 'STUB: TEX' in l],
+    return {'exit': code, 'seconds': seconds, 'rows': rows, 'loader': loader, 'stub_tex': [l for l in err.splitlines() if 'STUB: TEX' in l],
             'servers_after': server_processes()}
+
+
+def wineboot_link_hazard(tool, work, syswow):
+    builtins = tool / 'files/lib/wine/i386-windows'
+    control = next(n for n in ['xinput1_3.dll', 'xinput9_1_0.dll', 'msacm32.dll']
+                   if (builtins / n).is_file() and (syswow / n).exists())
+    donor = (builtins / 'version.dll').read_bytes()
+    assert donor != (builtins / control).read_bytes()
+    other = work / 'other-tool/files/lib/wine/i386-windows'
+    other.mkdir(parents=True)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('WINE', 'PROTON_', 'LD_'))}
+    env.update(WINEPREFIX=str(syswow.parents[2]), WINEDEBUG='-all')
+    checks = {}
+    for kind in ['symlink', 'hardlink']:
+        for name in [control, 'nvcuda.dll']:
+            (other / name).write_bytes(donor)
+            if os.path.lexists(syswow / name):
+                (syswow / name).unlink()
+            if kind == 'symlink':
+                (syswow / name).symlink_to(other / name)
+            else:
+                os.link(other / name, syswow / name)
+        r = subprocess.run([str(tool / 'files/bin/wine'), 'wineboot', '-u'], env=env,
+                           capture_output=True, text=True, timeout=600)
+        subprocess.run([str(tool / 'files/bin/wineserver'), '-w'], env=env, timeout=120)
+        (work / ('wineboot-' + kind + '.stderr')).write_text(r.stderr[-50000:])
+        written = (other / control).read_bytes() == (builtins / control).read_bytes()
+        print(f'   wineboot -u ({kind}): exit {r.returncode}, control {control} written through: {written}', flush=True)
+        checks[f'wineboot_{kind}_control_written_through'] = written
+        checks[f'wineboot_{kind}_other_tool_nvcuda_unchanged'] = (other / 'nvcuda.dll').read_bytes() == donor
+    return checks
 
 
 def row(rows, **match):
@@ -106,9 +137,14 @@ def main():
     args = parser.parse_args()
     tool, work = args.tool.resolve(), args.work.resolve()
     work.mkdir(parents=True)
-    client = tool / 'files/lib/wine/i386-windows/nvcuda.dll'
+    client = tool / 'files/lib/wine/zluda/i386-windows/nvcuda.dll'
     server = tool / 'files/lib/wine/zluda/zluda64_server.exe'
     checks, results = {}, {}
+    # Route U ships no i386 nvcuda builtin, so Wine has nothing to install
+    # (or to write through prefix links) under that name.
+    checks['tool_has_no_i386_nvcuda_builtin'] = not os.path.lexists(tool / 'files/lib/wine/i386-windows/nvcuda.dll')
+    checks['default_pfx_has_no_syswow64_nvcuda'] = not os.path.lexists(
+        tool / 'files/share/default_pfx/drive_c/windows/syswow64/nvcuda.dll')
 
     # Launcher baseline: same tool and probe without ZLUDA (GE's own nvcuda
     # handling). If this cannot run, the harness rather than U is at fault.
@@ -157,6 +193,8 @@ def main():
         checks['server_loaded_tool_' + name] = bool(paths) and all(
             p.resolve().is_relative_to(tool / 'files/lib64') for p in paths)
     checks['packaged_no_stray_server'] = not r['servers_after']
+    checks['packaged_client_loaded_native'] = any(
+        'syswow64\\\\nvcuda.dll' in l and ': native' in l for l in r['loader'])
     # GE resets syswow64/nvcuda.dll each launch; the glue must restore both files.
     if not (windows / 'syswow64').is_dir():
         for key in ['relaunch_restores_client', 'relaunch_restores_server', 'relaunch_same_cuInit',
@@ -172,6 +210,13 @@ def main():
             sha256(windows / 'zluda64_server.exe') == sha256(server)
         checks['relaunch_same_cuInit'] = init2 is not None and init is not None and init2['result'] == init['result']
         checks['relaunch_no_stray_server'] = not r['servers_after']
+
+    # Wine's fake-dll install truncates an existing builtin prefix DLL in
+    # place, following links. Point syswow64 entries at an "other tool" tree
+    # and run U's prefix update. The control builtin must be written through
+    # (the hazard is real here); nvcuda must not, since U has no such builtin.
+    if (windows / 'syswow64').is_dir():
+        checks.update(wineboot_link_hazard(tool, packaged, windows / 'syswow64'))
 
     # Same tool with the stub driver in place of ZLUDA's libcuda.
     stub_tool = work / 'tool-stub'

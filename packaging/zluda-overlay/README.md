@@ -9,17 +9,26 @@ separate work.
 
 **Branch `bridge/u-zluda32-20261101` (route U test artifact).** This branch
 packages upstream's 32-bit route instead of the WoW64 relay, as a separate tool
-(`GE-Proton11-7-zluda-u`, display name "GE-Proton11-7 ZLUDA U"). The 32-bit game
-loads ZLUDA's `zluda32` as nvcuda's i386 builtin; it starts `zluda64_server.exe`,
-which calls stock SveSop nvcuda (pinned `772b344a`) plus
-`patches/nvcuda/0001-forward-zluda32-internal-export-table.patch`, which in turn
-loads the same ZLUDA `libcuda.so.1` as 64-bit games. The zluda part cross-builds
-both PE files with the pinned Rust's `*-pc-windows-gnu` standard libraries and
-marks the client builtin with `pe_builtin.py` (the zluda part has no Wine SDK).
-The bridges part no longer builds `wow64/pe.c` or `x86_64-unix/nvcuda.so`. GE
-resets `syswow64/nvcuda.dll` on every launch, so `proton_zluda.install_wow64_client`
-reinstalls it and `C:\windows\zluda64_server.exe` on each ZLUDA launch. The
-paragraphs below describe the relay-era recipe where they mention WoW64.
+(`GE-Proton11-7-zluda-u`, display name "GE-Proton11-7 ZLUDA U").
+- zluda32 is shipped unmarked at `files/lib/wine/zluda/i386-windows/nvcuda.dll`,
+  and U has no i386 nvcuda builtin at all: assembly removes GE's and its
+  default-prefix link. Wine's fake-dll install truncates builtin prefix DLLs in
+  place through links into whichever tool created them, so a differing builtin
+  would overwrite another installed tool.
+- On ZLUDA game launches only, `proton_zluda.install_wow64_client` installs
+  zluda32 atomically as a native `syswow64/nvcuda.dll` and copies
+  `C:\windows\zluda64_server.exe`. `force_native_nvcuda` then sets `nvcuda=n,b`
+  in `WINEDLLOVERRIDES`.
+- The server calls stock SveSop nvcuda (pinned `772b344a`) plus
+  `patches/nvcuda/0001-forward-zluda32-internal-export-table.patch`, which loads
+  the same ZLUDA `libcuda.so.1` as 64-bit games.
+- The zluda part cross-builds both PE files with the pinned Rust's
+  `*-pc-windows-gnu` standard libraries.
+- The bridges part no longer builds `wow64/pe.c` or `x86_64-unix/nvcuda.so`.
+- The release archive keeps GE's own mtimes (`--clamp-mtime`), so `wine.inf`'s
+  mtime does not force cross-tool prefix updates.
+
+The paragraphs below describe the relay-era recipe where they mention WoW64.
 
 `inputs.lock.json` pins the GE11-7 x86_64 release, seven official AMD ROCm 7.2.4
 noble packages, Rust 1.99.0, numactl 2.0.18 source, Steam Runtime SDK image digest,

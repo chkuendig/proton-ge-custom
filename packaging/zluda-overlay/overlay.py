@@ -133,13 +133,17 @@ def metadata(part):
     (prov / (part + '-SBOM.json')).write_text(json.dumps(sbom, indent=2) + '\n')
 
 
+I386_NVCUDA = ['files/lib/wine/i386-windows/nvcuda.dll', 'files/lib/wine/i386-windows/nvcuda.dll.debug',
+               'files/share/default_pfx/drive_c/windows/syswow64/nvcuda.dll']
+
+
 def required_payload():
     required = ['proton', 'proton_zluda.py', 'files/lib64/libcuda.so.1', 'files/lib64/libcuda.so',
                 'files/lib/wine/x86_64-unix/libcuda.so.1', 'files/lib/wine/x86_64-unix/libcuda.so',
                 'files/lib64/libnuma.so.1',
                 'files/lib/wine/x86_64-unix/nvcuda.dll.so',
-                'files/lib/wine/x86_64-windows/nvcuda.dll', 'files/lib/wine/i386-windows/nvcuda.dll',
-                'files/lib/wine/zluda/zluda64_server.exe',
+                'files/lib/wine/x86_64-windows/nvcuda.dll',
+                'files/lib/wine/zluda/i386-windows/nvcuda.dll', 'files/lib/wine/zluda/zluda64_server.exe',
                 'files/lib/wine/nvapi/x86_64-windows/nvapi64.dll',
                 'files/lib/wine/nvapi/x86_64-windows/nvofapi64.dll',
                 'files/lib/wine/nvapi/i386-windows/nvapi.dll']
@@ -199,6 +203,10 @@ def assemble(overlays):
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
     scope = dest / 'provenance/WINE-SCOPE.json'
     wine_scope.verify(dest, json.loads(scope.read_text()))
+    # Drop GE's own i386 nvcuda builtin and the default-prefix link to it.
+    for name in I386_NVCUDA:
+        if os.path.lexists(dest / name):
+            (dest / name).unlink()
     for name in ['proton', 'proton_zluda.py']:
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
     (dest / 'proton').chmod(0o755)
@@ -224,10 +232,14 @@ def assemble(overlays):
     vdf.write_text(text)
     for name in required_payload():
         assert (dest / name).is_file() and (dest / name).stat().st_size, name
-    # zluda32 is loaded as nvcuda's i386 builtin; ntdll requires the marker.
-    with (dest / 'files/lib/wine/i386-windows/nvcuda.dll').open('rb') as stream:
+    # Route U ships no i386 nvcuda builtin. Wine's fake-dll install truncates
+    # an existing builtin prefix DLL in place, through links into another
+    # tool's tree, so a differing builtin here could overwrite that tool.
+    for name in I386_NVCUDA:
+        assert not os.path.lexists(dest / name), name + ' must not exist in route U'
+    with (dest / 'files/lib/wine/zluda/i386-windows/nvcuda.dll').open('rb') as stream:
         stream.seek(0x40)
-        assert stream.read(17) == b'Wine builtin DLL\0', 'i386 nvcuda.dll is not marked builtin'
+        assert stream.read(16) != b'Wine builtin DLL', 'zluda32 must not be marked as a Wine builtin'
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),

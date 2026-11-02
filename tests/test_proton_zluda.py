@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import os
-from proton_zluda import configure_hardware, enabled, install_wow64_client, is_game_launch
+from proton_zluda import configure_hardware, enabled, force_native_nvcuda, install_wow64_client, is_game_launch
 
 
 class LaunchPolicy(unittest.TestCase):
@@ -61,9 +61,8 @@ class Wow64Client(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         lib = self.root / "u/files/lib"
-        (lib / "wine/i386-windows").mkdir(parents=True)
-        (lib / "wine/zluda").mkdir(parents=True)
-        (lib / "wine/i386-windows/nvcuda.dll").write_bytes(b"zluda32")
+        (lib / "wine/zluda/i386-windows").mkdir(parents=True)
+        (lib / "wine/zluda/i386-windows/nvcuda.dll").write_bytes(b"zluda32")
         (lib / "wine/zluda/zluda64_server.exe").write_bytes(b"server")
         self.lib = str(lib) + "/"
         # Another installed tool (A1), read-only like a packaged tree.
@@ -185,6 +184,24 @@ class GameLaunchGate(unittest.TestCase):
         for argv in (["proton", "waitforexitandrun", "/games/Batman/Binaries/ShippingPC-BmGame.exe"],
                      ["proton", "run", "Z:\\tmp\\probe32.exe", "200"]):
             self.assertTrue(is_game_launch(argv), argv)
+
+
+
+class NativeOverride(unittest.TestCase):
+    def test_replaces_ge_nvcuda_entry_and_keeps_others(self):
+        env = {"WINEDLLOVERRIDES": "steam.exe=b;nvapi=n;nvcuda=b;dxgi=n"}
+        force_native_nvcuda(env)
+        self.assertEqual(env["WINEDLLOVERRIDES"], "steam.exe=b;nvapi=n;dxgi=n;nvcuda=n,b")
+
+    def test_multi_name_entries_and_duplicates(self):
+        env = {"WINEDLLOVERRIDES": "nvcuda,nvcuvid=n,b;NVCUDA.dll=d;;winemenubuilder.exe=d"}
+        force_native_nvcuda(env)
+        self.assertEqual(env["WINEDLLOVERRIDES"], "nvcuvid=n,b;winemenubuilder.exe=d;nvcuda=n,b")
+
+    def test_missing_variable(self):
+        env = {}
+        force_native_nvcuda(env)
+        self.assertEqual(env["WINEDLLOVERRIDES"], "nvcuda=n,b")
 
 
 if __name__ == "__main__":

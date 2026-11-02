@@ -50,8 +50,10 @@ if [[ $part == zluda || $part == all ]]; then
         cargo build --offline --locked --release -p zluda32 --target i686-pc-windows-gnu
         cargo build --offline --locked --release -p zluda64_server --target x86_64-pc-windows-gnu
     )
-    install -m644 "$SOURCE_ROOT/zluda/target/i686-pc-windows-gnu/release/nvcuda.dll" "$wl/i386-windows/nvcuda.dll"
-    python3 "$here/pe_builtin.py" "$wl/i386-windows/nvcuda.dll"
+    # Not a Wine builtin: the launch glue installs it as a native DLL into
+    # ZLUDA game prefixes only (see proton_zluda.install_wow64_client).
+    mkdir -p "$wl/zluda/i386-windows"
+    install -m644 "$SOURCE_ROOT/zluda/target/i686-pc-windows-gnu/release/nvcuda.dll" "$wl/zluda/i386-windows/nvcuda.dll"
     # Both PE files must run from a bare prefix: no MinGW runtime DLL imports.
     for spec in 'i686 i686-pc-windows-gnu/release/nvcuda.dll' \
                 'x86_64 x86_64-pc-windows-gnu/release/zluda64_server.exe'; do
