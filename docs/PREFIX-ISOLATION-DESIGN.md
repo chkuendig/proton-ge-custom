@@ -126,3 +126,17 @@ Archive SHA256:
 The regression records old/new launcher and runtime executable hashes alongside
 per-case results and server cleanup checks. Hosted execution is unprivileged,
 network disabled and reference tool read-only, with at most three CPUs.
+
+## Concurrent prefix copies and remaining boundary
+
+Prefix file copies use an exclusively created temporary file in the destination
+directory and atomically replace the destination. This prevents a competing
+helper from redirecting the copy through a newly installed leaf symlink. The
+regression coordinates the competing symlink insertion at the copy operation;
+it demonstrates corruption with the previous launcher and verifies both copy
+helpers preserve the foreign file with this change.
+
+An unpatched tool can still create its own links and then have its Wine fakedll
+writer write through them into a tool installation. Protecting against that
+writer requires patching that tool as well; this change cannot control an
+unpatched process.

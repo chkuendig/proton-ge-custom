@@ -1,5 +1,7 @@
 name: Shared-prefix isolation prototype
 on:
+  push:
+    branches: [bridge/prefix-isolation-race-20261103]
   workflow_dispatch:
 permissions:
   contents: read
