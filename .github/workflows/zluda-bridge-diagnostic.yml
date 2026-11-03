@@ -51,6 +51,7 @@ jobs:
       - name: Exercise both bridge widths with CPU fixtures and no network or GPU
         run: |
           docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=256 \
+            --user "$(id -u):$(id -g)" \
             --cap-drop=ALL --security-opt=no-new-privileges \
             -v "$GITHUB_WORKSPACE/bridge-source:/source:ro" \
             -v "$GITHUB_WORKSPACE:/proton:ro" \
