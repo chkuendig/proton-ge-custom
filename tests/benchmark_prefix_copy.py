@@ -34,8 +34,14 @@ def main():
     source, work = map(Path, sys.argv[1:])
     if any(work.iterdir()):
         raise SystemExit('work directory must be empty')
+    def builtin(path):
+        if not path.is_file():
+            return False
+        with path.open('rb') as f:
+            f.seek(64)
+            return f.read(20).startswith(b'Wine builtin DLL')
     files = sorted(p for arch in ('i386-windows', 'x86_64-windows')
-                   for p in (source / 'lib/wine' / arch).glob('*.dll') if p.is_file())
+                   for p in (source / 'lib/wine' / arch).iterdir() if builtin(p))
     if not files or not all(any(arch in str(p) for p in files) for arch in ('i386-windows', 'x86_64-windows')):
         raise SystemExit('both Wine Windows architecture sets are required')
     old = subprocess.check_output(['git', '-C', str(ROOT), 'show', '0bda91ad:proton'], text=True)
