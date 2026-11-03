@@ -319,10 +319,10 @@ def atomic_copy(src, dst, follow_symlinks=True, copy_metadata=None, add_write_pe
         else:
             fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o666)
             created = True
-            with os.fdopen(fd, 'wb') as output, open(src, 'rb') as source:
+            with os.fdopen(fd, 'wb', buffering=0) as output, open(src, 'rb', buffering=0) as source:
                 if dst_mode is not None:
                     os.fchmod(output.fileno(), dst_mode)
-                shutil.copyfileobj(source, output)
+                copyfile_fds(source, output)
         if copy_metadata is True:
             shutil.copystat(src, temporary, follow_symlinks=follow_symlinks)
         elif copy_metadata is False:
@@ -397,6 +397,35 @@ def copy_file_range_ctypes(fd_in, fd_out, count):
         raise OSError(get_errno(), errno.errorcode.get(get_errno(), 'unknown'))
 
     return ret
+
+def copyfile_fds(src, dst):
+    # Keep the reflink fast path while writing only to the exclusive temp fd.
+    global copyfile
+    if copyfile is copyfile_reflink:
+        try:
+            remaining = os.fstat(src.fileno()).st_size
+            while remaining:
+                count = copy_file_range(src.fileno(), dst.fileno(), remaining)
+                if not count:
+                    raise OSError(errno.EINVAL, "short copy_file_range")
+                remaining -= count
+            return
+        except OSError as e:
+            if e.errno not in (errno.EXDEV, errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
+                raise
+            if e.errno in (errno.ENOSYS, errno.EOPNOTSUPP):
+                copyfile = shutil.copyfile
+            src.seek(0)
+            dst.seek(0)
+            dst.truncate()
+    # shutil.copyfile uses sendfile before falling back to copyfileobj on Linux.
+    if getattr(shutil, '_USE_CP_SENDFILE', False):
+        try:
+            shutil._fastcopy_sendfile(src, dst)
+            return
+        except shutil._GiveupOnFastCopy:
+            pass
+    shutil.copyfileobj(src, dst)
 
 def copyfile_reflink(srcname, dstname):
     "Copy srcname to dstname, making reflink if possible"
