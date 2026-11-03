@@ -1,0 +1,70 @@
+name: BL2 bridge diagnostic (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: chkuendig/ZLUDA
+          ref: e1e1c938448035b650ff930f74173111907495a9
+          path: bridge-source
+          persist-credentials: false
+      - name: Download the immutable B3 runtime and its prepared SDK capsule
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: GE-Proton11-7-zluda
+          run-id: 41658786422
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/b3
+      - name: Prepare and admit the diagnostic inputs
+        run: |
+          python3 packaging/zluda-overlay/bridge_diagnostic.py prepare \
+            --source "$GITHUB_WORKSPACE/bridge-source" --work "$RUNNER_TEMP/bl2-diag" \
+            --archive "$RUNNER_TEMP/b3/GE-Proton11-7-zluda.tar.gz"
+          rustup toolchain install 1.99.0 --profile minimal
+          rustup target add --toolchain 1.99.0 x86_64-pc-windows-gnu i686-pc-windows-gnu
+          echo "DIAG_RUST=$(rustup run 1.99.0 rustc --print sysroot)" >> "$GITHUB_ENV"
+      - name: Build only the bridge against B3's attested Wine provider
+        run: |
+          docker run --rm --init --cpus=3 --memory=6g \
+            -v "$GITHUB_WORKSPACE/bridge-source:/source:ro" \
+            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" \
+            -v "$RUNNER_TEMP/bl2-diag:/work" -v "$DIAG_RUST:/rust:ro" \
+            -e PATH=/rust/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1 \
+            python3 /recipes/bridge_diagnostic.py build --source /source --work /work
+      - name: Exercise both bridge widths with CPU fixtures and no network or GPU
+        run: |
+          docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=256 \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            -v "$GITHUB_WORKSPACE/bridge-source:/source:ro" \
+            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" \
+            -v "$RUNNER_TEMP/bl2-diag:/work" \
+            registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1 \
+            python3 /recipes/bridge_diagnostic.py test --source /source --work /work
+      - name: Retain diagnostic modules, provenance and bounded logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bl2-bridge-diagnostic
+          path: |
+            ${{ runner.temp }}/bl2-diag/bridge/artifacts
+            ${{ runner.temp }}/bl2-diag/DIAGNOSTIC.json
+            ${{ runner.temp }}/bl2-diag/*.log
+            ${{ runner.temp }}/bl2-diag/results/*/RESULT.json
+            ${{ runner.temp }}/bl2-diag/results/*/*.log
+            ${{ runner.temp }}/bl2-diag/results/*/*.calls.*
+          retention-days: 7
+          if-no-files-found: error
