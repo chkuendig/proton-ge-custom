@@ -43,20 +43,20 @@ jobs:
         run: |
           docker run --rm --init --cpus=3 --memory=6g \
             -v "$GITHUB_WORKSPACE/bridge-source:/source:ro" \
-            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" \
+            -v "$GITHUB_WORKSPACE:/proton:ro" \
             -v "$RUNNER_TEMP/bl2-diag:/work" -v "$DIAG_RUST:/rust:ro" \
             -e PATH=/rust/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
             registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1 \
-            python3 /recipes/bridge_diagnostic.py build --source /source --work /work
+            python3 /proton/packaging/zluda-overlay/bridge_diagnostic.py build --source /source --work /work
       - name: Exercise both bridge widths with CPU fixtures and no network or GPU
         run: |
           docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=256 \
             --cap-drop=ALL --security-opt=no-new-privileges \
             -v "$GITHUB_WORKSPACE/bridge-source:/source:ro" \
-            -v "$GITHUB_WORKSPACE/packaging/zluda-overlay:/recipes:ro" \
+            -v "$GITHUB_WORKSPACE:/proton:ro" \
             -v "$RUNNER_TEMP/bl2-diag:/work" \
             registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1 \
-            python3 /recipes/bridge_diagnostic.py test --source /source --work /work
+            python3 /proton/packaging/zluda-overlay/bridge_diagnostic.py test --source /source --work /work
       - name: Retain diagnostic modules, provenance and bounded logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
