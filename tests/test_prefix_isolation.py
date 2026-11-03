@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -23,7 +24,7 @@ def functions(source):
               copyfile=shutil.copyfile, errno=__import__('errno'), log=lambda *x: None,
               file_exists=lambda p, follow_symlinks=True: os.path.exists(p) if follow_symlinks else os.path.lexists(p))
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name in ('file_is_wine_builtin_dll', 'try_copy', 'try_copyfile'):
+        if isinstance(node, ast.FunctionDef) and node.name in ('file_is_wine_builtin_dll', 'atomic_copy', 'try_copy', 'try_copyfile'):
             exec(compile(ast.Module(body=[node], type_ignores=[]), 'proton', 'exec'), ns)
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'CompatData')
     for node in cls.body:
@@ -171,14 +172,55 @@ class Isolation(unittest.TestCase):
     def test_copy_failure_preserves_alias_and_tool_bytes(self):
         self.dst.symlink_to(self.other)
         before = self.other.read_bytes()
-        def fail(src, dst):
-            Path(dst).write_bytes(b'partial')
+        def fail_copy(source, output):
+            output.write(b'partial')
             raise OSError('copy failed')
-        self.ns['copyfile'] = fail
+        patcher = mock.patch.object(shutil, 'copyfileobj', fail_copy)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         with self.assertRaisesRegex(OSError, 'copy failed'):self.isolate()
         self.assertTrue(self.dst.is_symlink())
         self.assertEqual(self.other.read_bytes(), before)
         self.assertEqual(list(self.dst.parent.glob('*.tmp')), [])
+
+    def test_concurrent_symlink_replacement_cannot_redirect_copy(self):
+        old = subprocess.check_output(['git', '-C', str(ROOT), 'show', '0bda91ad:proton'], text=True)
+        source = self.root / 'source.dll'
+        source.write_bytes(b'new copy')
+        for text, safe in ((old, False), (self.source, True)):
+            for name in ('try_copy', 'try_copyfile'):
+                with self.subTest(safe=safe, helper=name):
+                    self.dst.unlink(missing_ok=True)
+                    self.dst.write_bytes(b'old destination')
+                    self.other.write_bytes(b'foreign tool')
+                    ready, installed = threading.Event(), threading.Event()
+                    def actor():
+                        self.assertTrue(ready.wait(5))
+                        self.dst.unlink(missing_ok=True)
+                        self.dst.symlink_to(self.other)
+                        installed.set()
+                    thread = threading.Thread(target=actor)
+                    thread.start()
+                    ns = functions(text)
+                    original_copy = shutil.copyfile
+                    original_copyobj = shutil.copyfileobj
+                    def rendezvous(*args, **kwargs):
+                        ready.set()
+                        if not installed.wait(5):
+                            raise RuntimeError('actor timed out')
+                        return (original_copyobj if safe else original_copy)(*args, **kwargs)
+                    if safe:
+                        with mock.patch.object(shutil, 'copyfileobj', rendezvous):
+                            ns[name](str(source), str(self.dst))
+                    else:
+                        ns['copyfile'] = rendezvous
+                        ns[name](str(source), str(self.dst))
+                    thread.join(5)
+                    self.assertFalse(thread.is_alive())
+                    self.assertEqual(self.other.read_bytes(), b'foreign tool' if safe else b'new copy')
+                    if safe:
+                        self.assertEqual(self.dst.read_bytes(), b'new copy')
+                        self.assertFalse(self.dst.is_symlink())
 
     def test_preflight_is_unconditional_before_bootstrap_and_runinprefix(self):
         tree=ast.parse(self.source)
