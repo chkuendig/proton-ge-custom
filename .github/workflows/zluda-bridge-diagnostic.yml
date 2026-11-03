@@ -1,6 +1,9 @@
 name: BL2 bridge diagnostic (manual)
 
 on:
+  push:
+    branches: [bridge/b4-bl2-physx-pins-20261103]
+    paths: ['.github/workflows/zluda-bridge-diagnostic.yml', 'packaging/zluda-overlay/bridge_diagnostic.py']
   workflow_dispatch:
 
 permissions:
