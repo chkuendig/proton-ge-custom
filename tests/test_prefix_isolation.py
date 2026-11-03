@@ -21,10 +21,10 @@ BASE = 'd013499f64f73f22e27ede7437a6fd511974c36a'
 def functions(source):
     tree = ast.parse(source)
     ns = dict(os=os, Path=Path, uuid=uuid, shutil=shutil, stat=stat,
-              copyfile=shutil.copyfile, errno=__import__('errno'), log=lambda *x: None,
+              copyfile=shutil.copyfile, copyfile_reflink=shutil.copyfile, copy_file_range=os.copy_file_range, errno=__import__('errno'), log=lambda *x: None,
               file_exists=lambda p, follow_symlinks=True: os.path.exists(p) if follow_symlinks else os.path.lexists(p))
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name in ('file_is_wine_builtin_dll', 'atomic_copy', 'try_copy', 'try_copyfile'):
+        if isinstance(node, ast.FunctionDef) and node.name in ('file_is_wine_builtin_dll', 'copyfile_fds', 'atomic_copy', 'try_copy', 'try_copyfile'):
             exec(compile(ast.Module(body=[node], type_ignores=[]), 'proton', 'exec'), ns)
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'CompatData')
     for node in cls.body:
@@ -172,16 +172,28 @@ class Isolation(unittest.TestCase):
     def test_copy_failure_preserves_alias_and_tool_bytes(self):
         self.dst.symlink_to(self.other)
         before = self.other.read_bytes()
-        def fail_copy(source, output):
-            output.write(b'partial')
+        def fail_copy(*args):
             raise OSError('copy failed')
-        patcher = mock.patch.object(shutil, 'copyfileobj', fail_copy)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        self.ns['copy_file_range'] = fail_copy
         with self.assertRaisesRegex(OSError, 'copy failed'):self.isolate()
         self.assertTrue(self.dst.is_symlink())
         self.assertEqual(self.other.read_bytes(), before)
         self.assertEqual(list(self.dst.parent.glob('*.tmp')), [])
+
+    def test_atomic_copy_falls_back_after_partial_range_copy(self):
+        import errno
+        source = self.root / 'source.dll'
+        source.write_bytes(b'complete source contents')
+        calls = []
+        def cross_device(src, dst, count):
+            calls.append(count)
+            if len(calls) == 1:
+                return os.copy_file_range(src, dst, 5)
+            raise OSError(errno.EXDEV, 'cross-device copy')
+        self.ns['copy_file_range'] = cross_device
+        self.ns['try_copyfile'](str(source), str(self.dst))
+        self.assertEqual(self.dst.read_bytes(), source.read_bytes())
+        self.assertEqual(len(calls), 2)
 
     def test_concurrent_symlink_replacement_cannot_redirect_copy(self):
         old = subprocess.check_output(['git', '-C', str(ROOT), 'show', '0bda91ad:proton'], text=True)
@@ -203,15 +215,15 @@ class Isolation(unittest.TestCase):
                     thread.start()
                     ns = functions(text)
                     original_copy = shutil.copyfile
-                    original_copyobj = shutil.copyfileobj
+                    original_range = os.copy_file_range
                     def rendezvous(*args, **kwargs):
                         ready.set()
                         if not installed.wait(5):
                             raise RuntimeError('actor timed out')
-                        return (original_copyobj if safe else original_copy)(*args, **kwargs)
+                        return (original_range if safe else original_copy)(*args, **kwargs)
                     if safe:
-                        with mock.patch.object(shutil, 'copyfileobj', rendezvous):
-                            ns[name](str(source), str(self.dst))
+                        ns['copy_file_range'] = rendezvous
+                        ns[name](str(source), str(self.dst))
                     else:
                         ns['copyfile'] = rendezvous
                         ns[name](str(source), str(self.dst))
