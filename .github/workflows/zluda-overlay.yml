@@ -66,7 +66,7 @@ jobs:
           for script in packaging/zluda-overlay/*.sh; do bash -n "$script"; done
       - name: Make room on the ephemeral GitHub runner
         run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache
           sudo mkdir -p /work
           sudo chown "$USER:$USER" /work
           df -h / /work
