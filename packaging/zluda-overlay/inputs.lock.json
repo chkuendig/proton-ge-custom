@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "bac55430c82d858f60758cc893199d80199e8ea6",
+    "zluda": "e1e1c938448035b650ff930f74173111907495a9",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
@@ -253,14 +253,14 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "e3ebb1e977e0e06e79dbe3c566e50cfac99fcd5a",
+    "tree": "70d8f16989207b520ddee84213366d02c3de69d0",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
     "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
     "license": "MIT OR Apache-2.0",
     "implementation": "clean-room production on ZLUDA c60462dc ancestry; Wine/Proton retain their own terms",
     "provenance_bundle": {
-      "LICENSES/PRODUCTION-INPUTS.json": "146bcd3e8899099761df3b8f77588d5a69f75dd998cf473d3c349b98e9feff52",
+      "LICENSES/PRODUCTION-INPUTS.json": "16bfefc0b0c0fb780e83161db284493a7b77ff52ad6a26b3891755e5330de8be",
       "LICENSES/PROVENANCE.md": "f66359e0f4407af1121780d82db7e0656d2278e9ae6a782d22a35b497bdafe06",
       "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
     }
