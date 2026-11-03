@@ -90,6 +90,12 @@ def test(source, work):
     tool = work / 'GE-Proton11-7-zluda'
     report_path = work / 'DIAGNOSTIC.json'
     report = json.loads(report_path.read_text())
+    on_root = work / 'on-root'
+    on_root.mkdir()
+    for name in wine_cpu.cuda_package.MODULES:
+        target = on_root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(work / 'bridge/artifacts' / name, target)
     for arch, probe, backend in [('win64', 'probe.exe', 'libcuda.so.1'),
                                  ('wow64', 'probe32.exe', 'libcuda-wow64.so.1')]:
         directory = work / arch
@@ -101,10 +107,10 @@ def test(source, work):
         results = work / 'results' / arch
         run(['python3', source / 'wine/zluda_wine/tests/abi/run-fixtures.py', '--wine', wine,
              '--wineserver', server, '--winearch', arch, '--dll-dir', tool / 'files/lib/wine',
-             '--on-root', work / 'bridge/artifacts', '--off-root', tool / 'files/lib/wine-cuda/stub',
+             '--on-root', on_root, '--off-root', tool / 'files/lib/wine-cuda/stub',
              '--backend', work / 'fixtures' / backend, '--probe', work / 'fixtures' / probe,
              '--prefix', directory / 'prefix', '--results', results], env)
-        record = wine_cpu.check_result(results, arch, work / 'bridge/artifacts')
+        record = wine_cpu.check_result(results, arch, on_root)
         report['results'][arch] = {'qualification': record['qualification'], 'cases': len(record['cases'])}
         report_path.write_text(json.dumps(report, indent=2) + '\n')
     report['qualification'] = 'B3 SDK bridge CPU PE64+WoW64 passed; diagnostic only; GPU untested'
