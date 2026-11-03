@@ -1,4 +1,4 @@
-"""Compare B3 and current prefix file copies; run only when host CI is idle.
+"""Compare B3 and current prefix file copies in three alternating rounds.
 
 Usage: python3 tests/benchmark_prefix_copy.py EXTRACTED_FILES_DIR WORK_DIR
 The work directory must be on the filesystem under test and initially empty.
@@ -47,22 +47,27 @@ def main():
     old = subprocess.check_output(['git', '-C', str(ROOT), 'show', '0bda91ad:proton'], text=True)
     new = (ROOT / 'proton').read_text()
     results = []
-    for label, text in (('b3', old), ('atomic', new)):
-        copy = launcher(text)
-        target = work / label
-        for arch in ('i386-windows', 'x86_64-windows'):
-            (target / arch).mkdir(parents=True)
-        start = time.monotonic()
-        for path in files:
-            copy(str(path), str(target / path.parent.name / path.name))
-        elapsed = time.monotonic() - start
-        count = sum(p.stat().st_size for p in files)
-        output = [target / p.parent.name / p.name for p in files]
-        if sum(p.stat().st_size for p in output) != count:
-            raise RuntimeError('copied byte count differs')
-        results.append(dict(implementation=label, files=len(files), bytes=count,
-                            allocated_bytes=sum(p.stat().st_blocks * 512 for p in output),
-                            seconds=round(elapsed, 3)))
+    variants = (('b3', old), ('atomic', new))
+    for repeat in range(3):
+        # Alternate order to reduce systematic cache and filesystem bias.
+        for label, text in (variants if repeat % 2 == 0 else variants[::-1]):
+            copy = launcher(text)
+            target = work / label
+            for arch in ('i386-windows', 'x86_64-windows'):
+                (target / arch).mkdir(parents=True)
+            start = time.monotonic()
+            for path in files:
+                copy(str(path), str(target / path.parent.name / path.name))
+            elapsed = time.monotonic() - start
+            count = sum(p.stat().st_size for p in files)
+            output = [target / p.parent.name / p.name for p in files]
+            if sum(p.stat().st_size for p in output) != count:
+                raise RuntimeError('copied byte count differs')
+            results.append(dict(implementation=label, repetition=repeat + 1,
+                                files=len(files), bytes=count,
+                                allocated_bytes=sum(p.stat().st_blocks * 512 for p in output),
+                                seconds=round(elapsed, 3)))
+            shutil.rmtree(target)
     print(json.dumps(dict(source=str(source), results=results), indent=2))
 
 

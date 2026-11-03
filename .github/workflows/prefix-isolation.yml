@@ -73,3 +73,46 @@ jobs:
             ${{ runner.temp }}/prefix-regression/run/cleanup-*/*.log
             ${{ runner.temp }}/prefix-regression/run/final-cleanup/*.log
           retention-days: 90
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download the pinned B3 runtime
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: GE-Proton11-7-zluda
+          run-id: 41658786422
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/b3-download
+      - name: Verify and extract B3 Wine modules
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/chkuendig/proton-ge-custom/actions/artifacts/13251665054 > "$RUNNER_TEMP/b3-artifact.json"
+          python3 - <<'PYCODE'
+          import json, os
+          a = json.load(open(os.environ['RUNNER_TEMP'] + '/b3-artifact.json'))
+          assert a['workflow_run']['id'] == 41658786422
+          assert a['workflow_run']['head_sha'] == '0bda91adaba470495888a210d5b30715c337d0d2'
+          assert a['digest'] == 'sha256:2d36a718bddd3c73b118451a27e564aa20f7ef693bfbcced6cb36ecbd6c07894'
+          PYCODE
+          cd "$RUNNER_TEMP/b3-download"
+          echo '3b3328887d703faa54f8174810cd87810094ade95a44818cf2fce5d3b4ee6a7d  GE-Proton11-7-zluda.tar.gz' | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/b3-runtime" "$RUNNER_TEMP/b3-benchmark"
+          tar -xf GE-Proton11-7-zluda.tar.gz --strip-components=1 -C "$RUNNER_TEMP/b3-runtime"
+      - name: Benchmark full Wine builtin set, three repetitions
+        run: |
+          set -euo pipefail
+          python3 tests/benchmark_prefix_copy.py "$RUNNER_TEMP/b3-runtime/files" "$RUNNER_TEMP/b3-benchmark" | tee "$RUNNER_TEMP/b3-benchmark-results.json"
+      - name: Retain benchmark results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b3-prefix-copy-benchmark
+          path: ${{ runner.temp }}/b3-benchmark-results.json
+          retention-days: 90
