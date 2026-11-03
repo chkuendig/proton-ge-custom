@@ -6,13 +6,13 @@
   "architecture": "x86_64 + i386 PE (WoW64), no i386 ROCm",
   "sdk_image": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1",
   "rust_version": "1.99.0",
-  "llvm": "107e2bfaf44d07e70050da61ab0655b297c0dd4a",
+  "llvm": "3c279515022cbc7c39f442b72e67048174eaf7b7",
   "rocm_index": {
     "url": "https://repo.radeon.com/rocm/apt/7.2.4/dists/noble/main/binary-amd64/Packages.gz",
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "f61fda4e73c88b71303806a27775803524f30ae7",
+    "zluda": "bac55430c82d858f60758cc893199d80199e8ea6",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
@@ -41,12 +41,12 @@
       "size": 266372
     },
     "ptx/lib/zluda_ptx_impl.bc": {
-      "sha256": "6a044b905bdd292276012e4d6b97de5fda8671dbe14634c83bfe3bc525b15b7c",
-      "size": 85756
+      "sha256": "39884e98adde2c17666142b74b362a7b43f7e2872c0deae56e85d502b9c6f9be",
+      "size": 87316
     },
     "ptx/lib/zluda_ptx_impl_constrained.bc": {
-      "sha256": "21c24eb2e5004182a06d156ade82801486cb05c73c0a29ee7174034cd92890cd",
-      "size": 93444
+      "sha256": "c1e23cfee6a4edf0fe315f2b2009b6e2ee99e53a1584632d1525ad4899a0bfac",
+      "size": 95328
     },
     "zluda/bin/nvcudart_hybrid64.dll": {
       "sha256": "bf430d65b863c49bab525001a0712992d17f52f4b5a205536160a337cf8b22b3",
@@ -166,7 +166,7 @@
       "sha256": "8c3f4dd0743b8f092651fac16d00a64c6f06ea9420355099e0f52954cc1a61c2"
     }
   ],
-  "cargo_lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
+  "cargo_lock_sha256": "c7da4ae466c8a93d23a4fbe1c38d0b2f1c69b3815ebae2e4f3757b744a4dcfd0",
   "rocm_runtime": {
     "libamd_comgr.so.3.0.0": [
       "libamd_comgr.so.3",

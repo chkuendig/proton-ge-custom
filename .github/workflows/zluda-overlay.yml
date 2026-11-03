@@ -219,7 +219,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: f61fda4e73c88b71303806a27775803524f30ae7
+          ref: bac55430c82d858f60758cc893199d80199e8ea6
           path: scope-source
           persist-credentials: false
       - name: Verify source pin and run native scope tests including 18 PCI parity cases
@@ -248,7 +248,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: f61fda4e73c88b71303806a27775803524f30ae7
+          ref: bac55430c82d858f60758cc893199d80199e8ea6
           path: luid-source
           persist-credentials: false
       - name: Verify source admission and install the pinned PE32 toolchain

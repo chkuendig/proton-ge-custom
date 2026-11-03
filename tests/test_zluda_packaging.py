@@ -680,7 +680,7 @@ class NativePlan(unittest.TestCase):
 
     def test_resolved_workspace_specs_and_features(self):
         fixture = self.fixture()
-        self.assertEqual(fixture['origin']['pin'], '42b557a23c9c7868ee1fb736849451361a6e8893')
+        self.assertEqual(fixture['origin']['pin'], inputs.LOCK['components']['zluda'])
         self.assertEqual(fixture['origin']['Cargo.lock_sha256'], inputs.LOCK['cargo_lock_sha256'])
         record = native_plan.plan(fixture['metadata'], fixture['tree'])
         members = set(fixture['metadata']['workspace_members'])
