@@ -1,3 +1,11 @@
+Valve ZLUDA qualification lane
+-----------------------------
+
+This feature branch ports the published B5 CUDA overlay to Valve Proton
+11.0-2e. Build and admission details are in
+[packaging/zluda-overlay/README.md](packaging/zluda-overlay/README.md).
+It is a qualification candidate; no release or default-tool adoption is implied.
+
 Introduction
 ------------
 

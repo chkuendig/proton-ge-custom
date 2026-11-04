@@ -1,0 +1,74 @@
+{
+  "wine_pin": "46b29104e3741fe23bf5e2547196a253aab88c89",
+  "source_files_sha256": {
+    "d3d11.idl": "140870c7a6067d3378619a49b8d54775b0d7b8f55d16455becc532c9715c2354",
+    "d3d10.idl": "db36a91474062488622e8b815966866a58b0c27e3d5da69726f4e73fd3c1b9e1"
+  },
+  "interfaces": {
+    "ID3D11Resource": {
+      "uuid": "dc8e63f3-d12b-4952-b47b-5e45026a862d",
+      "vtable_words": 10,
+      "methods": {
+        "GetDevice": 3
+      }
+    },
+    "ID3D11Texture2D": {
+      "uuid": "6f15aaf2-d208-4e89-9ab4-489535d34f9c",
+      "vtable_words": 11,
+      "methods": {
+        "GetDesc": 10
+      }
+    },
+    "ID3D11Device": {
+      "uuid": "db6f6ddb-ac77-4e88-8253-819df9bbf140",
+      "vtable_words": 43,
+      "methods": {
+        "CreateTexture2D": 5,
+        "CreateQuery": 24,
+        "GetCreationFlags": 38,
+        "GetImmediateContext": 40
+      }
+    },
+    "ID3D11DeviceContext": {
+      "uuid": "c0bfa96c-e089-44fb-8eaf-26f8796190da",
+      "vtable_words": 115,
+      "methods": {
+        "Map": 14,
+        "Unmap": 15,
+        "End": 28,
+        "GetData": 29,
+        "CopyResource": 47,
+        "Flush": 111
+      }
+    },
+    "ID3D10Multithread": {
+      "uuid": "9b7e4e00-342c-4106-a19f-4f2704f689f0",
+      "vtable_words": 7,
+      "methods": {
+        "Enter": 3,
+        "Leave": 4,
+        "SetMultithreadProtected": 5,
+        "GetMultithreadProtected": 6
+      }
+    }
+  },
+  "cpu_layouts": {
+    "GUID": {
+      "size": 16,
+      "alignment": 4
+    },
+    "D3D11_TEXTURE2D_DESC": {
+      "size": 44,
+      "alignment": 4
+    },
+    "D3D11_QUERY_DESC": {
+      "size": 8,
+      "alignment": 4
+    },
+    "D3D11_MAPPED_SUBRESOURCE": {
+      "size": 16,
+      "alignment": 8
+    }
+  },
+  "qualification": "pinned IDL slots plus independent C/Rust layout and ms_abi calls; runtime DXVK/GPU pending"
+}

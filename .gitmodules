@@ -1,6 +1,6 @@
 [submodule "wine"]
 	path = wine
-	url = ../wine
+	url = https://github.com/ValveSoftware/wine.git
 [submodule "dxvk"]
 	path = dxvk
 	url = https://github.com/doitsujin/dxvk.git
@@ -24,7 +24,7 @@
 	url = https://github.com/KhronosGroup/OpenXR-SDK
 [submodule "dxvk-nvapi"]
 	path = dxvk-nvapi
-	url = https://github.com/jp7677/dxvk-nvapi
+	url = https://github.com/chkuendig/dxvk-nvapi
 [submodule "vkd3d"]
 	path = vkd3d
 	url = https://gitlab.winehq.org/wine/vkd3d
@@ -75,3 +75,9 @@
 [submodule "libsoup"]
 	path = libsoup
 	url = https://github.com/GNOME/libsoup.git
+[submodule "zluda"]
+	path = zluda
+	url = https://github.com/chkuendig/ZLUDA
+[submodule "wine-bridge"]
+	path = wine-bridge
+	url = https://github.com/chkuendig/ZLUDA.git

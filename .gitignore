@@ -6,3 +6,6 @@
 /.vagrant/
 /vagrant_share/
 /build/
+
+__pycache__/
+/bridge-backend/
