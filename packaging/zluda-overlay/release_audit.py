@@ -8,6 +8,8 @@ import re
 import tarfile
 import urllib.request
 
+from inputs import LOCK
+
 
 def digest(path):
     h = hashlib.sha256()
@@ -70,7 +72,7 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    lock = json.loads((args.source / 'packaging/zluda-overlay/inputs.lock.json').read_text())
+    lock = LOCK
     ge = next(x for x in lock['downloads'] if x['id'] == 'ge')
     ge_path = args.output / 'GE.tar.gz'
     urllib.request.urlretrieve(ge['url'], ge_path)
