@@ -215,6 +215,7 @@ jobs:
             /work/wine-sdk/WINE-SOURCE-AUDIT.fragments
             /work/build/wine/changed-sources.txt
             /work/build/log
+            /work/build/nvapi-fixtures/COM-MOCK-ADAPTATION.json
             /work/build/zluda-wine/artifacts
             /work/build/zluda-wine/WINE-CALLBACK-ATTESTATION.json
             /work/build/zluda-wine/WINE-CALLBACK-ATTESTATION.fragments
