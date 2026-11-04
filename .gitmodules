@@ -143,5 +143,5 @@
 
 [submodule "zluda-wine"]
 	path = zluda-wine
-	url = https://github.com/chkuendig/ZLUDA.git
-	branch = component/zluda-wine-20261104
+	url = https://github.com/chkuendig/zluda-wine.git
+	branch = GE-Proton11-7-zluda

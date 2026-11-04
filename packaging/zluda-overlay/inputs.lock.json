@@ -34,7 +34,7 @@
     "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
     "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
     "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd",
-    "zluda-wine": "2d0c7a2070195c6483d35ec4483085e8894b8a4e"
+    "zluda-wine": "7463a450bbcbc1e931bfafa40f5313a5109959fc"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -268,8 +268,8 @@
       "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
     },
     "component": "zluda-wine",
-    "repository": "https://github.com/chkuendig/ZLUDA.git",
-    "staging_branch": "component/zluda-wine-20261104",
+    "repository": "https://github.com/chkuendig/zluda-wine.git",
+    "staging_branch": "GE-Proton11-7-zluda",
     "backend_source": {
       "contract": "zluda-wine-backend-source-1",
       "repository": "https://github.com/chkuendig/ZLUDA",
