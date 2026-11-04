@@ -69,7 +69,7 @@ def admit(source, directory, dest):
             record.get('proton') != reuse_components.expected_commit(source) or
             record.get('source_pin') != bridge_input.pin() or
             record.get('sdk_image') != LOCK['sdk_image'] or
-            record.get('input_lock_sha256') != sha256(HERE / 'inputs.lock.json') or
+            record.get('input_lock_sha256') != reuse_components.expected_lock_sha256(source) or
             record.get('decoy_source_sha256') != sha256(HERE / 'nvcuda-decoy.c') or
             record.get('archive_sha256') != sha256(archive)):
         raise ValueError('CPU fixture provenance/archive mismatch')

@@ -33,7 +33,7 @@
     "vkd3d-proton": "212991fc2c266bc0d59f4c4ce8f80f7126508d71",
     "vosk-api": "12f29a3415e4967e088ed09202bfb0007e5a1787",
     "wine": "e60892cc2398b0a83c332a2078c7b85e47bdb42b",
-    "zluda": "854720b624f2a61a447d9c3b69a3f986470a0149",
+    "zluda": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b",
     "wine-bridge": "325ca5318a79477da1e8c010a5e7e0abba5f32bf"
   },
   "lfs": {
@@ -307,7 +307,9 @@
   },
   "comparison_control": {
     "proton": "34718d6768db833d8a03759f51a9fd8e4f7c9553",
-    "components_run": 41745832871,
+    "components_run": 41805155799,
+    "archive_sha256": "244d5a344b783e4f3e1e4adaf912c4a0b9a3ea2e9858843ec18b0501ee796a74",
+    "native_sha256": "0ac705114a2837f30ae0cc23543a74341850e2659b5b69b0d0a88132e3249314",
     "bridge_comparison": "sources/protocol-matched; rebuilt triad, not identical B5 bits"
   },
   "valve_stock": {

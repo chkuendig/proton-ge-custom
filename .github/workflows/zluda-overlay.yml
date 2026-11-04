@@ -18,13 +18,17 @@ on:
         description: 'Iteration only: reuse components from this run ID (empty = full rebuild; required for frozen W1)'
         type: string
         default: ''
+      bridges_run:
+        description: 'Rebuild native backend; reuse the complete source-admitted Valve/bridge/fixture set from this run'
+        type: string
+        default: ''
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: zluda-overlay-${{ github.ref }}
+  group: zluda-overlay-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -39,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(inputs.profile == 'x64-draft' && '["bridges"]' || '["zluda", "bridges"]') }}
+        part: ${{ fromJSON(inputs.profile == 'x64-draft' && '["bridges"]' || inputs.bridges_run != '' && '["zluda"]' || '["zluda", "bridges"]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -293,7 +297,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: w1-fixtures
-          run-id: ${{ inputs.components_run || github.run_id }}
+          run-id: ${{ inputs.components_run || inputs.bridges_run || github.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/w1-fixtures
       - name: Download this run's fully rebuilt candidate
@@ -354,26 +358,35 @@ jobs:
           df -h /
           [[ $(df -B1 --output=avail "$RUNNER_TEMP" | tail -1) -ge 20000000000 ]]
       - name: Admit explicitly requested component reuse
-        if: inputs.components_run != ''
+        if: inputs.components_run != '' || inputs.bridges_run != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          COMPONENTS_RUN: ${{ inputs.components_run }}
+          COMPONENTS_RUN: ${{ inputs.components_run || inputs.bridges_run }}
+          FULL_REUSE_RUN: ${{ inputs.components_run }}
+          BRIDGES_REUSE_RUN: ${{ inputs.bridges_run }}
+          REUSE_PART: ${{ inputs.bridges_run != '' && 'bridges' || 'all' }}
         run: |
           set -euo pipefail
+          [[ -z $FULL_REUSE_RUN || -z $BRIDGES_REUSE_RUN ]]
           [[ $COMPONENTS_RUN =~ ^[0-9]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN" > "$RUNNER_TEMP/component-run.json"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/component-artifacts.json"
           python3 packaging/zluda-overlay/reuse_components.py --source "$GITHUB_WORKSPACE" \
             --run "$RUNNER_TEMP/component-run.json" --artifacts "$RUNNER_TEMP/component-artifacts.json" \
-            --output "$RUNNER_TEMP/COMPONENT-REUSE.json"
+            --output "$RUNNER_TEMP/COMPONENT-REUSE.json" --part "$REUSE_PART"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: overlay-*
+          name: overlay-zluda
           run-id: ${{ inputs.components_run || github.run_id }}
           github-token: ${{ github.token }}
-          merge-multiple: true
           path: ${{ runner.temp }}/overlays
-      - name: Assemble GE plus verified overlays
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: overlay-bridges
+          run-id: ${{ inputs.components_run || inputs.bridges_run || github.run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/overlays
+      - name: Assemble Valve plus verified overlays
         env:
           SOURCE_ROOT: ${{ github.workspace }}
           BUILD_ROOT: ${{ runner.temp }}/assembly
@@ -399,7 +412,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: wine-cpu-fixtures
-          run-id: ${{ inputs.components_run || github.run_id }}
+          run-id: ${{ inputs.components_run || inputs.bridges_run || github.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/cpu-fixtures
       - name: Download historical CI-built A1 for upgrade evidence
@@ -410,12 +423,20 @@ jobs:
           run-id: 40906607864
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/a1-download
+      - name: Read the published B5 control pin
+        run: |
+          python3 - <<'PY'
+          import json, os
+          lock = json.load(open('packaging/zluda-overlay/inputs.lock.json'))['comparison_control']
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f"B5_RUN={lock['components_run']}\nB5_SHA256={lock['archive_sha256']}\n")
+          PY
       - name: Download published B5 for cross-base prefix transitions
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: GE-Proton11-7-zluda
           repository: chkuendig/proton-ge-custom
-          run-id: 41745832871
+          run-id: ${{ env.B5_RUN }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/b5-download
       - name: Admit and extract the B5 comparison control
@@ -423,7 +444,7 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/b5-download"
           sha256sum -c SHA256SUMS
-          test "$(sha256sum GE-Proton11-7-zluda.tar.gz | cut -d' ' -f1)" = 9878f12e96f4a02ef35ad36313f7aa8c3dfbe302e399252a8254e66d18728cdb
+          test "$(sha256sum GE-Proton11-7-zluda.tar.gz | cut -d' ' -f1)" = "$B5_SHA256"
           mkdir -p "$RUNNER_TEMP/b5-tool"
           tar -xf GE-Proton11-7-zluda.tar.gz --strip-components=1 -C "$RUNNER_TEMP/b5-tool"
       - name: Prepare optional historical A1 tool
@@ -451,7 +472,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/Valve-Proton11.0-2e-zluda:/tool:ro" \
             -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" \
             -v "$RUNNER_TEMP/a1-tool:/a1-tool:ro" -e JOBS=3 \
-            -e REUSE_COMPONENTS_COMMIT \
+            -e REUSE_COMPONENTS_COMMIT -e REUSE_BRIDGES_COMMIT \
             "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/wine_cpu.py \
             --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures --a1-tool /a1-tool \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
@@ -556,18 +577,28 @@ jobs:
           run-id: 40906607864
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/A1
+      - name: Read the published B5 control pin
+        run: |
+          python3 - <<'PY'
+          import json, os
+          lock = json.load(open('packaging/zluda-overlay/inputs.lock.json'))['comparison_control']
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f"B5_RUN={lock['components_run']}\n")
+          PY
       - name: Download published B5 comparison control
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: GE-Proton11-7-zluda
           repository: chkuendig/proton-ge-custom
-          run-id: 41745832871
+          run-id: ${{ env.B5_RUN }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/B5
       - name: Download independently built stock Valve tool
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: overlay-bridges
+          run-id: ${{ inputs.components_run || inputs.bridges_run || github.run_id }}
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/stock-download
       - name: Verify every builtin against Valve stock, published B5 and historical A1
         run: |

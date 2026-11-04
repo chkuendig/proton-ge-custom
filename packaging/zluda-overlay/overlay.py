@@ -198,11 +198,12 @@ def extract(archive, target, ge_base=False):
 
 def assemble(overlays):
     source, cache, dest, build = map(environment, ['SOURCE_ROOT', 'DOWNLOAD_ROOT', 'DESTDIR', 'BUILD_ROOT'])
-    component_commit = reuse_components.expected_commit(source)
+    component_commits = {part: reuse_components.expected_commit(source, part) for part in ['zluda', 'bridges']}
     reuse = None
-    if os.environ.get('REUSE_COMPONENTS_COMMIT'):
+    if os.environ.get('REUSE_COMPONENTS_COMMIT') or os.environ.get('REUSE_BRIDGES_COMMIT'):
         reuse = json.loads(Path(os.environ['COMPONENT_REUSE_RECEIPT']).read_text())
-        if reuse['commit'] != component_commit:
+        reused_parts = ['bridges'] if reuse.get('part') == 'bridges' else ['zluda', 'bridges']
+        if any(reuse['commit'] != component_commits[part] for part in reused_parts):
             raise ValueError('component reuse receipt commit mismatch')
         reuse['downloaded_archives'] = {p.name: sha256(p) for p in sorted(overlays.glob('*.tar.gz'))}
     archive = overlays / 'valve-stock.tar.gz'
@@ -228,9 +229,9 @@ def assemble(overlays):
         extract(overlays / (part + '.tar.gz'), overlay)
         verify_manifest(overlay)
         record = json.loads((overlay / 'provenance' / (part + '.json')).read_text())
-        if not (record['part'] == part and record['proton'] == component_commit):
+        if not (record['part'] == part and record['proton'] == component_commits[part]):
             raise ValueError("overlay.py integrity gate failed: record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')")
-        if not (record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')):
+        if not (record['input_lock_sha256'] == reuse_components.expected_lock_sha256(source, part)):
             raise ValueError("overlay.py integrity gate failed: record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')")
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
@@ -268,7 +269,7 @@ def assemble(overlays):
         if not ((dest / name).is_file() and (dest / name).stat().st_size):
             raise ValueError(name)
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
-                  'component_build_proton': component_commit, 'component_reuse': reuse,
+                  'component_build_protons': component_commits, 'component_reuse': reuse,
                   'valve_stock': stock, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'component_patches': LOCK['component_patches'],
                   'wine_bridge': LOCK['wine_bridge'],
