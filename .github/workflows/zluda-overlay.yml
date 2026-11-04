@@ -27,7 +27,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/preflight"
           image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
           docker pull "$image"
-          docker run --rm --init --network=none --cpus=3 --memory=4g --pids-limit=256 \
+          docker run --rm --init --network=bridge --cpus=3 --memory=4g --pids-limit=256 \
             --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/product/GE-Proton11-7-zluda:/tool" \
