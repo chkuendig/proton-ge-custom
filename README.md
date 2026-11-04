@@ -788,5 +788,5 @@ https://www.patreon.com/gloriouseggroll
 | Yesterday Origins                                   | [SteamDB](https://steamdb.info/app/465280)   | [ProtonDB](https://protondb.com/app/465280)  | [Steambase](https://steambase.io/apps/465280)  | :x:                | :heavy_check_mark:         |
 | You Need A Budget 4 (YNAB)                          | [SteamDB](https://steamdb.info/app/227320)   | [ProtonDB](https://protondb.com/app/227320)  | [Steambase](https://steambase.io/apps/227320)  | :x:                | :heavy_check_mark:         |
 
-ZLUDA tool builds and qualification live in the separately pinned zluda-proton-packaging repository.
-Use its build entry point to assemble the complete tool from these launcher and component pins.
+ZLUDA build recipes are maintained in the development hub; public releases include the pinned packaging source bundle.
+Use that bundle and its public component pins to rebuild and qualify the complete tool.

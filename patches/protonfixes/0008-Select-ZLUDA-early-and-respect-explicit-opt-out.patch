@@ -1,7 +1,7 @@
 From: Christian Kündig <christian@kuendig.info>
-Subject: [PATCH] Select CUDA policy before prefix setup and respect explicit opt-out
+Subject: [PATCH] Select ZLUDA early and respect explicit opt-out
 
-Assisted-by: codex:gpt-6.1-sol
+Assisted-by: Codex:gpt-6.1-sol, Claude:claude-opus-5-5
 
 diff --git a/gamefixes-steam/17410.py b/gamefixes-steam/17410.py
 index 4e8e951..fca6c88 100644

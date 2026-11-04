@@ -21,7 +21,7 @@ affected, since fs32_sel is zero there and i386 has no leave_handler().
 Call leave_handler() before returning, as the virtual_handle_fault() branch
 right below already does.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Assisted-by: Codex:gpt-6.1-sol, Claude:claude-opus-5-5
 ---
  dlls/ntdll/unix/signal_x86_64.c | 1 +
  1 file changed, 1 insertion(+)

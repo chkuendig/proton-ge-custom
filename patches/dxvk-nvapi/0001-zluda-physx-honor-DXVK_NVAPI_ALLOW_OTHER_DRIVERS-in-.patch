@@ -15,11 +15,7 @@ option when CudaEnumComputeCapableGpus returns an empty topology. Honor
 the same env-var the registry already consults, so non-NVIDIA adapters
 backed by ZLUDA show up.
 
-Ported to GE-Proton11-7's dxvk-nvapi (fd105c0d). The GE-Proton10-9 line
-carried this as a parentless snapshot of v0.9.2 (9ee7d01).
-
-Assisted-by: Claude:claude-opus-5.5
-Assisted-by: Codex:gpt-6.1-sol
+Assisted-by: Codex:gpt-6.1-sol, Claude:claude-opus-5-5
 ---
  src/nvapi_gpu.cpp | 9 ++++++++-
  1 file changed, 8 insertions(+), 1 deletion(-)
