@@ -728,6 +728,7 @@ class AssemblyFixture(unittest.TestCase):
                 (tree / 'provenance').mkdir(parents=True)
                 record = {'part': part, 'proton': commit,
                           'input_lock_sha256': inputs.sha256(inputs.HERE / 'inputs.lock.json')}
+                (tree / 'provenance/inputs.lock.json').write_bytes((inputs.HERE / 'inputs.lock.json').read_bytes())
                 (tree / 'provenance' / (part + '.json')).write_text(json.dumps(record))
                 if part == 'bridges':
                     (tree / 'provenance/WINE-SCOPE.json').write_text(json.dumps(
@@ -768,6 +769,38 @@ class AssemblyFixture(unittest.TestCase):
                 shutil.rmtree(dest)
                 shutil.rmtree(build)
                 build.mkdir()
+                # Reusing an unchanged bridge set must preserve its original
+                # lock while the assembled candidate carries today's lock.
+                bridge = trees['bridges.tar.gz']
+                old_commit = 'b' * 40
+                old_lock = bridge / 'provenance/inputs.lock.json'
+                old_lock.write_text('{"native_backend":"superseded"}\n')
+                old_hash = inputs.sha256(old_lock)
+                record = json.loads((bridge / 'provenance/bridges.json').read_text())
+                record.update(proton=old_commit, input_lock_sha256=old_hash)
+                (bridge / 'provenance/bridges.json').write_text(json.dumps(record))
+                inputs.manifest(bridge)
+                receipt = root / 'REUSE.json'
+                receipt.write_text(json.dumps({'commit': old_commit, 'part': 'bridges'}))
+                with mock.patch.dict(os.environ, {'REUSE_BRIDGES_COMMIT': old_commit,
+                                                  'COMPONENT_REUSE_RECEIPT': str(receipt)}), \
+                     mock.patch.object(overlay.reuse_components, 'expected_commit',
+                                       side_effect=lambda source, part: old_commit if part == 'bridges' else commit), \
+                     mock.patch.object(overlay.reuse_components, 'expected_lock_sha256',
+                                       side_effect=lambda source, part: old_hash if part == 'bridges' else inputs.sha256(inputs.HERE / 'inputs.lock.json')):
+                    overlay.assemble(overlays)
+                self.assertEqual(inputs.sha256(dest / 'provenance/inputs.lock.json'),
+                                 inputs.sha256(inputs.HERE / 'inputs.lock.json'))
+                self.assertEqual(inputs.sha256(dest / 'provenance/inputs-bridges.lock.json'), old_hash)
+                provenance = json.loads((dest / 'provenance/PROVENANCE.json').read_text())
+                self.assertEqual(provenance['component_build_protons'], {'zluda': commit, 'bridges': old_commit})
+                inputs.verify_manifest(dest)
+                shutil.rmtree(dest)
+                shutil.rmtree(build)
+                build.mkdir()
+                record.update(proton=commit, input_lock_sha256=inputs.sha256(inputs.HERE / 'inputs.lock.json'))
+                (bridge / 'provenance/bridges.json').write_text(json.dumps(record))
+                old_lock.write_bytes((inputs.HERE / 'inputs.lock.json').read_bytes())
                 (trees['bridges.tar.gz'] / 'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll').unlink()
                 inputs.manifest(trees['bridges.tar.gz'])
                 with self.assertRaisesRegex(ValueError, 'three-module contract'):

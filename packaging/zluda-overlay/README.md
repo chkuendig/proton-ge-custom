@@ -6,11 +6,11 @@ It is a qualification candidate, with no release or default-tool change.
 
 Run `.github/workflows/zluda-overlay.yml` manually on the feature branch with
 `profile=overlay`, `historical_a1=true` while the historical artifact exists,
-and an empty `components_run`. The full tool and Wine build execute only in
+and empty `components_run` and `bridges_run`. The full tool and Wine build execute only in
 the digest-pinned Steam Runtime SDK on hosted GitHub runners, with three jobs.
 No Deck access or installation is part of this workflow.
 
-`inputs.lock.json` pins the full Valve source, the extracted native B5 backend
+`inputs.lock.json` pins the full Valve source, the published native B5 backend
 (`8a8e3b76`, published B5), LLVM/ROCm,
 DXVK 60193094, and dxvk-nvapi fd105c0d plus the two production patches. The
 independent `wine-bridge` gitlink is resolved solely through `bridge_input.py`

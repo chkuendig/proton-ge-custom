@@ -233,9 +233,16 @@ def assemble(overlays):
             raise ValueError("overlay.py integrity gate failed: record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')")
         if not (record['input_lock_sha256'] == reuse_components.expected_lock_sha256(source, part)):
             raise ValueError("overlay.py integrity gate failed: record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')")
+        part_lock = overlay / 'provenance/inputs.lock.json'
+        if not part_lock.is_file() or sha256(part_lock) != record['input_lock_sha256']:
+            raise ValueError('component input lock bytes do not match its provenance: ' + part)
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
+        # Both archives contain the shared filename. Preserve the original
+        # per-part locks and write the candidate lock after the final overlay.
+        shutil.copyfile(part_lock, dest / ('provenance/inputs-' + part + '.lock.json'))
+    shutil.copyfile(HERE / 'inputs.lock.json', dest / 'provenance/inputs.lock.json')
     scope = dest / 'provenance/WINE-SCOPE.json'
     if reuse:
         (dest / 'provenance/COMPONENT-REUSE.json').write_text(json.dumps(reuse, indent=2) + '\n')

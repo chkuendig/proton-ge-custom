@@ -113,7 +113,6 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     lock = json.loads((args.source / 'packaging/zluda-overlay/inputs.lock.json').read_text())
     archives = {'candidate': args.candidate, 'A1': args.a1, 'B5': args.control, 'Valve': args.stock}
-    lock = json.loads((args.source / 'packaging/zluda-overlay/inputs.lock.json').read_text())
     if digest(args.control) != lock['comparison_control']['archive_sha256']:
         raise ValueError('comparison control is not the published B5 product archive')
     trees = {name: inventory(path, name, flat=name == 'Valve') for name, path in archives.items()}
