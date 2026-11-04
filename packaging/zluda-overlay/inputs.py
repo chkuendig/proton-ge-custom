@@ -15,8 +15,10 @@ RECIPE_ROOT = HERE.parents[1]
 PROFILE_NAME = os.environ.get('ZLUDA_PACKAGING_PROFILE')
 if not PROFILE_NAME or not re.fullmatch(r'[a-z0-9-]+', PROFILE_NAME):
     raise ValueError('select an explicit ZLUDA_PACKAGING_PROFILE')
-PROFILE = json.loads((HERE / 'profiles' / (PROFILE_NAME + '.json')).read_text())
-LOCK = json.loads((HERE / PROFILE['recipe_lock']).read_text())
+PROFILE_FILE = HERE / 'profiles' / (PROFILE_NAME + '.json')
+PROFILE = json.loads(PROFILE_FILE.read_text())
+LOCK_FILE = HERE / PROFILE['recipe_lock']
+LOCK = json.loads(LOCK_FILE.read_text())
 PROTON_ROOT = Path(os.environ.get('PROTON_SOURCE_ROOT', RECIPE_ROOT / 'proton-source')).resolve()
 SOURCE_EPOCH = PROFILE['source_date_epoch']
 if set(PROFILE['stub_artifact']['sha256']) != {'x86_64-windows', 'i386-windows'}:
@@ -29,6 +31,10 @@ def sha256(path):
         for block in iter(lambda: stream.read(1024 * 1024), b''):
             digest.update(block)
     return digest.hexdigest()
+
+
+def base_artifact():
+    return {'base': PROFILE['base'], 'profile_sha256': sha256(PROFILE_FILE), **PROFILE['stub_artifact']}
 
 
 def git(root, *args):

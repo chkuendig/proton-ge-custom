@@ -15,7 +15,7 @@ import tempfile
 from inputs import HERE, git, sha256
 
 
-def observed_inputs(source, build, required=True):
+def observed_inputs(source, build, required=True, capture_output=False):
     paths = set()
     records = []
     for path in sorted(build.rglob('*')):
@@ -42,8 +42,11 @@ def observed_inputs(source, build, required=True):
                     paths.add(candidate.relative_to(source).as_posix())
                     accepted.append(candidate.relative_to(source).as_posix())
         if accepted:
-            records.append({'dep_info': str(path.relative_to(build)), 'sha256': sha256(path),
-                            'source_inputs': sorted(set(accepted))})
+            record = {'dep_info': str(path.relative_to(build)), 'sha256': sha256(path),
+                      'source_inputs': sorted(set(accepted))}
+            if capture_output and path.name == 'output':
+                record['build_output'] = path.read_bytes().decode('utf-8')
+            records.append(record)
     if not records and required:
         raise ValueError('no Cargo dep-info/build-script source inputs observed')
     return paths, records
@@ -111,7 +114,7 @@ def extracted_environment(root, original):
 
 def create(source, build, output, cargo='cargo'):
     source = source.resolve()
-    paths, records = observed_inputs(source, build)
+    paths, records = observed_inputs(source, build, capture_output=True)
     entries = {}
     for line in git(source, 'ls-tree', '-r', 'HEAD').splitlines():
         meta, name = line.split('\t', 1)

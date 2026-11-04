@@ -9,11 +9,10 @@ from pathlib import Path
 import shutil
 import tarfile
 
-from inputs import bridge_component, bridge_root, HERE, LOCK, git, manifest, sha256, verify_manifest
-import reuse_components
+from inputs import LOCK_FILE, bridge_component, bridge_root, HERE, LOCK, git, manifest, sha256, verify_manifest
 
 REQUIRED = {'probe.exe', 'probe32.exe', 'libcuda.so.1', 'libcuda-wow64.so.1',
-            'lifecycle.exe', 'lifecycle-helper.dll', 'transition.exe', 'nvcuda-decoy64.dll', 'nvcuda-decoy32.dll'}
+            'lifecycle.exe', 'lifecycle-helper.dll', 'nvcuda-decoy64.dll', 'nvcuda-decoy32.dll'}
 
 
 def check_source_hashes(source, build):
@@ -52,7 +51,7 @@ def package(source, build, sdk_receipt, dest):
                     tar.addfile(member, io.BytesIO(data))
     record = {'format': 'pinned-sdk-cpu-fixtures-1', 'proton': git(source, 'rev-parse', 'HEAD'),
               'source_pin': LOCK['components'][bridge_component()], 'sdk_image': LOCK['sdk_image'],
-              'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
+              'input_lock_sha256': sha256(LOCK_FILE),
               'decoy_source_sha256': sha256(HERE / 'nvcuda-decoy.c'),
               'manifest_sha256': sha256(build / 'MANIFEST'), 'archive_sha256': sha256(archive),
               'wine_sdk_receipt_sha256': sha256(sdk_receipt),
@@ -65,10 +64,10 @@ def admit(source, directory, dest):
     record = json.loads((directory / 'cpu-fixtures.json').read_text())
     archive = directory / 'cpu-fixtures.tar.gz'
     if (record.get('format') != 'pinned-sdk-cpu-fixtures-1' or
-            record.get('proton') != reuse_components.expected_commit(source) or
+            record.get('proton') != git(source, 'rev-parse', 'HEAD') or
             record.get('source_pin') != LOCK['components'][bridge_component()] or
             record.get('sdk_image') != LOCK['sdk_image'] or
-            record.get('input_lock_sha256') != sha256(HERE / 'inputs.lock.json') or
+            record.get('input_lock_sha256') != sha256(LOCK_FILE) or
             record.get('decoy_source_sha256') != sha256(HERE / 'nvcuda-decoy.c') or
             record.get('archive_sha256') != sha256(archive)):
         raise ValueError('CPU fixture provenance/archive mismatch')

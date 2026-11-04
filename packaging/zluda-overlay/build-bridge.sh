@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generated builtin PE + Unixlib only. Never substitute the Stage A C relay.
+# Build the generated builtin PE and Unixlib targets.
 set -euo pipefail
 : "${BRIDGE_SOURCE:?}" "${BUILD_ROOT:?}" "${BRIDGE_DEST:?}" "${WINE_SDK_ROOT:?}"
 JOBS=${JOBS:-3}
@@ -12,7 +12,7 @@ mkdir -p "$BUILD_ROOT/log"
 # Full checkout provenance, pinned independent crate tree and lock are checked
 # by inputs.py before this entry in both CI and make redist.
 commit=$(git -C "$BRIDGE_SOURCE" rev-parse HEAD)
-expected=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["components"]["zluda-wine"])' "$here/inputs.lock.json")
+expected=$(PYTHONPATH="$here" python3 -c 'from inputs import LOCK, bridge_component; print(LOCK["components"][bridge_component()])')
 [[ $commit == "$expected" ]] || { echo 'ZLUDA Wine source pin mismatch' >&2; exit 1; }
 # All three targets and the independent lock are required by this entry. Its
 # incomplete source must fail rather than package a pilot or a C fallback.

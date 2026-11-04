@@ -30,6 +30,7 @@ class WineCpu(unittest.TestCase):
     def results(self, directory, winearch='win64'):
         directory.mkdir(parents=True)
         record = {'qualification': gate.PROFILES[winearch]['qualification'], 'architecture': gate.architecture(winearch),
+                  'inputs': {'base_artifact': gate.base_artifact()},
                   'cases': [{'mode': mode, 'returncode': 0} for mode in gate.MODES],
                   'cleanup': {'verified_absent': True, 'lock': {'absent': True},
                               'steps': [{'command': [str(self.server), flag], 'returncode': code,
@@ -194,6 +195,7 @@ class WineCpu(unittest.TestCase):
                 '--winearch': arch, '--dll-dir': str(self.tool / 'files/lib/wine'),
                 '--on-root': str(self.tool / 'files/lib/wine-cuda/zluda'),
                 '--off-root': str(self.tool / 'files/lib/wine-cuda/stub'),
+                '--base-profile': str(gate.PROFILE_FILE),
                 '--backend': str(self.work / 'build' / profile['backend']),
                 '--probe': str(self.work / 'build' / profile['probe']),
                 '--prefix': str(self.work / arch / 'prefix'), '--results': str(self.work / arch / 'results')})

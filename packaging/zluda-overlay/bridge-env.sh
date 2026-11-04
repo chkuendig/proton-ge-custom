@@ -6,7 +6,7 @@ export ZLUDA_WINE_BACKEND_SOURCE
 export ZLUDA_WINE_SOURCE_ID
 ZLUDA_WINE_SOURCE_ID=$(git -C "$BRIDGE_SOURCE" rev-parse HEAD)
 export SOURCE_DATE_EPOCH
-SOURCE_DATE_EPOCH=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["wine_bridge"]["source_date_epoch"])' "$(dirname -- "${BASH_SOURCE[0]}")/inputs.lock.json")
+SOURCE_DATE_EPOCH=$(PYTHONPATH="$(dirname -- "${BASH_SOURCE[0]}")" python3 -c 'from inputs import LOCK; print(LOCK["wine_bridge"]["source_date_epoch"])')
 export ZLUDA_WINE_ABI_RECEIPT=$WINE_SDK_ROOT/ABI-RECEIPT.json
 export ZLUDA_WINE_ABI_RECEIPT_SHA256
 ZLUDA_WINE_ABI_RECEIPT_SHA256=$(sha256sum "$ZLUDA_WINE_ABI_RECEIPT" | cut -d' ' -f1)

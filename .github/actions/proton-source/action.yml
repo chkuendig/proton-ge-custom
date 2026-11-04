@@ -1,0 +1,26 @@
+name: Admit Proton source
+description: Resolve the selected base profile and checkout its pinned source
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        python3 - <<'PYPROFILE'
+        import json, os, re
+        p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
+        lock=json.load(open('packaging/zluda-overlay/'+p['recipe_lock']))
+        values={'PROTON_PIN':p['source_commit'],'PROTON_REPOSITORY':p['source_repository'],'SDK_IMAGE':lock['sdk_image'],
+                'BRIDGE_PIN':lock['components']['zluda-wine'],'BACKEND_PIN':lock['components']['zluda']}
+        if any(not re.fullmatch('[0-9a-f]{40}',values[k]) for k in ('PROTON_PIN','BRIDGE_PIN','BACKEND_PIN')): raise ValueError('invalid source pin')
+        if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',values['PROTON_REPOSITORY']): raise ValueError('invalid source repository')
+        if not re.search(r'@sha256:[0-9a-f]{64}$',values['SDK_IMAGE']): raise ValueError('SDK must use an immutable digest')
+        with open(os.environ['GITHUB_ENV'],'a') as f:
+          for k,v in values.items(): f.write(k+'='+v+'\n')
+        PYPROFILE
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        repository: ${{ env.PROTON_REPOSITORY }}
+        ref: ${{ env.PROTON_PIN }}
+        path: proton-source
+        fetch-depth: 0
+        persist-credentials: false

@@ -68,7 +68,7 @@ def identity(record):
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    for name in ['source', 'candidate', 'a1', 'output']:
+    for name in ['candidate', 'control', 'output']:
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -77,7 +77,7 @@ def main():
     ge_path = args.output / 'GE.tar.gz'
     urllib.request.urlretrieve(ge['url'], ge_path)
     assert digest(ge_path) == ge['sha256'], 'stock GE archive digest'
-    archives = {'B': args.candidate, 'A1': args.a1, 'GE': ge_path}
+    archives = {'B': args.candidate, 'published': args.control, 'GE': ge_path}
     trees = {name: inventory(path, name) for name, path in archives.items()}
     wineinf = 'files/share/wine/wine.inf'
     assert trees['B'][wineinf]['sha256'] == trees['GE'][wineinf]['sha256'], 'wine.inf bytes changed'
@@ -91,7 +91,7 @@ def main():
         assert any('/i386-windows/' in p for p in report['inventories'][name])
         assert any('/x86_64-windows/' in p for p in report['inventories'][name])
     b = report['inventories']['B']
-    for name in ['A1', 'GE']:
+    for name in ['published', 'GE']:
         other = report['inventories'][name]
         changes = {p: {'B': b.get(p), name: other.get(p)} for p in sorted(set(b) | set(other)) if identity(b.get(p)) != identity(other.get(p))}
         report['comparisons'][name] = {'differing_paths': len(changes), 'changes': changes,

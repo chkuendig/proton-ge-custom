@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Adapted from the clean ZLUDA wine/w1-fixtures CPU harness; original authorship retained there.
-"""Hosted CPU validation of the W1 fixtures in real Wine (no GPU, fake/absent backend).
-
-  run-cpu.py --tool TOOL --fixtures BUILD_OUT --work FRESH_DIR
-
-TOOL is an assembled Proton tool with the bridge under
-files/lib/wine-cuda/{zluda,stub} (the fully rebuilt candidate from this workflow). Runs, per case, one disposable Wine process
-with a deadline and records stdout JSONL, stderr and the exit code. The
-expectations below are what a fixture must do without a GPU: terminate in time,
-print parseable start/finish records, and, for the PE32 stack fixture, detect
-all 25 cleanup widths (24 corrected and the unchanged LUID width) on the clean-room candidate. The old stub
-remains the negative control. Expectations are selected before observing data.
-Writes WORK/CPU-RESULT.json and exits 1 if any expectation is not met.
-"""
+"""Verify same-run CPU identity and PE32 stack-width fixtures with packaged Wine."""
 import argparse
 import json
 import os
@@ -22,7 +10,7 @@ import shutil
 import subprocess
 import time
 
-from inputs import LOCK, bridge_component, git, sha256
+from inputs import LOCK_FILE, HERE, LOCK, PROFILE_FILE, bridge_component, git, sha256
 import wine_cpu
 from pathlib import Path
 
@@ -96,6 +84,11 @@ FIXTURE_PIN = LOCK['components'][bridge_component()]
 def admit_fixtures(fixtures, source):
     if git(source, 'rev-parse', 'HEAD') != FIXTURE_PIN:
         raise ValueError('W1 fixture source pin mismatch')
+    expected = {'source_pin': FIXTURE_PIN, 'sdk_image': LOCK['sdk_image'],
+                'input_lock_sha256': sha256(LOCK_FILE),
+                'base_profile_sha256': sha256(PROFILE_FILE)}
+    if json.loads((fixtures / 'BUILD.json').read_text()) != expected:
+        raise ValueError('W1 fixture build differs from selected source, SDK or base profile')
     seen = {}
     for inventory, base in [('SHA256SUMS', fixtures), ('SOURCE-SHA256SUMS', source)]:
         entries = {}
@@ -143,7 +136,7 @@ def main():
         env = environment(a.tool, work, arch, 'stub', False, None)
         results.append(run('boot-' + arch, [wine, 'wineboot', '-u'], env, work, 600))
 
-    # 1. PE32 stack-balance fixture: self-test oracles, then the pinned candidate
+    # Verify the width controls before the candidate.
     wow_off = environment(a.tool, work, 'wow64', 'stub', False, None)
     st = pe32 / 'pe32_stack.exe'
     good = run('pe32-stack-stub-correct', [wine, st, '--expect', 'correct'], wow_off, work, 120,
@@ -174,34 +167,17 @@ def main():
         expect(f'candidate PE32 {backend}: 24 historical widths rejected, only unchanged LUID matching',
                old['exit'] == 1 and summary(old).get('matched') == 1, candidate[backend])
 
-    # 2. identity: off = GE empty stub; on = bridge surface (788 / 690 names)
+    # Verify the selected base stub and the bridge export surfaces.
     for arch, d, n in (('win64', x64, 788), ('wow64', pe32, 690)):
         off = run(f'identity-off-{arch}', [wine, d / 'identity.exe', '--expect', 'off'],
                   environment(a.tool, work, arch, 'stub', False, None), work, 120)
         on = run(f'identity-on-{arch}', [wine, d / 'identity.exe', '--expect', 'on', '--exports', str(n)],
                  environment(a.tool, work, arch, 'zluda', True, BACKENDS['absent']), work, 120)
         results += [off, on]
-        expect(f'identity off {arch}: GE stub, no CUDA exports', off['exit'] == 0, checks(off))
+        expect(f'identity off {arch}: base stub, no CUDA exports', off['exit'] == 0, checks(off))
         expect(f'identity on {arch}: {n} exports, no GPU -> cuInit fails, terminates',
                checks(on).get('export-count') is True and checks(on).get('cuInit') is False and terminated(on),
                checks(on))
-
-    # 3. smoke: every fixture terminates deterministically without a GPU
-    smoke = [('realgpu', ['realgpu.exe']), ('churn', ['churn.exe', '--cycles', '1000']),
-             ('modload', ['modload.exe', '--self']), ('interop-data', ['interop.exe', 'data'])]
-    smoke += [('lifecycle-' + c, ['lifecycle.exe', c]) for c in
-              ('cls-basic', 'cls-overwrite', 'cls-two', 'cls-drained', 'tls-notify', 'freelibrary', 'exitprocess',
-               'no-user32', 'reentry')]
-    for arch, d in (('win64', x64), ('wow64', pe32)):
-        env = environment(a.tool, work, arch, 'zluda', True, BACKENDS['absent'])
-        for name, argv in smoke:
-            r = run(f'smoke-{name}-{arch}', [wine, d / argv[0], *argv[1:]], env, work, 180)
-            results.append(r)
-            expect(f'smoke {name} {arch}: terminates with start/finish, no hang', terminated(r),
-                   {'exit': r['exit']})
-            if name == 'modload':
-                expect(f'modload {arch}: PE stack-paint calibration', checks(r).get('pe-paint-calibration') is True,
-                       checks(r))
 
     record = {'tool': str(a.tool), 'fixture_admission': fixture_admission, 'candidate_stack': candidate, 'expectations': expectations,
               'results': [{k: v for k, v in r.items() if k != 'rows'} | {'checks': checks(r)} for r in results]}

@@ -13,7 +13,7 @@ import shutil
 import subprocess
 
 import cuda_package
-from inputs import bridge_component, HERE, LOCK, git, sha256
+from inputs import LOCK_FILE, PROFILE_FILE, base_artifact, bridge_component, HERE, LOCK, git, sha256
 
 MODES = ['off-unset', 'on', 'off-zero', 'on-missing-backend', 'on-relative-backend', 'off-again']
 PROFILES = {
@@ -50,7 +50,7 @@ def admit_source(source):
 def admit_tool(source, tool):
     record = json.loads((tool / 'provenance/PROVENANCE.json').read_text())
     if (record['proton'] != git(source, 'rev-parse', 'HEAD') or
-            record['input_lock_sha256'] != sha256(HERE / 'inputs.lock.json') or
+            record['input_lock_sha256'] != sha256(LOCK_FILE) or
             record['components']['zluda'] != LOCK['components']['zluda']):
         raise ValueError('Wine CPU assembled tool provenance differs from source')
     cuda_package.audit(tool)
@@ -234,6 +234,8 @@ def check_result(results, winearch='win64', on_root=None):
     record = json.loads((results / 'RESULT.json').read_text())
     cleanup = record.get('cleanup', {})
     steps = cleanup.get('steps', [])
+    if record.get('inputs', {}).get('base_artifact') != base_artifact():
+        raise ValueError('Wine CPU base artifact receipt differs from selected profile')
     if (record.get('qualification') != PROFILES[winearch]['qualification'] or
             record.get('architecture') != architecture(winearch) or
             [case['mode'] for case in record.get('cases', [])] != MODES or
@@ -330,7 +332,7 @@ def run(source, tool, work, prepared_fixtures=None):
                 command(['python3', fixture / 'run-fixtures.py', '--wine', wine, '--wineserver', server,
                          '--winearch', winearch, '--dll-dir', tool / 'files/lib/wine',
                          '--on-root', tool / 'files/lib/wine-cuda/zluda',
-                         '--off-root', tool / 'files/lib/wine-cuda/stub', '--backend', build / profile['backend'],
+                         '--off-root', tool / 'files/lib/wine-cuda/stub', '--base-profile', PROFILE_FILE, '--backend', build / profile['backend'],
                          '--probe', build / profile['probe'], '--prefix', directory / 'prefix',
                          '--results', directory / 'results'], env, directory / 'runner.log', 900)
                 report['runner'] = check_result(directory / 'results', winearch, tool / 'files/lib/wine-cuda/zluda')
@@ -371,7 +373,6 @@ if __name__ == '__main__':
     for name in ['source', 'tool', 'work']:
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--prepared-fixtures', type=Path)
-    parser.add_argument('--a1-tool', type=Path)
     args = parser.parse_args()
     def terminate(signum, frame):
         raise RuntimeError('Wine CPU gate interrupted by signal ' + str(signum))
@@ -380,8 +381,7 @@ if __name__ == '__main__':
     import lifecycle_cpu
     lifecycle_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'lifecycle')
     import launcher_cpu
-    # Always retain the durable stand-in gate; a historical artifact adds its
-    # own gate instead of silently replacing durable coverage.
     launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher')
-    if args.a1_tool and (args.a1_tool / 'proton').is_file():
-        launcher_cpu.run(args.source, args.tool, args.work / 'build', args.work / 'launcher-historical', args.a1_tool)
+    command(['python3', HERE / 'shared_prefix_cpu.py', '--source', args.source,
+             '--tool', args.tool, '--work', args.work / 'shared-prefix'], dict(os.environ),
+            args.work / 'shared-prefix.log', 1800)

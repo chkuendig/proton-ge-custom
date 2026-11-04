@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Real unpatched Wine writer, two temporary module trees and one shared prefix.
-
-No GPU, bridge call or full-candidate qualification. Source functions are loaded
-from the actual old/new launchers, as in the existing launcher policy fixtures.
-"""
+"""Verify shared-prefix isolation against the unfixed launcher with packaged Wine."""
 import argparse
 import hashlib
 import json
@@ -14,7 +10,8 @@ import sys
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
-from test_prefix_isolation import functions
+from test_prefix_isolation import BASE, functions
+from inputs import git
 from wine_cpu import environment, command, cleanup_server
 
 
@@ -24,14 +21,15 @@ def sha(path):
 
 def main():
     p=argparse.ArgumentParser(__doc__)
-    for n in ('source','baseline','tool','work'):p.add_argument('--'+n,type=Path,required=True)
+    for n in ('source','tool','work'):p.add_argument('--'+n,type=Path,required=True)
     args=p.parse_args();args.work.mkdir(parents=True,exist_ok=True)
     if os.geteuid()==0:raise RuntimeError('Wine regression must run as an unprivileged user')
     wine=args.tool/'files/bin/wine';server=args.tool/'files/bin/wineserver'
     work=args.work;prefix=work/'prefix';(work/'tmp').mkdir();(work/'runtime').mkdir(mode=0o700)
     env=environment(args.tool,work,wine,server)
     env.update(WINEDLLPATH=str(args.tool/'files/lib/wine-cuda/stub'),WINEDLLOVERRIDES='mscoree,mshtml=')
-    fixed=functions((args.source/'proton').read_text());old=functions(args.baseline.read_text())
+    fixed=functions((args.source/'proton').read_text())
+    baseline=git(args.source,'show',BASE+':proton');old=functions(baseline)
     compat=SimpleNamespace(prefix_dir=str(prefix)+'/')
     a=work/'tool-A';b=work/'tool-B'
     records=[]
@@ -94,8 +92,8 @@ def main():
             records.append(dict(direction='linked-parent',arch=arch,unfixed_changed=True,
                                 fixed_refused=True,cleanup=cleanup))
             system_dir.unlink();foreign.rename(system_dir)
-        report=dict(status='passed',scope='module-tree regression with common pinned unpatched Wine writer; not full launcher/game qualification',
-                    source_proton_sha256=sha(args.source/'proton'),baseline_proton_sha256=sha(args.baseline),
+        report=dict(status='passed',scope='module-tree regression with packaged Wine writer; not full launcher/game qualification',
+                    source_proton_sha256=sha(args.source/'proton'),baseline_proton_sha256=hashlib.sha256(baseline.encode()).hexdigest(),
                     runtime_wine_sha256=sha(wine),runtime_server_sha256=sha(server),cases=records)
         assert len(records)==14
         (work/'RESULT.json').write_text(json.dumps(report,indent=2)+'\n')

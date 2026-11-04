@@ -143,36 +143,9 @@ def admit_policy(directory, phase, tool, prefix):
             'warning_count': log.count(warning), 'file_override_only': phase == 'off-nvidia'}
 
 
-def create_a1_prefix(tool, directory, winearch):
-    """Optional historical artifact gate; never called by durable default CI."""
-    phase = directory / 'a1-create'
-    phase.mkdir()
-    env = environment(tool, directory, winearch, 'a1-create')
-    env['PROTONFIXES_DISABLE'] = '1'
-    code = wine_cpu.command([tool / 'proton', 'run', r'C:\windows\system32\cmd.exe', '/c', 'exit', '0'],
-                            env, phase / 'launcher.log', 240)
-    cleanup = wine_cpu.environment(tool, directory, tool / 'files/bin/wine', tool / 'files/bin/wineserver', winearch)
-    cleanup['WINEPREFIX'] = str(directory / 'compatdata/pfx')
-    cleanup_record = wine_cpu.cleanup_server(tool / 'files/bin/wineserver', cleanup, phase)
-    if code or cleanup_record['status'] != 'passed':
-        raise ValueError('historical A1 launcher creation/cleanup failed')
-    record = {'label': 'CI-built A1 (run 40906607864), not the Deck-installed bytes',
-              'modules': {}, 'prefix': {}, 'template': {}}
-    for name in ['x86_64-windows/nvcuda.dll', 'i386-windows/nvcuda.dll',
-                 'x86_64-unix/nvcuda.dll.so', 'x86_64-unix/nvcuda.so']:
-        record['modules'][name] = sha256(tool / 'files/lib/wine' / name)
-    for directory_name in proton_zluda.ARCHES:
-        for key, prefix in [('prefix', directory / 'compatdata/pfx'),
-                            ('template', tool / 'files/share/default_pfx')]:
-            path = prefix / 'drive_c/windows' / directory_name / 'nvcuda.dll'
-            record[key][directory_name] = {'sha256': sha256(path),
-                'symlink': os.readlink(path) if path.is_symlink() else None}
-    record['cleanup'] = cleanup_record
-    (phase / 'A1.json').write_text(json.dumps(record, indent=2) + '\n')
-    return record
 
 
-def run(source, tool, fixtures, work, a1_tool=None):
+def run(source, tool, fixtures, work):
     if work.exists() or not all(p.is_absolute() for p in [source, tool, fixtures, work]):
         raise ValueError('launcher gate requires absolute paths and fresh outputs')
     work.mkdir(parents=True)
@@ -188,10 +161,6 @@ def run(source, tool, fixtures, work, a1_tool=None):
         # first-run creation. Only this copy's bundled backend is substituted.
         wine_cpu.command(['cp', '--reflink=auto', '-a', tool, disposable], dict(os.environ), work / 'copy.log', 180)
         install_capture(disposable)
-        if a1_tool is not None:
-            private_a1 = work / 'a1-tool'
-            wine_cpu.command(['cp', '--reflink=auto', '-a', a1_tool, private_a1], dict(os.environ), work / 'a1-copy.log', 180)
-            a1_tool = private_a1
         for winearch, profile in wine_cpu.PROFILES.items():
             directory = work / winearch
             for name in ['tmp', 'runtime', 'home', 'game', 'steam', 'compatdata', *PHASES]:
@@ -206,8 +175,6 @@ def run(source, tool, fixtures, work, a1_tool=None):
             if sha256(backend) != sha256(fixtures / profile['backend']):
                 raise ValueError('disposable fixture backend copy differs')
             report['disposable_backend_sha256'] = sha256(backend)
-            if a1_tool is not None:
-                report['historical_a1'] = create_a1_prefix(a1_tool, directory, winearch)
             prefix = directory / 'compatdata/pfx'
             shutil.copyfile(fixtures / profile['probe'], directory / 'game' / profile['probe'])
             cleanup_env = None
@@ -219,15 +186,13 @@ def run(source, tool, fixtures, work, a1_tool=None):
                         (prefix / 'winetricks.log').write_text('d3dx9\nd3dcompiler_43\nphysx\n')
                     seeded = {}
                     if phase in ('off-a1', 'on-a1'):
-                        # Published A1 layout: global Winelib x64 and builtin
-                        # PE32 prefix copies. Exact historical bytes, if supplied,
-                        # can replace this layout fixture without policy changes.
+                        # Seed the global Winelib and active PE32 transition layout.
                         for directory_name, arch in proton_zluda.ARCHES.items():
                             path = prefix / 'drive_c/windows' / directory_name / 'nvcuda.dll'
                             path.unlink(missing_ok=True)
-                            legacy = ((a1_tool / 'files/lib/wine/x86_64-unix/nvcuda.dll.so' if a1_tool else disposable / 'files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so')
-                                      if directory_name == 'system32' else
-                                      (a1_tool / 'files/lib/wine/i386-windows/nvcuda.dll' if a1_tool else disposable / 'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll'))
+                            legacy = disposable / ('files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so'
+                                                    if directory_name == 'system32' else
+                                                    'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll')
                             shutil.copyfile(legacy, path)
                             seeded[directory_name] = sha256(path)
                             expected = disposable / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll'
@@ -273,8 +238,7 @@ def run(source, tool, fixtures, work, a1_tool=None):
                     result['policy'] = admit_policy(directory / phase, phase, disposable, prefix)
                     result['seeded_files'] = seeded
                     if phase in ('off-a1', 'on-a1'):
-                        result['upgrade_fixture'] = ('CI-built A1 (run 40906607864), not the Deck-installed bytes'
-                                                     if a1_tool else 'A1-layout (stand-in modules)')
+                        result['upgrade_fixture'] = 'A1-layout (stand-in modules)'
                     if phase == 'off-after':
                         if before_timestamp != (timestamp.read_bytes(), timestamp.stat().st_mtime_ns):
                             raise ValueError('on-to-off launch unexpectedly updated the Wine timestamp')

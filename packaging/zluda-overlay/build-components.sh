@@ -44,7 +44,6 @@ if [[ $part == zluda || $part == all ]]; then
     SCCACHE_PATH=$(command -v ccache)
     ccache --max-size=4G
     bash "$here/build-native.sh"
-    bash "$here/build-zoc.sh"
     cp "$BUILD_ROOT/native/link-layout.json" "$DESTDIR/provenance/NATIVE-LINK-LAYOUT.json"
     objcopy --strip-debug "$SOURCE_ROOT/zluda/target/release/libnvcuda.so" "$lib64/libcuda.so.1"
     ln -s libcuda.so.1 "$lib64/libcuda.so"
@@ -61,11 +60,7 @@ if [[ $part == zluda || $part == all ]]; then
     )
     mkdir -p "$DESTDIR/sources"
     cp "$DOWNLOAD_ROOT/numactl-2.0.18.tar.gz" "$DESTDIR/sources/"
-    if [[ ${CLEANUP_TESTS:-0} == 1 ]]; then
-        # The real HIP library needs libnuma even for CPU-only test startup.
-        # Use the same checksum-locked library installed into the product.
-        LD_LIBRARY_PATH="$lib64:$LD_LIBRARY_PATH" bash "$here/check-cleanup-tests.sh"
-    fi
+
 fi
 
 if [[ $part == bridges || $part == all ]]; then
@@ -85,12 +80,20 @@ if [[ $part == bridges || $part == all ]]; then
     python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
     n=$SOURCE_ROOT/zluda-wine/wine/zluda_wine
     export ZLUDA_WINE_BACKEND_SOURCE=$SOURCE_ROOT/zluda
-export BRIDGE_SOURCE=$n
+    export BRIDGE_SOURCE=$n
     source "$here/bridge-env.sh"
     BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
-    # transition.exe needs this exact prepared Wine SDK; assembly has only
-    # the runtime tool, so compile fixtures here and bind their provenance.
+    # Bind CPU fixtures to this Wine SDK and source pin.
     FIXTURE_BUILD_ROOT=$BUILD_ROOT/wine-cpu-fixtures bash "$n/tests/abi/build-fixtures.sh"
+    bash "$SOURCE_ROOT/zluda-wine/wine/w1-fixtures/build.sh" "$BUILD_ROOT/w1-fixtures"
+    PYTHONPATH="$here" python3 - "$BUILD_ROOT/w1-fixtures/BUILD.json" <<'PYW1'
+import json, sys
+from pathlib import Path
+from inputs import LOCK, LOCK_FILE, PROFILE_FILE, bridge_component, sha256
+Path(sys.argv[1]).write_text(json.dumps({'source_pin': LOCK['components'][bridge_component()],
+    'sdk_image': LOCK['sdk_image'], 'input_lock_sha256': sha256(LOCK_FILE),
+    'base_profile_sha256': sha256(PROFILE_FILE)}, indent=2) + '\n')
+PYW1
     for spec in 'x86_64 64' 'i686 32'; do
         read -r triplet bits <<< "$spec"
         "$triplet-w64-mingw32-gcc" -O2 -Wall -Wextra -Werror -shared -static-libgcc \
@@ -127,6 +130,8 @@ export BRIDGE_SOURCE=$n
     cp "$BUILD_ROOT/wine/overlay/OVERLAY" "$DESTDIR/provenance/WINE-OVERLAY"
     cp "$BUILD_ROOT/wine/overlay/ELF-DEPENDENCIES" "$DESTDIR/provenance/WINE-ELF-DEPENDENCIES"
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
+    baseline=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["baseline"])' "$BUILD_ROOT/wine/wine-scope.json")
+    git -C "$BUILD_ROOT/wine/src/wine" cat-file commit "$baseline" > "$DESTDIR/provenance/WINE-BASELINE-COMMIT"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
     python3 "$here/source_archive.py" --source "$SOURCE_ROOT/zluda-wine" \

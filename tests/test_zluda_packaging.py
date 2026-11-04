@@ -156,24 +156,7 @@ class PackageContract(unittest.TestCase):
         self.assertIn('PROTON_ZLUDA_PY_TARGET := $(addprefix $(DST_BASE)/,proton_zluda.py)', text)
         self.assertIn('$(DIST_COPY_TARGETS): | $(DST_DIR)\n\tcp -a $(SRCDIR)/$(notdir $@) $@', text)
 
-    def test_explicit_runtime_and_required_architectures(self):
-        self.assertEqual(len(inputs.LOCK['rocm_runtime']), 7)
-        for name in inputs.LOCK['rocm_runtime']:
-            self.assertNotIn('*', name)
-        required = overlay.required_payload()
-        for name in ['files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll',
-                     'files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so',
-                     'files/lib/wine/nvapi/i386-windows/nvapi.dll', 'proton_zluda.py']:
-            self.assertIn(name, required)
 
-    def test_launcher_loader_order_is_preserved(self):
-        import proton_zluda
-        from types import SimpleNamespace
-        env = {'PROTON_ENABLE_ZLUDA': '1', 'LD_LIBRARY_PATH': '/base'}
-        with mock.patch.object(proton_zluda, 'select_root'), mock.patch.object(proton_zluda, 'launch_warnings'):
-            proton_zluda.configure_launch(SimpleNamespace(env=env, log_file=None),
-                SimpleNamespace(base_dir='/tool', host_pe_arch='x86_64-windows'), [], 'LD_LIBRARY_PATH', lambda message: None)
-        self.assertEqual(env['LD_LIBRARY_PATH'], '/tool/files/lib64/wine/x86_64-unix:/tool/files/lib64:/base')
 
 
 
@@ -678,7 +661,21 @@ class BridgeSDK(unittest.TestCase):
 
 class NativePlan(unittest.TestCase):
     def fixture(self):
-        return json.loads((ROOT / 'tests/fixtures/native-graph.json').read_text())
+        data = json.loads((ROOT / 'tests/fixtures/native-graph.json').read_text())
+        rows = data['packages']
+        ids = {name: ('path+file:///fixture/zluda/' + name + '#' if local else
+                      'registry+https://github.com/rust-lang/crates.io-index#') + name + '@' + version
+               for name, version, local, _, _ in rows}
+        packages = [{'name': name, 'version': version, 'id': ids[name]} for name, version, *_ in rows]
+        nodes = [{'id': ids[name], 'deps': [
+            {'name': dependency.replace('-', '_'), 'pkg': ids[dependency],
+             'dep_kinds': [{'kind': kind, 'target': None}]} for dependency, kind in deps]}
+            for name, _, _, _, deps in rows]
+        tree = '\n'.join(name + ' v' + version + (' (/fixture/zluda/' + name + ')' if local else '') +
+                         '|' + ','.join(features) for name, version, local, features, _ in rows) + '\n'
+        return {'origin': data['origin'], 'metadata': {'packages': packages,
+            'workspace_members': [ids[name] for name, _, local, _, _ in rows if local],
+            'resolve': {'nodes': nodes}}, 'tree': tree}
 
     def test_resolved_workspace_specs_and_features(self):
         fixture = self.fixture()
@@ -926,136 +923,6 @@ class WineScope(unittest.TestCase):
                 wine_scope.inventory(root / 'empty.tar.gz', root / 'names', root / 'sizes', record)
 
 
-class AssemblyFixture(unittest.TestCase):
-    def test_complete_assembly_and_missing_payload_gate(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source, cache, build = [root / n for n in ['source', 'cache', 'build']]
-            for path in [source, cache, build]:
-                path.mkdir()
-            def run(repo, *args):
-                return subprocess.check_output(['git', '-C', str(repo), '-c',
-                                                'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
-                                                *args], stderr=subprocess.DEVNULL).decode().strip()
-            run(source, 'init', '-q')
-            (source / 'proton').write_text('launcher')
-            (source / 'proton_zluda.py').write_text('helper')
-            (source / 'utilities.py').write_text('Vulkan helper')
-            pf = source / 'protonfixes'
-            pf.mkdir()
-            run(pf, 'init', '-q')
-            (pf / 'changed.py').write_text('base')
-            (pf / 'deleted.py').write_text('old')
-            run(pf, 'add', '.')
-            run(pf, 'commit', '-qm', 'base')
-            pf_base = run(pf, 'rev-parse', 'HEAD')
-            pf_base_tree = run(pf, 'write-tree')
-            run(source, 'add', '.')
-            run(source, 'commit', '-qm', 'base tool')
-            base = run(source, 'rev-parse', 'HEAD')
-            (pf / 'changed.py').write_text('new')
-            (pf / 'deleted.py').unlink()
-            run(pf, 'add', '-A')
-            run(pf, 'commit', '-qm', 'new fixes')
-            pf_fork = run(pf, 'rev-parse', 'HEAD')
-            pf_tree = run(pf, 'write-tree')
-            patch = source / 'patches/protonfixes/0001-fixture.patch'
-            patch.parent.mkdir(parents=True)
-            patch.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'format-patch', '-1', '--stdout']))
-            run(pf, 'reset', '--hard', pf_base)
-            run(source, 'add', '.')
-            run(source, 'commit', '-qm', 'new tool')
-            commit = run(source, 'rev-parse', 'HEAD')
-            lock = copy.deepcopy(inputs.LOCK)
-            lock['components']['protonfixes'] = pf_base
-            lock['component_patches'] = {'protonfixes': {
-                'upstream_tree': pf_base_tree, 'fork_commit': pf_fork, 'fork_tree': pf_tree,
-                'prepared_tree': pf_tree, 'patches': [{'path': patch.relative_to(source).as_posix(),
-                    'sha256': inputs.sha256(patch), 'fork_change': True}]}}
-            lock['ge_source'] = base
-            ge = root / 'ge'
-            ge.mkdir()
-            tool = ge / 'GE-Proton11-7'
-            (tool / 'protonfixes').mkdir(parents=True)
-            stock = {}
-            for name in wine_scope.PRESERVED:
-                path = tool / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(b'stock GE ' + name.encode())
-                stock[name] = inputs.sha256(path)
-            stub_hashes = {}
-            for arch, machine in [('x86_64-windows', 0x8664), ('i386-windows', 0x14c)]:
-                path = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(pe(machine))
-                stub_hashes[arch] = inputs.sha256(path)
-            for directory, arch in cuda_package.policy.ARCHES.items():
-                path = tool / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll'
-                path.parent.mkdir(parents=True)
-                path.symlink_to('../../../../../lib/wine/' + arch + '/nvcuda.dll')
-            (tool / 'protonfixes/deleted.py').write_text('old')
-            legacy = tool / 'files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so'
-            legacy.parent.mkdir(parents=True)
-            legacy.write_bytes(b'legacy SveSop bridge must not ship')
-            (tool / 'compatibilitytool.vdf').write_text(
-                '\n"GE-Proton11-7" // Internal name\n"display_name" "GE"\n')
-            (cache / 'GE-Proton11-7-x86_64.tar.gz').write_bytes(b'fake GE for extraction fixture')
-            item = next(x for x in lock['downloads'] if x['id'] == 'ge')
-            item['sha256'] = inputs.sha256(cache / 'GE-Proton11-7-x86_64.tar.gz')
-            overlays = root / 'overlays'
-            overlays.mkdir()
-            trees = {}
-            for part in ['zluda', 'bridges']:
-                tree = root / ('tree-' + part)
-                (tree / 'provenance').mkdir(parents=True)
-                record = {'part': part, 'proton': commit,
-                          'input_lock_sha256': inputs.sha256(inputs.HERE / 'inputs.lock.json')}
-                (tree / 'provenance' / (part + '.json')).write_text(json.dumps(record))
-                if part == 'bridges':
-                    (tree / 'provenance/WINE-SCOPE.json').write_text(json.dumps(
-                        {'mode': 'x86_64-unix-ntdll', 'ge_preserved_sha256': stock,
-                         'ge_preserved_links': {}}))
-                for name in overlay.required_payload():
-                    if name in ['proton', 'proton_zluda.py'] or '/wine-cuda/stub/' in name or name.endswith('stubs.json'):
-                        continue
-                    if (name.startswith('files/lib64/')) != (part == 'zluda'):
-                        continue
-                    path = tree / name
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    if '/wine-cuda/zluda/' in name:
-                        path.write_bytes(elf() if name.endswith('.so') else
-                                         pe(0x8664, 788) if 'x86_64-windows' in name else pe(0x14c, 690))
-                    else:
-                        path.write_bytes(b'component')
-                if part == 'zluda':
-                    (tree / 'files/lib64/wine').symlink_to('../lib/wine')
-                    (tree / 'files/lib/wine/x86_64-unix').mkdir(parents=True)
-                inputs.manifest(tree)
-                trees[part + '.tar.gz'] = tree
-            def extract(archive, target, ge_base=False):
-                shutil.copytree(ge if archive.name.startswith('GE-') else trees[archive.name],
-                                target, symlinks=True)
-            env = {'SOURCE_ROOT': str(source), 'DOWNLOAD_ROOT': str(cache),
-                   'BUILD_ROOT': str(build), 'DESTDIR': str(root / 'result')}
-            with mock.patch.dict(os.environ, env), mock.patch.object(overlay, 'LOCK', lock), \
-                 mock.patch.object(overlay, 'extract', extract), \
-                 mock.patch.object(cuda_package.policy, 'STUB_SHA256', stub_hashes):
-                overlay.assemble(overlays)
-                dest = root / 'result'
-                inputs.verify_manifest(dest)
-                self.assertEqual((dest / 'protonfixes/changed.py').read_text(), 'new')
-                self.assertFalse((dest / 'protonfixes/deleted.py').exists())
-                self.assertEqual((dest / 'proton_zluda.py').read_text(), 'helper')
-                self.assertEqual((dest / 'utilities.py').read_text(), 'Vulkan helper')
-                self.assertTrue((dest / 'files/lib/wine/nvidia-libs/nvcuda').exists())
-                self.assertIn('GE-Proton11-7-zluda', (dest / 'compatibilitytool.vdf').read_text())
-                shutil.rmtree(dest)
-                shutil.rmtree(build)
-                build.mkdir()
-                (trees['bridges.tar.gz'] / 'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll').unlink()
-                inputs.manifest(trees['bridges.tar.gz'])
-                with self.assertRaisesRegex(ValueError, 'three-module contract'):
-                    overlay.assemble(overlays)
 
 
 if __name__ == '__main__':

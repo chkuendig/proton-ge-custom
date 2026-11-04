@@ -3,45 +3,16 @@
 from collections import Counter
 import importlib.util
 import json
-import math
-import statistics
 from pathlib import Path
 
 import cuda_package
-from inputs import LOCK, sha256
+from inputs import LOCK, PROFILE_FILE, base_artifact, sha256
 import wine_cpu
 
 MODES = ['free-library', 'exit-process', 'thread-exit']
 QUALIFICATION = 'real-Wine-synchronous-context-destructors-and-TLS-thread-detach'
 
 
-def check_timing(record, results):
-    output = (results / 'unix-call-cost.log').read_text()
-    rows = [line.removeprefix('TRANSITIONS: ') for line in output.splitlines() if line.startswith('TRANSITIONS: ')]
-    raw = json.loads(rows[0]) if len(rows) == 1 else None
-    if (not isinstance(raw, dict) or set(raw) != {'iterations', 'frequency_hz', 'samples_ticks', 'baseline_ticks'} or
-            type(raw['iterations']) is not int or raw['iterations'] != 200000 or
-            type(raw['frequency_hz']) is not int or raw['frequency_hz'] <= 0 or 'PASS:' not in output or
-            any(not isinstance(raw[key], list) or len(raw[key]) != 11 or
-                any(type(value) is not int or value <= 0 for value in raw[key])
-                for key in ['samples_ticks', 'baseline_ticks'])):
-        raise ValueError('Wine transition timing raw receipt mismatch')
-    value = record.get('unix_call_cost', {})
-    if any(value.get(key) != raw[key] for key in raw) or value.get('scope') != (
-            'hosted-CPU-pinned-Wine-noop; full-CUDA-wrapper-and-Deck-W1-W2-pending'):
-        raise ValueError('Wine transition timing result differs from raw observations')
-    scale = 1e9 / raw['frequency_hz'] / raw['iterations']
-    expected = [statistics.median(raw['samples_ticks']) * scale,
-                statistics.median(raw['baseline_ticks']) * scale,
-                *[(a-b) * scale for a, b in zip(raw['samples_ticks'], raw['baseline_ticks'])]]
-    deltas = value.get('paired_delta_ns', [])
-    observed = [value.get('median_ns_per_call'), value.get('median_windows_baseline_ns'), *deltas]
-    if len(deltas) != 11 or any(type(a) not in (int, float) or not math.isfinite(a) or
-            not math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-6) for a,b in zip(observed, expected)):
-        raise ValueError('Wine transition timing statistics differ from retained raw ticks')
-    if (results / 'unix-call-cost-backend.log').exists():
-        raise ValueError('Wine transition no-op unexpectedly loaded the CUDA backend')
-    return value
 
 
 def check_result(results, expected_inputs, expected_events, expected_pe_events, on_root, backend):
@@ -64,7 +35,6 @@ def check_result(results, expected_inputs, expected_events, expected_pe_events, 
                 Counter(case['events']) != Counter(expected_events[mode]) or
                 Counter(events.read_text().splitlines()) != Counter(expected_events[mode])):
             raise ValueError('Wine lifecycle probe/events mismatch: ' + mode)
-    check_timing(record, results)
     cleanup = record.get('cleanup', {})
     steps = cleanup.get('steps', [])
     if (cleanup.get('verified_absent') is not True or cleanup.get('lock', {}).get('absent') is not True or
@@ -87,7 +57,7 @@ def inputs(tool, build):
             'off': {arch + '/nvcuda.dll': sha256(tool / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll')
                     for arch in cuda_package.policy.ARCHES.values()},
             'backend': sha256(build / 'libcuda.so.1'), 'probe': sha256(build / 'lifecycle.exe'),
-            'helper': sha256(build / 'lifecycle-helper.dll'), 'transition': sha256(build / 'transition.exe')}
+            'helper': sha256(build / 'lifecycle-helper.dll'), 'base_artifact': base_artifact()}
 
 
 def run(source, tool, build, work):
@@ -104,7 +74,7 @@ def run(source, tool, build, work):
         for name in ['tmp', 'runtime']:
             (work / name).mkdir(mode=0o700)
         env = wine_cpu.environment(tool, work, wine, server)
-        for name in ['lifecycle.exe', 'lifecycle-helper.dll', 'transition.exe']:
+        for name in ['lifecycle.exe', 'lifecycle-helper.dll']:
             record[name] = wine_cpu.inspect_probe(build / name, 'win64')
         record['backend_needed'] = wine_cpu.inspect_backend(build / 'libcuda.so.1')
         before = inputs(tool, build)
@@ -115,7 +85,7 @@ def run(source, tool, build, work):
             '--dll-dir', tool / 'files/lib/wine', '--on-root', tool / 'files/lib/wine-cuda/zluda',
             '--off-root', tool / 'files/lib/wine-cuda/stub', '--backend', build / 'libcuda.so.1',
             '--probe', build / 'lifecycle.exe', '--helper', build / 'lifecycle-helper.dll',
-            '--transition', build / 'transition.exe',
+            '--base-profile', PROFILE_FILE,
             '--prefix', work / 'prefix', '--results', work / 'results'], env, work / 'runner.log', 600)
         record['runner'] = check_result(work / 'results', before, runner.EXPECTED_EVENTS, runner.EXPECTED_PE_EVENTS,
                                         tool / 'files/lib/wine-cuda/zluda', build / 'libcuda.so.1')

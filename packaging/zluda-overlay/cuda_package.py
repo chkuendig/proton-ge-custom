@@ -11,9 +11,12 @@ import struct
 import sys
 import tarfile
 
-from inputs import PROTON_ROOT
+from inputs import PROFILE, PROTON_ROOT
 sys.path.insert(0, str(PROTON_ROOT))
 import proton_zluda as policy
+
+STUB_HASHES = PROFILE['stub_artifact']['sha256']
+BASE_ARCHIVE_SHA256 = PROFILE['stub_artifact']['archive_sha256']
 
 MODULES = ['x86_64-windows/nvcuda.dll', 'i386-windows/nvcuda.dll', 'x86_64-unix/nvcuda.so']
 NAMES = {'nvcuda.dll', 'nvcuda.dll.so', 'nvcuda.so'}
@@ -118,33 +121,6 @@ def elf_info(path, require_wow64=True):
     return {'needed': needed, 'call_tables': sorted(tables & symbols)}
 
 
-def inspect_draft(artifacts, commit):
-    """Inspect x64 compile outputs without installing or certifying a package."""
-    names = {'nvcuda.dll', 'nvcuda.so'}
-    checksums = {}
-    for line in (artifacts / 'SHA256SUMS').read_text().splitlines():
-        expected, name = line.split('  ', 1)
-        if name in checksums or name not in names or not re.fullmatch('[0-9a-f]{64}', expected):
-            raise ValueError('invalid x64 draft checksum entry')
-        checksums[name] = expected
-    if set(checksums) != names:
-        raise ValueError('incomplete x64 draft output inventory')
-    for name, expected in checksums.items():
-        path = artifacts / name
-        if path.is_symlink() or digest(path) != expected:
-            raise ValueError('x64 draft checksum/regular-file failure: ' + name)
-    pe = pe_info(artifacts / 'nvcuda.dll')
-    check_pe_imports(pe)
-    if pe['machine'] != 0x8664:
-        raise ValueError('x64 draft PE machine mismatch')
-    native = elf_info(artifacts / 'nvcuda.so', require_wow64=False)
-    record = {'format': 'zluda-wine-x64-compile-draft-1', 'source_commit': commit,
-              'sha256': checksums, 'pe': pe, 'unix': native,
-              'x64_export_count': 'matches' if pe['named_exports'] == 788 else 'review-required',
-              'full_packaging_gate': 'NOT RUN: PE32/three-module/WoW64 contract is separate',
-              'qualification': 'UNQUALIFIED: compile evidence only; no packaging or ABI/runtime parity'}
-    (artifacts / 'X64-COMPILE-DRAFT.json').write_text(json.dumps(record, indent=2) + '\n')
-    return record
 
 
 def install_bridge(artifacts, tool, commit):
@@ -193,8 +169,8 @@ def install_bridge(artifacts, tool, commit):
 def write_stubs(tool, originals):
     cuda = tool / 'files/lib/wine-cuda'
     for arch, data in originals.items():
-        if hashlib.sha256(data).hexdigest() != policy.STUB_SHA256[arch]:
-            raise ValueError('GE stub does not match pinned hash: ' + arch)
+        if hashlib.sha256(data).hexdigest() != STUB_HASHES[arch]:
+            raise ValueError('base stub does not match pinned hash: ' + arch)
         out = cuda / 'stub' / arch / 'nvcuda.dll'
         out.parent.mkdir(parents=True, exist_ok=True)
         out.unlink(missing_ok=True)
@@ -207,19 +183,19 @@ def write_stubs(tool, originals):
         canonical.chmod(0o644)
         info = pe_info(out)
         if (info['machine'], info['named_exports']) != (0x8664 if arch.startswith('x86_64') else 0x14c, 0):
-            raise ValueError('GE stub is not an empty builtin PE: ' + arch)
+            raise ValueError('base stub is not an empty builtin PE: ' + arch)
     (cuda / 'stubs.json').write_text(json.dumps(
-        {'ge_archive_sha256': policy.GE_ARCHIVE_SHA256, 'sha256': policy.STUB_SHA256,
-         'prefix_policy': 'stock GE off; GE placeholders with builtin override on'}, indent=2) + '\n')
+        {PROFILE['stub_manifest']['archive_key']: BASE_ARCHIVE_SHA256, 'sha256': STUB_HASHES,
+         'prefix_policy': PROFILE['stub_manifest']['prefix_policy']}, indent=2) + '\n')
 
 
 def prepare_stubs(tool):
-    """Call while tool still contains the untouched checksum-locked GE tree."""
+    """Call while tool still contains the untouched checksum-locked base tree."""
     originals = {}
-    for arch in policy.STUB_SHA256:
+    for arch in STUB_HASHES:
         original = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
         if original.is_symlink():
-            raise ValueError('GE stub must be a regular file: ' + str(original))
+            raise ValueError('base stub must be a regular file: ' + str(original))
         originals[arch] = original.read_bytes()
     write_stubs(tool, originals)
 
@@ -227,18 +203,18 @@ def prepare_stubs(tool):
 def archive_stubs(archive, tool):
     # Stream the checksum so the half-gigabyte archive never resides in RAM.
     with archive.open('rb') as stream:
-        if hashlib.file_digest(stream, 'sha256').hexdigest() != policy.GE_ARCHIVE_SHA256:
-            raise ValueError('GE archive checksum mismatch')
+        if hashlib.file_digest(stream, 'sha256').hexdigest() != BASE_ARCHIVE_SHA256:
+            raise ValueError('base archive checksum mismatch')
     originals = {}
     with tarfile.open(archive) as stream:
         for member in stream:
-            for arch in policy.STUB_SHA256:
+            for arch in STUB_HASHES:
                 if member.name.split('/', 1)[-1] == 'files/lib/wine/' + arch + '/nvcuda.dll':
                     if not member.isfile() or arch in originals or member.size > 1024 * 1024:
-                        raise ValueError('invalid/duplicate GE stub archive member')
+                        raise ValueError('invalid/duplicate base stub archive member')
                     originals[arch] = stream.extractfile(member).read()
-    if set(originals) != set(policy.STUB_SHA256):
-        raise ValueError('GE archive lacks both CUDA stub modules')
+    if set(originals) != set(STUB_HASHES):
+        raise ValueError('base archive lacks both CUDA stub modules')
     write_stubs(tool, originals)
 
 
@@ -295,16 +271,14 @@ def audit(tool):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('command', choices=['install', 'stubs', 'template', 'clean', 'audit', 'archive-stubs', 'licenses', 'draft'])
+    parser.add_argument('command', choices=['install', 'stubs', 'template', 'clean', 'audit', 'archive-stubs', 'licenses'])
     parser.add_argument('tool', type=Path)
     parser.add_argument('--artifacts', type=Path)
     parser.add_argument('--commit')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--source', type=Path)
     args = parser.parse_args()
-    if args.command == 'draft':
-        inspect_draft(args.tool, args.commit)
-    elif args.command == 'archive-stubs':
+    if args.command == 'archive-stubs':
         archive_stubs(args.archive, args.tool)
     elif args.command == 'licenses':
         from overlay import collect_licenses, collect_bridge_notices

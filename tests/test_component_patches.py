@@ -1,7 +1,7 @@
 """Exact upstream/fork tree proofs and isolated patch preparation; no builds."""
 import ast
-import base64
 import copy
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -33,12 +33,10 @@ class ComponentPatches(unittest.TestCase):
         for name, snapshot in fixture.items():
             with self.subTest(component=name), tempfile.TemporaryDirectory() as temporary:
                 repo = Path(temporary)
-                git(repo, 'init', '-q')
-                for oid, content in snapshot['blobs'].items():
-                    self.assertEqual(git(repo, 'hash-object', '-w', '--stdin', data=base64.b64decode(content)), oid)
-                index = ''.join(mode + ' ' + oid + '\t' + path + '\0' for mode, oid, path in snapshot['entries'])
-                git(repo, 'update-index', '-z', '--index-info', data=index.encode())
-                self.assertEqual(git(repo, 'write-tree', '--missing-ok'), snapshot['upstream_tree'])
+                upstream = PROTON / name
+                subprocess.run(['git', 'clone', '--shared', '--no-checkout', '-q', str(upstream), str(repo)], check=True)
+                git(repo, 'read-tree', snapshot['upstream_commit'])
+                self.assertEqual(git(repo, 'write-tree'), snapshot['upstream_tree'])
                 self.assertEqual(LOCK['components'][name], snapshot['upstream_commit'])
                 spec = LOCK['component_patches'][name]
                 self.assertEqual(spec['upstream_tree'], snapshot['upstream_tree'])
@@ -49,8 +47,6 @@ class ComponentPatches(unittest.TestCase):
                 ge = [entry for entry in series if not entry['fork_change'] or entry.get('post_fork')]
                 patches.apply_series(repo, PROTON, own, cached=True)
                 self.assertEqual(git(repo, 'write-tree', '--missing-ok'), snapshot['fork_tree'])
-                # Preserve GE's OptiScaler patches too. Applying GE then our
-                # changes must equal GE applied on the original fork tree.
                 patches.apply_series(repo, PROTON, ge, cached=True)
                 expected = git(repo, 'write-tree', '--missing-ok')
                 self.assertEqual(expected, spec['prepared_tree'])
@@ -80,9 +76,7 @@ class ComponentPatches(unittest.TestCase):
                                 self.assertEqual(os.environ.get('PROTON_USE_WOW64'),
                                                  '1' if app != '208650' and requested != '0' else None)
                                 if app == '49520':
-                                    # Run the actual GE architecture-selection prefix, after
-                                    # early() has populated the process environment copied
-                                    # by Session. Late user_settings cannot repair this choice.
+                                    # Early selection must reach the actual architecture branch.
                                     tree = ast.parse((PROTON / 'proton').read_text())
                                     session = next(n for n in tree.body
                                                    if isinstance(n, ast.ClassDef) and n.name == 'Session')
@@ -140,7 +134,8 @@ class ComponentPatches(unittest.TestCase):
                     headers = dict(line.split(': ', 1) for line in info.splitlines() if ': ' in line)
                     for key in ['Author', 'Email', 'Date', 'Subject']:
                         self.assertEqual(headers[key], original[key.lower()])
-                    self.assertEqual((root / 'message').read_text().rstrip('\n'), original['body'])
+                    self.assertEqual(hashlib.sha256((root / 'message').read_text().rstrip('\n').encode()).hexdigest(),
+                                     original['message_sha256'])
 
     def test_full_make_bridge_admits_ge_prep_but_rejects_changed_bridge_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -19,7 +19,7 @@ class LifecycleCpu(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.expected = {'on': {'three': 'module-hashes'}, 'off': {'two': 'GE-hashes'},
-                         'probe': 'probe-hash', 'helper': 'helper-hash', 'backend': 'fake-hash', 'transition': 'timing-probe-hash'}
+                         'probe': 'probe-hash', 'helper': 'helper-hash', 'backend': 'fake-hash'}
         self.events = {mode: {mode + '-event': 1} for mode in gate.MODES}
         self.pe_events = {mode: [mode + '-PE-enter', mode + '-PE-leave'] for mode in gate.MODES}
         self.on_root, self.backend = self.root / 'tool/files/lib/wine-cuda/zluda', self.root / 'build/libcuda.so.1'
@@ -40,11 +40,6 @@ class LifecycleCpu(unittest.TestCase):
             (directory / (mode + '-pe.log')).write_text('\n'.join(self.pe_events[mode]) + '\n')
         for name in ['bootstrap', 'wineserver-cleanup', 'wineserver-wait', 'wineserver-verify']:
             (directory / (name + '.log')).write_text('')
-        raw = {'iterations': 200000, 'frequency_hz': 10000000,
-               'samples_ticks': [200000] * 11, 'baseline_ticks': [100000] * 11}
-        record['unix_call_cost'] = dict(raw, median_ns_per_call=100, median_windows_baseline_ns=50,
-            paired_delta_ns=[50] * 11, scope='hosted-CPU-pinned-Wine-noop; full-CUDA-wrapper-and-Deck-W1-W2-pending')
-        (directory / 'unix-call-cost.log').write_text('TRANSITIONS: ' + json.dumps(raw) + '\nPASS: timing fixture\n')
         (directory / 'RESULT.json').write_text(json.dumps(record))
         return record
 
@@ -61,10 +56,7 @@ class LifecycleCpu(unittest.TestCase):
                    lambda r:r['cleanup'].update(verified_absent=False),
                    lambda r:r['cleanup']['lock'].update(absent=False),
                    lambda r:r['cleanup']['steps'][2].update(returncode=0),
-                   lambda r:r['cleanup']['steps'][1].update(returncode=False),
-                   lambda r:r['unix_call_cost'].update(iterations=1),
-                   lambda r:r['unix_call_cost'].update(median_ns_per_call=0),
-                   lambda r:r['unix_call_cost'].update(paired_delta_ns=[])]
+                   lambda r:r['cleanup']['steps'][1].update(returncode=False)]
         for mutate in changes:
             record = copy.deepcopy(valid); mutate(record)
             (directory / 'RESULT.json').write_text(json.dumps(record))

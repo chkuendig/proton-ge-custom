@@ -34,7 +34,7 @@
     "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
     "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
     "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd",
-    "zluda-wine": "7463a450bbcbc1e931bfafa40f5313a5109959fc"
+    "zluda-wine": "ecf18df0e1d6cb55acb6ca1ec79a7f11889c386d"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -256,20 +256,20 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "5d21570f3f5e75c2b51b8c88525f4cbe8178fc20",
+    "tree": "c0af8a4f04eb2e30e8248942b7fe1eeb1521ee8f",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
     "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
     "license": "MIT OR Apache-2.0",
     "implementation": "Independent clean-room component; staging orphan commits move unchanged to dedicated repo after owner approval",
     "provenance_bundle": {
-      "LICENSES/PRODUCTION-INPUTS.json": "f3ec09e8adfa010aa0f5afb945c86c71ac1493160945ff6ab2f668c299cc5930",
+      "LICENSES/PRODUCTION-INPUTS.json": "088113f8846e0a6d5a037c8571a26424b821c354025d16eceef256b9096c2d5d",
       "LICENSES/PROVENANCE.md": "f66359e0f4407af1121780d82db7e0656d2278e9ae6a782d22a35b497bdafe06",
       "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
     },
     "component": "zluda-wine",
     "repository": "https://github.com/chkuendig/zluda-wine.git",
-    "staging_branch": "GE-Proton11-7-zluda",
+    "staging_branch": "cleanup-20261104",
     "backend_source": {
       "contract": "zluda-wine-backend-source-1",
       "repository": "https://github.com/chkuendig/ZLUDA",
@@ -285,7 +285,7 @@
       "source_origin": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b"
     },
     "backend_contract_sha256": "9f9479459ab678b847f45a8a451b454d09db74a7739978b0dfaea8045f8d083a",
-    "fixtures_tree": "e069e3eb5ebc96ebf9687239168cf8247ff7d9c5",
+    "fixtures_tree": "9c7b4f7c3906ac143af29f4d592b60c3335b65f7",
     "source_date_epoch": "1793751497"
   },
   "component_patches": {
@@ -338,5 +338,5 @@
       ]
     }
   },
-  "proton_source": "bd20ce7386a2d3cd9d7379855c6608ae27370ea9"
+  "proton_source": "5fe115eaeebdf4b647cc09732d914f67e6fad51b"
 }

@@ -8,25 +8,6 @@ on:
         type: choice
         default: ge-11-7
         options: [ge-11-7]
-      profile:
-        description: Full overlay or unqualified x64 bridge compile only
-        type: choice
-        default: overlay
-        options:
-          - overlay
-          - x64-draft
-      historical_a1:
-        description: Also create upgrade prefixes with CI-built A1 from run 40906607864 (expires 2026-11-12)
-        type: boolean
-        default: false
-      cleanup_tests:
-        description: Compile compact/original native tests and run focused CPU regressions (no GPU)
-        type: boolean
-        default: false
-      components_run:
-        description: 'Iteration only: reuse components from this run ID (empty = full rebuild; required for frozen W1)'
-        type: string
-        default: ''
 
 permissions:
   contents: read
@@ -40,7 +21,6 @@ env:
   ZLUDA_PACKAGING_PROFILE: ${{ inputs.base || 'ge-11-7' }}
   PROTON_SOURCE_ROOT: ${{ github.workspace }}/proton-source
   PYTHONPATH: ${{ github.workspace }}/proton-source
-  SDK_IMAGE: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
 
 jobs:
   static:
@@ -50,37 +30,22 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - name: Static tests and shell syntax before component fetch/build
         run: |
+          git -C "$PROTON_SOURCE_ROOT" submodule update --init --filter=blob:none -- dxvk-nvapi protonfixes
           python3 -m unittest discover -s tests
           for script in packaging/zluda-overlay/*.sh make/*.sh; do bash -n "$script"; done
 
   components:
     needs: static
-    if: inputs.components_run == ''
-    name: Build ${{ inputs.profile == 'x64-draft' && 'unqualified x64 draft' || matrix.part }}
+    name: Build ${{ matrix.part }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(inputs.profile == 'x64-draft' && '["bridges"]' || '["zluda", "bridges"]') }}
+        part: [zluda, bridges]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -89,22 +54,7 @@ jobs:
           persist-credentials: false
           submodules: false
           lfs: true
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - name: Checkout recursive component pins with LFS
         env:
           PART: ${{ matrix.part }}
@@ -148,25 +98,21 @@ jobs:
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
-          PROFILE: ${{ inputs.profile || 'overlay' }}
-          CLEANUP_TESTS: ${{ inputs.cleanup_tests && '1' || '0' }}
         run: |
           set -euo pipefail
           mkdir -p /work/logs
           docker pull "$SDK_IMAGE" 2>&1 | tee /work/logs/image.log
-          # CI is the only container launch site. On parklife this requires
-          # separate coordinator clearance, including any attempted dry run.
           docker run --rm --init --cpus=3 --memory=10g \
             -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src" -v /work:/work \
             -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build \
             -e SDK_ROOT=/work/sdk/opt/rocm-7.2.4 -e DOWNLOAD_ROOT=/work/downloads \
             -e WINE_SDK_ROOT=/work/wine-sdk -e DESTDIR=/work/overlay \
-            -e CLEANUP_TESTS="$CLEANUP_TESTS" -e BUILD_PART="$PART" -e BUILD_PROFILE="$PROFILE" -e JOBS=3 -e CARGO_HOME=/work/cargo \
+            -e BUILD_PART="$PART" -e JOBS=3 -e CARGO_HOME=/work/cargo \
             -e CCACHE_DIR=/work/ccache -e CCACHE_BASEDIR=/src \
             -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE "$SDK_IMAGE" bash /recipes/packaging/zluda-overlay/ci-build.sh \
             2>&1 | tee /work/logs/build.log
       - name: Rebuild shipped bridge sources offline in the SDK
-        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        if: matrix.part == 'bridges'
         run: |
           set -euo pipefail
           mkdir -p /work/archive-rebuild
@@ -197,7 +143,6 @@ jobs:
             /work/cargo/registry/index
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: inputs.profile != 'x64-draft'
         with:
           name: overlay-${{ matrix.part }}
           path: |
@@ -207,7 +152,7 @@ jobs:
           compression-level: 0
           retention-days: 7
       - name: Retain CPU fixtures compiled with the matching Wine SDK
-        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        if: matrix.part == 'bridges'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wine-cpu-fixtures
@@ -215,23 +160,13 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
-      - name: Upload unqualified x64 compile draft
-        if: inputs.profile == 'x64-draft'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - name: Retain W1 fixtures built from the same sources and SDK
+        if: matrix.part == 'bridges'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: zluda-wine-x64-draft
-          path: |
-            /work/build/zluda-wine-draft/artifacts
-            /work/build/zluda-wine-draft/x86_64-native-libs.log
+          name: w1-fixtures
+          path: /work/build/w1-fixtures
           if-no-files-found: error
-          retention-days: 7
-      - name: Retain compiler measurement capsule
-        if: always() && matrix.part == 'zluda'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: zoc-measurement-capsule
-          path: /work/build/zoc-capsule
-          if-no-files-found: warn
           retention-days: 14
       - name: Upload build and Wine logs
         if: always()
@@ -262,7 +197,6 @@ jobs:
           retention-days: 14
 
   scope-cpu:
-    if: inputs.profile != 'x64-draft'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -273,33 +207,18 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/zluda-wine
-          ref: 7463a450bbcbc1e931bfafa40f5313a5109959fc
+          ref: ${{ env.BRIDGE_PIN }}
           path: scope-source
           persist-credentials: false
       - name: Checkout the admitted backend declaration source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: chkuendig/ZLUDA
-          ref: 0a5db154b067af26115a0843107ff8ca766fe3b9
+          ref: ${{ env.BACKEND_PIN }}
           path: backend-source
           persist-credentials: false
           sparse-checkout: |
@@ -316,7 +235,6 @@ jobs:
           python3 scope-source/wine/zluda_wine/tests/run_native_tests.py
 
   pe32-luid:
-    if: inputs.profile != 'x64-draft'
     runs-on: windows-latest
     timeout-minutes: 20
     env:
@@ -330,34 +248,19 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - name: Checkout the exact candidate LUID fixture source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/zluda-wine
-          ref: 7463a450bbcbc1e931bfafa40f5313a5109959fc
+          ref: ${{ env.BRIDGE_PIN }}
           path: luid-source
           persist-credentials: false
       - name: Checkout the admitted backend declaration source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: chkuendig/ZLUDA
-          ref: 0a5db154b067af26115a0843107ff8ca766fe3b9
+          ref: ${{ env.BACKEND_PIN }}
           path: backend-source
           persist-credentials: false
           sparse-checkout: |
@@ -388,7 +291,7 @@ jobs:
           retention-days: 90
 
   w1-fixtures:
-    if: always() && inputs.profile != 'x64-draft' && needs.assemble.result == 'success'
+    if: always() && needs.assemble.result == 'success'
     needs: assemble
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -396,36 +299,19 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - name: Checkout the exact W1 fixture source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/zluda-wine
-          ref: 7463a450bbcbc1e931bfafa40f5313a5109959fc
+          ref: ${{ env.BRIDGE_PIN }}
           path: w1-source
           sparse-checkout: wine/w1-fixtures
           persist-credentials: false
-      - name: Download the pinned W1 fixture binaries
+      - name: Download this run's W1 fixtures
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: w1-fixtures
-          repository: chkuendig/ZLUDA
-          run-id: 41290291619
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/w1-fixtures
       - name: Download this run's fully rebuilt candidate
@@ -469,7 +355,6 @@ jobs:
           retention-days: 90
 
   assemble:
-    if: always() && inputs.profile != 'x64-draft' && (inputs.components_run != '' || needs.components.result == 'success')
     needs: components
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -479,22 +364,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - name: Make room for archive assembly and SDK checks
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
@@ -502,23 +372,10 @@ jobs:
           [[ $(df -B1 --output=avail "$RUNNER_TEMP" | tail -1) -ge 20000000000 ]]
       - name: Checkout pinned protonfixes
         run: git -C "$PROTON_SOURCE_ROOT" submodule update --init --recursive -- protonfixes
-      - name: Admit explicitly requested component reuse
-        if: inputs.components_run != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMPONENTS_RUN: ${{ inputs.components_run }}
-        run: |
-          set -euo pipefail
-          [[ $COMPONENTS_RUN =~ ^[0-9]+$ ]]
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN" > "$RUNNER_TEMP/component-run.json"
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/component-artifacts.json"
-          python3 packaging/zluda-overlay/reuse_components.py --source "$PROTON_SOURCE_ROOT" \
-            --run "$RUNNER_TEMP/component-run.json" --artifacts "$RUNNER_TEMP/component-artifacts.json" \
-            --output "$RUNNER_TEMP/COMPONENT-REUSE.json"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: overlay-*
-          run-id: ${{ inputs.components_run || github.run_id }}
+          run-id: ${{ github.run_id }}
           github-token: ${{ github.token }}
           merge-multiple: true
           path: ${{ runner.temp }}/overlays
@@ -548,29 +405,9 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: wine-cpu-fixtures
-          run-id: ${{ inputs.components_run || github.run_id }}
+          run-id: ${{ github.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/cpu-fixtures
-      - name: Download historical CI-built A1 for upgrade evidence
-        if: inputs.historical_a1
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: GE-Proton11-7-zluda
-          run-id: 40906607864
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/a1-download
-      - name: Prepare optional historical A1 tool
-        env:
-          HISTORICAL_A1: ${{ inputs.historical_a1 }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/a1-tool"
-          if [[ $HISTORICAL_A1 == true ]]; then
-            mapfile -t archives < <(find "$RUNNER_TEMP/a1-download" -name '*.tar.gz' -type f)
-            [[ ${#archives[@]} == 1 ]]
-            tar -xf "${archives[0]}" --strip-components=1 -C "$RUNNER_TEMP/a1-tool"
-            [[ -x $RUNNER_TEMP/a1-tool/proton ]]
-          fi
       - name: Run headless Wine CPU gate without network or GPU
         timeout-minutes: 40
         run: |
@@ -583,10 +420,9 @@ jobs:
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
             -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
             -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" \
-            -v "$RUNNER_TEMP/a1-tool:/a1-tool:ro" -e JOBS=3 \
-            -e REUSE_COMPONENTS_COMMIT \
+            -e JOBS=3 \
             -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE "$SDK_IMAGE" python3 /recipes/packaging/zluda-overlay/wine_cpu.py \
-            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures --a1-tool /a1-tool \
+            --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
       - name: Stage bounded CPU evidence without prefix traversal
         if: always()
@@ -625,22 +461,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Resolve the explicit Proton profile
-        shell: bash
-        run: |
-          python3 - <<'PYPROFILE'
-          import json, os
-          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
-          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
-          PYPROFILE
-      - name: Checkout the admitted Proton source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: chkuendig/proton-ge-custom
-          ref: ${{ env.PROTON_PIN }}
-          path: proton-source
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: ./.github/actions/proton-source
       - name: Download this run's candidate
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -682,25 +503,15 @@ jobs:
           path: ${{ runner.temp }}/PRODUCT-IDENTITY.json
           if-no-files-found: error
           retention-days: 90
-      - name: Download CI-built A1 at Proton 0fb8d56a
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: GE-Proton11-7-zluda
-          repository: chkuendig/proton-ge-custom
-          run-id: 40906607864
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/A1
-      - name: Verify both tool archives and compare every Wine builtin against A1 and stock GE
+      - name: Compare every Wine builtin against the published control and stock base
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/B"
           sha256sum -c SHA256SUMS
-          cd "$RUNNER_TEMP/A1"
-          sha256sum -c SHA256SUMS
           cd "$GITHUB_WORKSPACE"
-          python3 packaging/zluda-overlay/release_audit.py --source "$PROTON_SOURCE_ROOT" \
+          python3 packaging/zluda-overlay/release_audit.py \
             --candidate "$RUNNER_TEMP/B/GE-Proton11-7-zluda.tar.gz" \
-            --a1 "$RUNNER_TEMP/A1/GE-Proton11-7-zluda.tar.gz" \
+            --control "$RUNNER_TEMP/d32-control/GE-Proton11-7-zluda.tar.gz" \
             --output "$RUNNER_TEMP/release-audit"
       - name: Retain the complete builtin and timestamp inventory
         if: always()

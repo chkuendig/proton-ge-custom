@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "base": "ge",
-  "source_commit": "bd20ce7386a2d3cd9d7379855c6608ae27370ea9",
+  "source_commit": "5fe115eaeebdf4b647cc09732d914f67e6fad51b",
   "source_date_epoch": "1793802357",
   "stub_artifact": {
     "archive_sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0",
@@ -10,5 +10,17 @@
       "i386-windows": "2685d96065ea86c301a3e56f06b61e1e96a22645b7f69e9866721ad2f9f8833f"
     }
   },
-  "recipe_lock": "inputs.lock.json"
+  "recipe_lock": "inputs.lock.json",
+  "stub_manifest": {
+    "archive_key": "ge_archive_sha256",
+    "prefix_policy": "stock GE off; GE placeholders with builtin override on"
+  },
+  "source_repository": "chkuendig/proton-ge-custom",
+  "wine_prepared_baseline": {
+    "tree": "c2c0e5d217f928fa2894bdccd8d45928165a3185",
+    "wine_pin": "46b29104e3741fe23bf5e2547196a253aab88c89",
+    "staging_pin": "6cc805ea57132eeaf44764e9213823c9b8d0d300",
+    "base_source": "c191f35dcebbeccfacd3b4c6f6eea026e588c1c2",
+    "base_inputs": "20355017a003df43"
+  }
 }
