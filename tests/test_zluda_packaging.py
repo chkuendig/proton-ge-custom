@@ -281,6 +281,7 @@ class BootstrapFixtures(unittest.TestCase):
             helpers = root / 'helpers'
             helpers.mkdir()
             shutil.copyfile(inputs.HERE / 'inputs.py', helpers / 'inputs.py')
+            shutil.copytree(inputs.HERE / 'profiles', helpers / 'profiles')
             (helpers / 'inputs.lock.json').write_text(json.dumps(lock))
             cache = root / 'downloads'
             cache.mkdir()
@@ -368,7 +369,7 @@ class WinePrerequisites(unittest.TestCase):
             subprocess.run(['bash', '-c', script], check=True,
                            env=dict(os.environ, DESTDIR=str(root / 'overlay'),
                                     BUILD_ROOT=str(root / 'build'), DOWNLOAD_ROOT=str(root / 'downloads'),
-                                    SOURCE_ROOT=str(PROTON)))
+                                    SOURCE_ROOT=str(PROTON), here=str(inputs.HERE)))
 
     @unittest.skipUnless(shutil.which('make') or os.environ.get('PACKAGING_TEST_MAKE'), 'GNU Make is required')
     def test_ge_install_uses_private_prefix_with_exported_overlay_destdir(self):
