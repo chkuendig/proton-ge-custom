@@ -61,7 +61,7 @@ def builtin(name):
 
 
 def identity(record):
-    return None if record is None else {k: record[k] for k in ['kind', 'sha256', 'target', 'signature'] if k in record}
+    return None if record is None else {k: record[k] for k in ['kind', 'sha256', 'target', 'signature', 'mtime'] if k in record}
 
 
 def main():

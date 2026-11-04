@@ -8,8 +8,9 @@ mkdir -p "$OUTPUT_ROOT"
 name=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tool_name"])' "$here/inputs.lock.json")
 [[ $(basename "$DESTDIR") == "$name" ]]
 cp "$DESTDIR/MANIFEST" "$OUTPUT_ROOT/MANIFEST"
-# Preserve older GE mtimes: Wine uses wine.inf mtime to decide prefix updates.
-tar --sort=name --clamp-mtime --mtime="@$(git -C "$SOURCE_ROOT" show -s --format=%ct HEAD)" \
+# Preserve all stock file times, including newly built wine.inf. Clamping
+# them to the feature commit time would conceal stock/candidate differences.
+tar --sort=name \
     --owner=0 --group=0 --numeric-owner -C "$(dirname "$DESTDIR")" -cf - "$name" \
     | gzip -n > "$OUTPUT_ROOT/$name.tar.gz"
 (cd "$OUTPUT_ROOT" && sha256sum "$name.tar.gz" MANIFEST > SHA256SUMS)

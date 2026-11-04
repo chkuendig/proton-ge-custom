@@ -179,6 +179,22 @@
       "url": "https://github.com/madewokherd/xalia/releases/download/xalia-0.4.9/xalia-0.4.9-net48-mono.zip",
       "sha256": "e2c94a40f68f63660cc06405a641bc4e5a2e9b9320b9608e01a21feb6f6709c5",
       "size": 2230466
+    },
+    {
+      "id": "wine-gecko-x86",
+      "group": "valve",
+      "url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-x86.tar.xz",
+      "sha256": "2cfc8d5c948602e21eff8a78613e1826f2d033df9672cace87fed56e8310afb6",
+      "size": 43025064,
+      "source_url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-src.tar.xz"
+    },
+    {
+      "id": "wine-gecko-x86_64",
+      "group": "valve",
+      "url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-x86_64.tar.xz",
+      "sha256": "fd88fc7e537d058d7a8abf0c1ebc90c574892a466de86706a26d254710a82814",
+      "size": 41935496,
+      "source_url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-src.tar.xz"
     }
   ],
   "cargo_lock_sha256": "c7da4ae466c8a93d23a4fbe1c38d0b2f1c69b3815ebae2e4f3757b744a4dcfd0",

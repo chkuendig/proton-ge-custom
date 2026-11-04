@@ -25,8 +25,8 @@ B5, not identical B5 bits**. The native backend and ROCm comparison remain
 checksum-matched to published B5; the release audit rejects a mismatch.
 
 `build-wine.sh` builds the complete unmodified Valve distribution first and
-captures it as `valve-stock.tar.gz`. Built distribution timestamps are
-normalized to the pinned Valve source epoch. It then applies only the
+captures it as `valve-stock.tar.gz`. Stock file timestamps are preserved through assembly and audited.
+It then applies only the
 Mafia II `leave_handler` fix and rebuilds with the same upstream recipe.
 All builtins and `wine.inf` bytes and timestamps are audited against that
 stock build, published B5 and historical A1. The normal Valve media stack

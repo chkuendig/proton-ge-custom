@@ -12,7 +12,12 @@ mkdir -p "$out/log" "$stock"
 exec > >(tee -a "$out/log/build-wine.log") 2>&1
 pin=$(python3 -c 'import json,os; print(json.load(open(os.environ["SOURCE_ROOT"]+"/packaging/zluda-overlay/inputs.lock.json"))["proton_base"])')
 git -C "$stock" init -q
-git -C "$stock" fetch --depth=1 https://github.com/ValveSoftware/Proton.git "$pin" refs/tags/proton-11.0-2e
+repository=$(python3 -c 'import json,os; print(json.load(open(os.environ["SOURCE_ROOT"]+"/packaging/zluda-overlay/inputs.lock.json"))["valve_stock"]["repository"])')
+if ! git -C "$stock" remote get-url origin >/dev/null 2>&1; then
+    git -C "$stock" remote add origin "$repository"
+fi
+[[ $(git -C "$stock" remote get-url origin) == "$repository" ]]
+git -C "$stock" fetch --depth=1 origin "$pin" refs/tags/proton-11.0-2e
 git -C "$stock" checkout -q --detach "$pin"
 if ! git -C "$stock" show-ref --verify --quiet refs/tags/proton-11.0-2e; then
     git -C "$stock" tag proton-11.0-2e "$pin"
@@ -22,7 +27,8 @@ git -C "$stock" submodule update --init --recursive --depth=1 --filter=blob:none
 python3 "$here/valve_tool.py" admit "$stock" --output "$out/log/valve-source-pins.json"
 python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group valve
 mkdir -p "$stock/contrib"
-cp "$DOWNLOAD_ROOT/wine-mono-11.2.0-x86.tar.xz" "$DOWNLOAD_ROOT/xalia-0.4.9-net48-mono.zip" "$stock/contrib/"
+cp "$DOWNLOAD_ROOT/wine-mono-11.2.0-x86.tar.xz" "$DOWNLOAD_ROOT/xalia-0.4.9-net48-mono.zip" \
+   "$DOWNLOAD_ROOT/wine-gecko-2.47.4-x86.tar.xz" "$DOWNLOAD_ROOT/wine-gecko-2.47.4-x86_64.tar.xz" "$stock/contrib/"
 epoch=$(git -C "$stock" show -s --format=%ct HEAD)
 cd "$out"
 # Valve's media stack needs the SDK's i686 Linux Rust standard library.
@@ -36,9 +42,6 @@ PATH="$valve_path" rustc --version --verbose
 PATH="$valve_path" make -f "$stock/Makefile.in" SRCDIR="$stock" CONTAINER=1 \
     BUILD_NAME=Valve-Proton11.0-2e-stock INTERNAL_TOOL_NAME=Valve-Proton11.0-2e-stock \
     SOURCE_DATE_EPOCH="$epoch" BASE_SOURCE_DATE_EPOCH="$epoch" -j"$jobs" dist
-# Normalize the locally built stock distribution to its pinned source epoch.
-# The same captured bytes/mtimes are used as the candidate assembly baseline.
-python3 "$here/valve_tool.py" normalize "$out/dist" --epoch "$epoch" --output "$out/log/stock-mtimes.json"
 # Capture the actual unmodified stock tool, including every builtin/mtime.
 tar --sort=name --owner=0 --group=0 --numeric-owner -C "$out/dist" -cf - . \
     | gzip -n > /work/valve-stock.tar.gz
