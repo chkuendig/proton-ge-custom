@@ -45,6 +45,9 @@ if [[ $part == zluda || $part == all ]]; then
     ccache --max-size=4G
     bash "$here/build-native.sh"
     bash "$here/build-zoc.sh"
+    if [[ ${CLEANUP_TESTS:-0} == 1 ]]; then
+        bash "$here/check-cleanup-tests.sh"
+    fi
     cp "$BUILD_ROOT/native/link-layout.json" "$DESTDIR/provenance/NATIVE-LINK-LAYOUT.json"
     objcopy --strip-debug "$SOURCE_ROOT/zluda/target/release/libnvcuda.so" "$lib64/libcuda.so.1"
     ln -s libcuda.so.1 "$lib64/libcuda.so"
