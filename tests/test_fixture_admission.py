@@ -11,6 +11,42 @@ import reuse_components as reuse
 
 
 class Admission(unittest.TestCase):
+    def test_native_reuse_allows_bridge_retrieval_move_but_keeps_compiler_inputs_exact(self):
+        before = {'components': {'zluda': 'same-native', 'wine-bridge': 'old-bridge'},
+                  'source_repositories': {'zluda': 'same-native-repo', 'wine-bridge': 'old-repo'},
+                  'wine_bridge': {'tree': 'same-crate'}, 'sdk_image': 'same-sdk', 'llvm': 'same-llvm'}
+        after = copy.deepcopy(before)
+        after['components']['wine-bridge'] = 'new-bridge'
+        after['source_repositories']['wine-bridge'] = 'new-repo'
+        modules = ('[submodule "zluda"]\npath=zluda\nurl=same-native-repo\n'
+                   '[submodule "wine-bridge"]\npath=wine-bridge\nurl=old-repo\n')
+        def admit(candidate, candidate_modules):
+            def git(source, *args):
+                if args[0] == 'diff':
+                    return 'wine-bridge\n.gitmodules\n' + reuse.PREFIX + 'inputs.lock.json'
+                ref, name = args[1].split(':', 1)
+                if name == '.gitmodules':
+                    return candidate_modules if ref == 'HEAD' else modules
+                return json.dumps(candidate if ref == 'HEAD' else before)
+            with mock.patch.object(reuse.subprocess, 'run'), mock.patch.object(reuse, 'git', side_effect=git):
+                return reuse.validate_changes(Path('/source'), 'a' * 40, 'zluda')
+        moved = modules.replace('old-repo', 'new-repo')
+        self.assertEqual(admit(after, moved), 'a' * 40)
+        for key in ['sdk_image', 'llvm', 'wine_bridge']:
+            altered = copy.deepcopy(after)
+            altered[key] = 'different'
+            with self.assertRaisesRegex(ValueError, 'build input'):
+                admit(altered, moved)
+        for key in ['zluda']:
+            altered = copy.deepcopy(after)
+            altered['components'][key] = 'different'
+            with self.assertRaisesRegex(ValueError, 'build input'):
+                admit(altered, moved)
+        with self.assertRaisesRegex(ValueError, 'build input'):
+            admit(after, moved.replace('same-native-repo', 'different-native-repo'))
+        with self.assertRaisesRegex(ValueError, 'bridge submodule layout'):
+            admit(after, moved.replace('path=wine-bridge', 'path=different-path'))
+
     def test_native_reuse_retains_common_and_native_recipe_commands_exactly(self):
         original = ('common\nif [[ $part == zluda || $part == all ]]; then\ncompile-native\nfi\n'
                     'if [[ $part == bridges || $part == all ]]; then\ncompile-bridges\nfi\n'

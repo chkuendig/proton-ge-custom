@@ -2,6 +2,7 @@
 """Explicit manual iteration only: admit unchanged compiled component inputs."""
 import argparse
 import ast
+import configparser
 import hashlib
 import json
 import os
@@ -33,6 +34,18 @@ def native_recipe(data):
     return data[:start] + data[end:]
 
 
+def native_modules(data):
+    """The independent bridge's retrieval URL is not a native compiler input."""
+    modules = configparser.ConfigParser(interpolation=None)
+    modules.read_string(data)
+    section = 'submodule "wine-bridge"'
+    bridge = dict(modules[section])
+    if set(bridge) != {'path', 'url'} or bridge['path'] != 'wine-bridge':
+        raise ValueError('unexpected bridge submodule layout')
+    modules.remove_section(section)
+    return {section: dict(modules[section]) for section in modules.sections()}
+
+
 def validate_changes(source, commit, part='all'):
     if not re.fullmatch('[0-9a-f]{40}', commit):
         raise ValueError('reuse requires a full source commit')
@@ -42,6 +55,12 @@ def validate_changes(source, commit, part='all'):
             continue
         if part == 'zluda' and name in {PREFIX + 'nvapi-policy-tests.patch', PREFIX + 'build-nvapi-tests.sh'}:
             continue  # Test-only PE fixtures; never read by native compilation.
+        if part == 'zluda' and name == 'wine-bridge':
+            continue  # No bridge sources are compiled into the native backend.
+        if part == 'zluda' and name == '.gitmodules':
+            before, after = [git(source, 'show', ref + ':' + name) for ref in [commit, 'HEAD']]
+            if native_modules(before) == native_modules(after):
+                continue
         if part == 'zluda' and name == PREFIX + 'build-components.sh':
             before, after = [git(source, 'show', ref + ':' + name) for ref in [commit, 'HEAD']]
             if native_recipe(before) == native_recipe(after):
@@ -52,6 +71,8 @@ def validate_changes(source, commit, part='all'):
             for lock in [before, after]:
                 lock.pop('comparison_control', None)
                 lock.pop('nvapi_qualification', None)
+                lock['components'].pop('wine-bridge', None)
+                lock['source_repositories'].pop('wine-bridge', None)
             if before == after:
                 continue
         if part == 'bridges' and name in {'zluda', PREFIX + 'inputs.lock.json'}:

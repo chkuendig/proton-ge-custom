@@ -34,7 +34,7 @@
     "vosk-api": "12f29a3415e4967e088ed09202bfb0007e5a1787",
     "wine": "e60892cc2398b0a83c332a2078c7b85e47bdb42b",
     "zluda": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b",
-    "wine-bridge": "325ca5318a79477da1e8c010a5e7e0abba5f32bf"
+    "wine-bridge": "0446df1dd765522079d3e14ae96a7b903971ea93"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -256,7 +256,7 @@
     "glslang": "https://github.com/KhronosGroup/glslang",
     "FEX": "https://github.com/FEX-Emu/FEX/",
     "libsoup": "https://github.com/GNOME/libsoup.git",
-    "wine-bridge": "https://github.com/chkuendig/ZLUDA.git"
+    "wine-bridge": "https://github.com/chkuendig/zluda-wine.git"
   },
   "build_parts": {
     "zluda": [

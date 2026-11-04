@@ -80,4 +80,4 @@
 	url = https://github.com/chkuendig/ZLUDA
 [submodule "wine-bridge"]
 	path = wine-bridge
-	url = https://github.com/chkuendig/ZLUDA.git
+	url = https://github.com/chkuendig/zluda-wine.git
