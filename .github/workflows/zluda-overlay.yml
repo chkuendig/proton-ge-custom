@@ -362,6 +362,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
+      - name: Static harness tests before component-reuse environment admission
+        run: |
+          python3 -m unittest discover -s tests
+          for script in packaging/zluda-overlay/*.sh; do bash -n "$script"; done
       - name: Make room for archive assembly and SDK checks
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
@@ -422,11 +426,9 @@ jobs:
           set -euo pipefail
           mkdir -p "$BUILD_ROOT"
           bash packaging/zluda-overlay/assemble.sh 2>&1 | tee "$RUNNER_TEMP/assembly.log"
-      - name: Verify CI harness and build external Steam video providers
+      - name: Build external Steam video providers
         run: |
           set -euo pipefail
-          python3 -m unittest discover -s tests
-          for script in packaging/zluda-overlay/*.sh; do bash -n "$script"; done
           git submodule update --init --depth=1 -- ffmpeg
           mkdir -p "$RUNNER_TEMP/video-build"
           docker pull "$SDK_IMAGE"
