@@ -10,7 +10,8 @@ and an empty `components_run`. The full tool and Wine build execute only in
 the digest-pinned Steam Runtime SDK on hosted GitHub runners, with three jobs.
 No Deck access or installation is part of this workflow.
 
-`inputs.lock.json` pins the full Valve source, native B5 ZLUDA/LLVM/ROCm,
+`inputs.lock.json` pins the full Valve source, the extracted native B5 backend
+(`854720b6`), LLVM/ROCm,
 DXVK 60193094, and dxvk-nvapi fd105c0d plus the two production patches. The
 independent `wine-bridge` gitlink is resolved solely through `bridge_input.py`
 and the `wine_bridge` lock section. Its own `BACKEND-SOURCE.json` supplies
