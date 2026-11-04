@@ -41,6 +41,15 @@ def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args]).decode().strip()
 
 
+def packaging_identity():
+    commit = git(RECIPE_ROOT, 'rev-parse', 'HEAD')
+    remote = git(RECIPE_ROOT, 'remote', 'get-url', 'origin')
+    match = re.fullmatch(r'https://github\.com/([A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*?)(?:\.git)?', remote)
+    if not re.fullmatch('[0-9a-f]{40}', commit) or match is None:
+        raise ValueError('packaging identity requires a public GitHub repository and immutable commit')
+    return {'commit': commit, 'repository': 'https://github.com/' + match[1]}
+
+
 def request(url, method='GET'):
     return urllib.request.urlopen(urllib.request.Request(
         url, method=method, headers={'User-Agent': 'zluda-overlay-pins/1'}), timeout=60)

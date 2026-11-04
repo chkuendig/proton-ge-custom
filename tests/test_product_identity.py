@@ -42,9 +42,11 @@ class ProductIdentity(unittest.TestCase):
         self.assertIsNone(gate.metadata_change(name, b'{"arbitrary":1}', b'{"arbitrary":2}'))
         actual = {'proton': gate.PROFILE['source_commit'], 'component_build_proton': gate.PROFILE['source_commit'],
                   'input_lock_sha256': gate.sha(gate.LOCK_FILE.read_bytes()), 'components': gate.LOCK['components'],
-                  'wine_bridge': gate.LOCK['wine_bridge']}
+                  'wine_bridge': gate.LOCK['wine_bridge'], 'packaging': gate.packaging_identity()}
         result = gate.metadata_change(name, json.dumps(dict(actual, proton='old')).encode(), json.dumps(actual).encode())
         self.assertEqual(result['changed_fields'], ['proton'])
+        forged = dict(actual, packaging=dict(actual['packaging'], commit='0'*40))
+        self.assertIsNone(gate.metadata_change(name, json.dumps(actual).encode(), json.dumps(forged).encode()))
 
     def test_bridge_contract_allows_only_its_pinned_source_identity(self):
         name = 'provenance/ZLUDA-WINE.json'
@@ -243,3 +245,13 @@ class ProductIdentity(unittest.TestCase):
         tail_a = before+b'   Compiling first v1.0.0\n   Compiling second v1.0.0\n'
         tail_b = before+b'   Compiling second v1.0.0\n   Compiling first v1.0.0\n'
         self.assertIsNone(gate.support_change(name,tail_a,tail_b,{}))
+
+    def test_packaging_identity_rejects_nonpublic_or_credentialed_origins(self):
+        import inputs
+        with mock.patch.object(inputs, 'git', side_effect=['c'*40, 'https://github.com/owner/packaging.git']):
+            self.assertEqual(inputs.packaging_identity(), {'commit':'c'*40, 'repository':'https://github.com/owner/packaging'})
+        for remote in ['https://token@github.com/owner/packaging.git', 'https://github.com/owner/packaging?token=x',
+                       'https://github.com/owner/packaging#secret', '/local/source', 'git@github.com:owner/packaging.git',
+                       'https://elsewhere.example/owner/packaging.git']:
+            with mock.patch.object(inputs, 'git', side_effect=['c'*40,remote]), self.assertRaises(ValueError):
+                inputs.packaging_identity()

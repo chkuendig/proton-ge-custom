@@ -10,15 +10,15 @@ from pathlib import Path, PurePosixPath
 import tarfile
 import tempfile
 
-from inputs import LOCK, LOCK_FILE, PROFILE, PROTON_ROOT, RECIPE_ROOT, components_for_part, bridge_component, bridge_root, git, sha256
+from inputs import LOCK, LOCK_FILE, PROFILE, PROTON_ROOT, RECIPE_ROOT, components_for_part, bridge_component, bridge_root, git, packaging_identity, sha256
 
 CONTROL_TAR = '4321f9b0e78e1314ef9ba62845f9f9bb9d79a4fb83de6ce54826802f8583edf0'
 CONTROL_COMMIT = 'd32c45244f7f719d6e37c962c52b1cbdc063ce2c'
 # Only these derived identity receipts can differ, never executable directories.
 JSON_FIELDS = {
-    'provenance/PROVENANCE.json': {'proton', 'component_build_proton', 'input_lock_sha256', 'wine_bridge', 'components'},
-    'provenance/zluda.json': {'proton', 'input_lock_sha256', 'wine_bridge', 'components'},
-    'provenance/bridges.json': {'proton', 'input_lock_sha256', 'wine_bridge', 'components'},
+    'provenance/PROVENANCE.json': {'proton', 'component_build_proton', 'input_lock_sha256', 'wine_bridge', 'components', 'packaging'},
+    'provenance/zluda.json': {'proton', 'input_lock_sha256', 'wine_bridge', 'components', 'packaging'},
+    'provenance/bridges.json': {'proton', 'input_lock_sha256', 'wine_bridge', 'components', 'packaging'},
     'provenance/inputs.lock.json': {'proton_source', 'wine_bridge', 'components'},
     'provenance/SIZES.json': {'installed_regular_bytes', 'source_bytes', 'unique_content_bytes'},
     'provenance/zluda-SBOM.json': {'sources'},
@@ -138,7 +138,7 @@ def metadata_change(name, before, after, contents=None, old_entries=None, new_en
                 n: LOCK['components'][n] for n in components_for_part(part)}
             expected = {'proton': PROFILE['source_commit'], 'component_build_proton': PROFILE['source_commit'],
                         'input_lock_sha256': sha(LOCK_FILE.read_bytes()),
-                        'wine_bridge': LOCK['wine_bridge'], 'components': components}
+                        'wine_bridge': LOCK['wine_bridge'], 'components': components, 'packaging': packaging_identity()}
         elif name.endswith('-SBOM.json'):
             part = name.removeprefix('provenance/').removesuffix('-SBOM.json')
             expected = {'sources': {n: LOCK['components'][n] for n in components_for_part(part)}}

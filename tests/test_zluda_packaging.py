@@ -821,12 +821,14 @@ class NativeBuild(unittest.TestCase):
             rustc = tools / 'rustc'
             rustc.write_text('#!/bin/sh\nprintf "host: x86_64-unknown-linux-gnu\\n"\n')
             rustc.chmod(0o755)
+            graph = root / 'graph.json'
+            graph.write_text(json.dumps(NativePlan().fixture()))
             for fail in ['1', '0']:
                 trace = root / ('trace-' + fail)
                 env = dict(os.environ, PATH=str(tools) + ':' + os.environ['PATH'],
                            SOURCE_ROOT=str(root / 'source'), BUILD_ROOT=str(root / 'build'), SDK_ROOT=str(sdk),
                            LIBRARY_PATH=str(sdk / 'lib'), TRACE=str(trace), FAIL_NATIVE=fail, DESTDIR='/wrong-stage',
-                           GRAPH_FIXTURE=str(ROOT / 'tests/fixtures/native-graph.json'))
+                           GRAPH_FIXTURE=str(graph))
                 result = subprocess.run(['bash', str(inputs.HERE / 'build-native.sh')], env=env,
                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 calls = [json.loads(line) for line in trace.read_text().splitlines()]

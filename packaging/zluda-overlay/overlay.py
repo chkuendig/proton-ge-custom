@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tarfile
 
-from inputs import LOCK_FILE, bridge_root, HERE, LOCK, components_for_part, git, manifest, sha256, verify_manifest
+from inputs import LOCK_FILE, bridge_root, HERE, LOCK, components_for_part, git, manifest, packaging_identity, sha256, verify_manifest
 import wine_scope
 import cuda_package
 import component_patches
@@ -131,7 +131,7 @@ def metadata(part):
     shutil.copyfile(LOCK_FILE, prov / 'inputs.lock.json')
     recipes = dest / 'sources/overlay-recipes'
     shutil.copytree(HERE, recipes, ignore=shutil.ignore_patterns('__pycache__'))
-    record = {'format': 'zluda-overlay-provenance-1', 'part': part,
+    record = {'format': 'zluda-overlay-provenance-1', 'part': part, 'packaging': packaging_identity(),
               'proton': git(source, 'rev-parse', 'HEAD'),
               'input_lock_sha256': sha256(LOCK_FILE),
               'components': {n: LOCK['components'][n] for n in names},
@@ -269,7 +269,7 @@ def assemble(overlays):
     for name in required_payload():
         if not ((dest / name).is_file() and (dest / name).stat().st_size):
             raise ValueError(name)
-    provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
+    provenance = {'format': 'zluda-overlay-release-1', 'packaging': packaging_identity(), 'proton': git(source, 'rev-parse', 'HEAD'),
                   'component_build_proton': component_commit, 'component_reuse': None,
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'component_patches': LOCK['component_patches'],
