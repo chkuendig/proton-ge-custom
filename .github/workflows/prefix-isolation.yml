@@ -1,0 +1,73 @@
+name: Shared-prefix isolation prototype
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SDK_IMAGE: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Static source and temp-directory regression suite
+        run: python3 -m unittest discover -s tests
+      - name: Make room on the hosted runner
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          mkdir -p "$RUNNER_TEMP/runtime" "$RUNNER_TEMP/prefix-regression"
+          git show d013499f64f73f22e27ede7437a6fd511974c36a:proton > "$RUNNER_TEMP/baseline-proton"
+      - name: Download the frozen reference runtime (no candidate build or release)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: GE-Proton11-7-zluda
+          run-id: 41422471027
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/reference-download
+      - name: Verify exact runtime artifact and archive pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/chkuendig/proton-ge-custom/actions/artifacts/13135828280 > "$RUNNER_TEMP/prefix-regression/RUNTIME-ARTIFACT.json"
+          python3 - <<'PY'
+          import json, os
+          a=json.load(open(os.environ['RUNNER_TEMP']+'/prefix-regression/RUNTIME-ARTIFACT.json'))
+          assert a['workflow_run']['id']==41422471027 and a['workflow_run']['head_sha']=='d013499f64f73f22e27ede7437a6fd511974c36a'
+          assert a['digest']=='sha256:85f65edf14bd06986f00ce8f0747eac04c54dc9d2e45888b2e76c5cc2f431ac3'
+          PY
+          cd "$RUNNER_TEMP/reference-download"
+          sha256sum -c SHA256SUMS
+          echo '64652968faf9f7eab614e9f64dc888f4b8d226c3f8f534f845121a0e6b980d72  GE-Proton11-7-zluda.tar.gz' | sha256sum -c -
+          tar -xf GE-Proton11-7-zluda.tar.gz --strip-components=1 -C "$RUNNER_TEMP/runtime"
+      - name: Reproduce the old writer and verify the new Proton policy
+        run: |
+          set -euo pipefail
+          docker pull "$SDK_IMAGE"
+          docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=512 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/runtime:/tool:ro" \
+            -v "$RUNNER_TEMP/baseline-proton:/baseline-proton:ro" \
+            -v "$RUNNER_TEMP/prefix-regression:/work" \
+            "$SDK_IMAGE" python3 /src/packaging/zluda-overlay/shared_prefix_cpu.py \
+            --source /src --baseline /baseline-proton --tool /tool --work /work/run \
+            2>&1 | tee "$RUNNER_TEMP/prefix-regression/run.log"
+      - name: Retain bounded regression evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shared-prefix-isolation-evidence
+          path: |
+            ${{ runner.temp }}/prefix-regression/*.json
+            ${{ runner.temp }}/prefix-regression/*.log
+            ${{ runner.temp }}/prefix-regression/run/RESULT.json
+            ${{ runner.temp }}/prefix-regression/run/*.log
+            ${{ runner.temp }}/prefix-regression/run/cleanup-*/*.log
+            ${{ runner.temp }}/prefix-regression/run/final-cleanup/*.log
+          retention-days: 90

@@ -1,0 +1,82 @@
+name: Bridge extraction byte identity
+
+on:
+  push:
+    branches: [cleanup/extraction-20261104]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bridge-extraction-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SDK_IMAGE: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout the separately pinned component and backend
+        run: |
+          set -euo pipefail
+          GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --filter=blob:none -- zluda zluda-wine
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'packaging/zluda-overlay')
+          from inputs import check_bridge_contract
+          check_bridge_contract(Path.cwd())
+          PY
+      - name: Fetch B5's admitted product
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: GE-Proton11-7-zluda
+          run-id: 41745832871
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/b5
+      - name: Admit B5 and recover its digest-attested SDK capsule
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /work
+          sudo chown "$USER:$USER" /work
+          python3 packaging/zluda-overlay/extraction_proof.py prepare --archive "$RUNNER_TEMP/b5/GE-Proton11-7-zluda.tar.gz" --work /work/proof
+      - name: Rebuild the triad and offline capsule in B5's locked SDK
+        run: |
+          set -euo pipefail
+          docker pull "$SDK_IMAGE"
+          docker run --rm --init --cpus=3 --memory=6g \
+            -v "$GITHUB_WORKSPACE:/src" -v /work:/work \
+            -e BUILD_ROOT=/work/build -e DOWNLOAD_ROOT=/work/downloads \
+            -e CARGO_HOME=/work/cargo -e BUILD_PART=bridges -e JOBS=3 \
+            "$SDK_IMAGE" bash -c '
+              set -euo pipefail
+              git config --global --add safe.directory "*"
+              mkdir -p "$BUILD_ROOT" "$DOWNLOAD_ROOT"
+              python3 /src/packaging/zluda-overlay/inputs.py fetch "$DOWNLOAD_ROOT" --group bridges
+              bash /src/packaging/zluda-overlay/install-rust.sh
+              export PATH="$BUILD_ROOT/rust/bin:$PATH"
+              python3 /src/packaging/zluda-overlay/extraction_proof.py run --source /src --work /work/proof
+            ' 2>&1 | tee /work/extraction.log
+      - name: Retain byte identity and regeneration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: extraction-proof
+          path: |
+            /work/extraction.log
+            /work/proof/EXTRACTION-PROOF.json
+            /work/proof/component-source.tar.gz.json
+            /work/proof/component-source.tar.gz.check.log
+            /work/proof/offline-rebuild/REBUILD.json
+            /work/proof/offline-rebuild/*.log
+            /work/build/zluda-wine/artifacts
+          if-no-files-found: warn
+          retention-days: 14

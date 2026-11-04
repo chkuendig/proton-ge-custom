@@ -1,0 +1,3 @@
+[submodule "proton-source"]
+	path = proton-source
+	url = https://github.com/chkuendig/proton-ge-custom
