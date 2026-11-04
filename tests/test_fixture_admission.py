@@ -9,6 +9,23 @@ import reuse_components as reuse
 
 
 class Admission(unittest.TestCase):
+    def test_valve_reuse_requires_all_four_artifacts_and_exact_branch(self):
+        run = {'repository': {'full_name': 'chkuendig/proton-ge-custom'},
+               'head_branch': 'valve/11.0-zluda-20261104', 'head_sha': 'a' * 40, 'id': 123}
+        artifacts = {'artifacts': [dict(id=i, name=name, expired=False,
+                                       digest='sha256:' + 'b' * 64, size_in_bytes=17)
+                                  for i, name in enumerate(['overlay-zluda', 'overlay-bridges',
+                                                            'wine-cpu-fixtures', 'w1-fixtures'])]}
+        with mock.patch.object(reuse, 'validate_changes', return_value='a' * 40):
+            self.assertEqual(len(reuse.receipt(Path('/source'), run, artifacts)['artifacts']), 4)
+            for index in range(4):
+                missing = {'artifacts': [a for i, a in enumerate(artifacts['artifacts']) if i != index]}
+                with self.assertRaisesRegex(ValueError, 'incomplete'):
+                    reuse.receipt(Path('/source'), run, missing)
+            run['head_branch'] = 'bridge/nvcuda-guard-20261030'
+            with self.assertRaisesRegex(ValueError, 'source branch'):
+                reuse.receipt(Path('/source'), run, artifacts)
+
     def test_reuse_rejects_build_changes_and_preserves_nonassembly_functions(self):
         prefix = reuse.PREFIX
         for name in [prefix + 'build-bridges.sh', prefix + 'inputs.lock.json', 'zluda', 'Makefile.in']:

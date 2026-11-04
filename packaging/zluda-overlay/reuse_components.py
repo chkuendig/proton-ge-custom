@@ -14,6 +14,7 @@ PREFIX = 'packaging/zluda-overlay/'
 ALLOWED = {'proton', 'proton_zluda.py', 'default_pfx.py', 'README.md', '.github/workflows/zluda-overlay.yml'} | {
     PREFIX + name for name in ['README.md', 'wine_cpu.py', 'lifecycle_cpu.py', 'launcher_cpu.py',
                               'pinned_fixture_runner.py', 'reuse_components.py']}
+ALLOWED.add(PREFIX + 'release_audit.py')  # Artifact inspection cannot change compiled inputs.
 
 
 def admission_ast(data, functions):
@@ -50,12 +51,12 @@ def expected_commit(source):
 def receipt(source, run, artifacts):
     if run['repository']['full_name'] != 'chkuendig/proton-ge-custom':
         raise ValueError('unexpected component source repository')
-    if run['head_branch'] != 'bridge/nvcuda-guard-20261030':
+    if run['head_branch'] != 'valve/11.0-zluda-20261104':
         raise ValueError('unexpected component source branch')
     commit = validate_changes(source, run['head_sha'])
-    required = {'overlay-zluda', 'overlay-bridges', 'wine-cpu-fixtures'}
+    required = {'overlay-zluda', 'overlay-bridges', 'wine-cpu-fixtures', 'w1-fixtures'}
     selected = [item for item in artifacts['artifacts'] if item['name'] in required]
-    if len(selected) != 3 or {item['name'] for item in selected} != required:
+    if len(selected) != len(required) or {item['name'] for item in selected} != required:
         raise ValueError('component artifacts incomplete or ambiguous')
     for item in selected:
         if item['expired'] or not re.fullmatch('sha256:[0-9a-f]{64}', item.get('digest', '')):

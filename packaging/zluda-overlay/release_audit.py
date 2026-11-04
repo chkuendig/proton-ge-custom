@@ -64,6 +64,47 @@ def identity(record):
     return None if record is None else {k: record[k] for k in ['kind', 'sha256', 'target', 'signature', 'mtime'] if k in record}
 
 
+SOURCE_AND_NOTICE_REQUIRED = [
+    'sources/valve-proton-sources.tar.gz', 'sources/zluda-wine.tar.gz',
+    'sources/dxvk-nvapi-prepared.tar.gz', 'sources/numactl-2.0.18.tar.gz',
+    'sources/winetricks/winetricks', 'ZLUDA-WINE-NOTICE.md',
+    'licenses/zluda-wine/LICENSE-MIT', 'licenses/zluda-wine/LICENSE-APACHE',
+    'licenses/zluda-wine/LICENSES/PROVENANCE.md',
+]
+
+
+def audit_sources_and_notices(trees):
+    def notice(path):
+        parts = PurePosixPath(path).parts
+        return ('licenses' in [p.lower() for p in parts] or path.endswith('.license') or
+                bool(re.match(r'^(licen[sc]e|copying|copyright|notice|patents)([._-]|$)', parts[-1], re.I)) or
+                path == 'ZLUDA-WINE-NOTICE.md')
+
+    notices = {label: {p: r for p, r in tree.items() if notice(p)} for label, tree in trees.items()}
+    sources = {label: {p: r for p, r in tree.items() if p.startswith('sources/')} for label, tree in trees.items()}
+    candidate, stock = trees['candidate'], trees['Valve']
+    for path in ['LICENSE', 'LICENSE.OFL', 'PATENTS.AV1']:
+        if stock.get(path, {}).get('kind') != 'file' or not stock[path]['size']:
+            raise ValueError('incomplete Valve stock notice inventory: ' + path)
+    content = lambda r: None if r is None else {k: r[k] for k in ['kind', 'sha256', 'target'] if k in r}
+    for path, original in notices['Valve'].items():
+        if content(candidate.get(path)) != content(original):
+            raise ValueError('Valve stock notice lost or changed: ' + path)
+    for path in SOURCE_AND_NOTICE_REQUIRED:
+        if candidate.get(path, {}).get('kind') != 'file' or not candidate[path]['size']:
+            raise ValueError('required source or notice missing: ' + path)
+    comparisons = {}
+    for label, inventories in [('notices', notices), ('sources', sources)]:
+        comparisons[label] = {other: {
+            p: {'candidate': inventories['candidate'].get(p), other: inventories[other].get(p)}
+            for p in sorted(set(inventories['candidate']) | set(inventories[other]))
+            if content(inventories['candidate'].get(p)) != content(inventories[other].get(p))
+        } for other in ['A1', 'B5', 'Valve']}
+    return {'scope': 'all retained notices and source files; Valve notices preserved; required modified-source bundles present',
+            'notices': notices, 'sources': sources, 'comparisons': comparisons,
+            'required_sources_and_notices': SOURCE_AND_NOTICE_REQUIRED}
+
+
 def main():
     parser = argparse.ArgumentParser(__doc__)
     for name in ['source', 'candidate', 'a1', 'stock', 'control', 'output']:
@@ -83,6 +124,7 @@ def main():
     report = {'status': 'passed', 'scope': 'every canonical Wine architecture-root file and per-launch CUDA module; complete source/license inventories retained',
               'archives': {n: {'sha256': digest(p), 'bytes': p.stat().st_size} for n, p in archives.items()},
               'wine_inf': {n: t[wineinf] for n, t in trees.items()}, 'comparisons': {}, 'inventories': {}}
+    report['sources_and_notices'] = audit_sources_and_notices(trees)
     for name, tree in trees.items():
         report['inventories'][name] = {p: r for p, r in tree.items() if builtin(p)}
         if not all(any('/' + arch + '/' in p for p in report['inventories'][name])
