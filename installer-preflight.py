@@ -1,39 +1,33 @@
-import json,os,pathlib,subprocess,shutil,hashlib
-root=pathlib.Path('/work'); tool=pathlib.Path('/tool'); records=[]
-base=dict(os.environ)
-for k in list(base):
- if k.startswith(('WINE','PROTON_','ZLUDA_','STEAM_','HSA_')) or k in ('LD_PRELOAD','DISPLAY','WAYLAND_DISPLAY'):base.pop(k,None)
-base.update(LD_LIBRARY_PATH=':'.join(str(tool/'files/lib'/a) for a in ['wine/x86_64-unix','x86_64-linux-gnu','i386-linux-gnu']),PATH=str(tool/'protonfixes/files/bin')+':'+str(tool/'files/bin')+':/usr/bin:/bin',WINE=str(tool/'files/bin/wine'),WINELOADER=str(tool/'files/bin/wine'),WINESERVER=str(tool/'files/bin/wineserver'),WINEDEBUG='-all',WINEESYNC='0',WINEFSYNC='0',WINENTSYNC='0',WINEDLLPATH=str(tool/'files/lib/wine-cuda/stub')+':'+str(tool/'files/lib/wine'),WINETRICKS_LATEST_VERSION_CHECK='disabled',LD_PRELOAD='',HOME='/work/home',TMPDIR='/work/tmp',LC_ALL='C')
-for p in ['home','tmp']: (root/p).mkdir(exist_ok=True)
-def call(args,env,name):
- p=subprocess.run(list(map(str,args)),env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
- out={'name':name,'code':p.returncode,'stdout':p.stdout.decode(errors='replace'),'stderr':p.stderr.decode(errors='replace')}
- (root/(name+'.json')).write_text(json.dumps(out,indent=2));return out
-try:
- for arch in ['wow64','win64']:
-  env=dict(base,WINEPREFIX=str(root/('prefix-'+arch)),WINEARCH=arch)
-  template=tool/'files/share/default_pfx'
-  shutil.copytree(template,env['WINEPREFIX'],symlinks=True)
-  # Proton dereferences builtin template links when populating a real prefix.
-  for source in template.rglob('*'):
-   if source.is_symlink() and source.is_file():
-    dest=pathlib.Path(env['WINEPREFIX'])/source.relative_to(template)
-    dest.unlink();shutil.copyfile(source,dest)
-  devices=pathlib.Path(env['WINEPREFIX'])/'dosdevices';devices.mkdir(exist_ok=True)
-  for name,target in [('c:','../drive_c'),('z:','/')]:
-   link=devices/name
-   if not link.is_symlink():link.symlink_to(target)
-  boot=call([env['WINE'],'wineboot','-u'],env,arch+'-boot');assert boot['code']==0,boot
-  call([env['WINESERVER'],'-w'],env,arch+'-wait')
-  for flag in ['0','1']:
-   for inherited in ['yes','no']:
-    e=dict(env,PROTON_ENABLE_ZLUDA=flag,PROTON_USE_WOW64='1')
-    if inherited=='no':e.pop('WINEARCH',None)
-    name=f'{arch}-zluda{flag}-winearch{inherited}'
-    r=call([e['WINE'],'cmd.exe','/c','chcp 65001 > nul & echo %AppData%'],e,name+'-cmd')
-    w=call([tool/'protonfixes/files/bin/winetricks','--unattended','list-installed'],e,name+'-tricks')
-    records.append({'arch':arch,'zluda':flag,'WINEARCH':e.get('WINEARCH'),'cmd':r,'winetricks':w})
-  call([env['WINESERVER'],'-k'],env,arch+'-kill');call([env['WINESERVER'],'-w'],env,arch+'-closed')
-finally:
+import json,os,pathlib,subprocess,shutil
+root=pathlib.Path('/work');tool=pathlib.Path('/tool');records=[]
+(tool/'protonfixes/files/bin/winetricks').rename(tool/'protonfixes/files/bin/winetricks-real')
+wrapper=tool/'protonfixes/files/bin/winetricks'
+wrapper.write_text('''#!/usr/bin/python3
+import os,sys,json,pathlib
+out=pathlib.Path(os.environ['INSTALLER_TEST_DIR'])
+e={k:v for k,v in os.environ.items() if k.startswith(('WINE','PROTON_','ZLUDA_','LD_','HSA_'))}
+(out/'installer-env.json').write_text(json.dumps(e,indent=2))
+os.execv(str(pathlib.Path(__file__).with_name('winetricks-real')),['winetricks-real','--unattended','list-installed'])
+''');wrapper.chmod(0o755)
+for variant in ['automatic','automatic-log','manual-off','late-off']:
+ d=root/variant
+ for n in ['home','tmp','runtime','compatdata','game','steam','logs']:(d/n).mkdir(parents=True,exist_ok=True)
+ env=dict(os.environ)
+ for k in list(env):
+  if k.startswith(('WINE','PROTON_','ZLUDA_','STEAM_','HSA_')) or k in ('LD_PRELOAD','DISPLAY','WAYLAND_DISPLAY','SteamGameId','SteamAppId','UMU_ID'):env.pop(k,None)
+ env.update(HOME=str(d/'home'),TMPDIR=str(d/'tmp'),XDG_RUNTIME_DIR=str(d/'runtime'),PWD=str(d/'game'),STEAM_COMPAT_DATA_PATH=str(d/'compatdata'),STEAM_COMPAT_CLIENT_INSTALL_PATH=str(d/'steam'),STEAM_COMPAT_INSTALL_PATH=str(d/'game'),STEAM_COMPAT_APP_ID='49520',SteamGameId='49520',SteamAppId='49520',UMU_ID='49520',PROTON_NO_ESYNC='1',PROTON_NO_FSYNC='1',PROTON_USE_WINED3D='1',INSTALLER_TEST_DIR=str(d),WINEDEBUG='-all',LC_ALL='C')
+ if variant=='automatic-log':env.update(PROTON_LOG='1',PROTON_LOG_DIR=str(d/'logs'))
+ if variant in ['manual-off','late-off']:env['PROTON_ENABLE_ZLUDA']='0'
+ if variant=='manual-off':env['PROTON_USE_WOW64']='1'
+ settings=tool/'user_settings.py'
+ if variant=='late-off':settings.write_text("user_settings={'PROTON_ENABLE_ZLUDA':'0','PROTON_USE_WOW64':'1','WINEARCH':'wow64'}\n")
+ else:settings.unlink(missing_ok=True)
+ log=d/'proton.log'
+ with log.open('w') as output:
+  p=subprocess.run([str(tool/'proton'),'waitforexitandrun','C:\\windows\\system32\\cmd.exe','/c','echo FIRSTUSE_OK'],env=env,cwd=d/'game',stdout=output,stderr=subprocess.STDOUT,timeout=240)
+ text=log.read_text();r={'variant':variant,'returncode':p.returncode,'hook_failed':'PhysX installation failed' in text,'game_output':'FIRSTUSE_OK' in text,'winetricks_logged':(d/'compatdata/pfx/winetricks.log.forced').exists()};records.append(r)
+ e=json.loads((d/'installer-env.json').read_text())
+ for flag in ['-k','-w']:
+  subprocess.run([str(tool/'files/bin/wineserver'),flag],env=e,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
  (root/'REPORT.json').write_text(json.dumps(records,indent=2))
 print(json.dumps(records,indent=2))

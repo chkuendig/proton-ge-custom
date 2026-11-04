@@ -1,4 +1,4 @@
-name: B5 installer environment preflight
+name: B5 real Proton installer preflight
 on: workflow_dispatch
 permissions:
   contents: read
@@ -30,11 +30,11 @@ jobs:
           docker run --rm --init --network=none --cpus=3 --memory=4g --pids-limit=256 \
             --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
-            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/product/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/product/GE-Proton11-7-zluda:/tool" \
             -v "$RUNNER_TEMP/preflight:/work" "$image" python3 /src/installer-preflight.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: installer-preflight
-          path: /home/runner/work/_temp/preflight/*.json
+          path: /home/runner/work/_temp/preflight/**/*.json
           retention-days: 14
