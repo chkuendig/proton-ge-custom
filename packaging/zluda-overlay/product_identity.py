@@ -4,11 +4,13 @@ import argparse
 import hashlib
 import io
 import json
+import re
 import subprocess
 from pathlib import Path, PurePosixPath
 import tarfile
+import tempfile
 
-from inputs import HERE, LOCK, PROTON_ROOT, RECIPE_ROOT, bridge_root, git
+from inputs import LOCK, PROTON_ROOT, RECIPE_ROOT, bridge_component, bridge_root, git
 
 CONTROL_TAR = '4321f9b0e78e1314ef9ba62845f9f9bb9d79a4fb83de6ce54826802f8583edf0'
 CONTROL_COMMIT = 'd32c45244f7f719d6e37c962c52b1cbdc063ce2c'
@@ -21,8 +23,13 @@ JSON_FIELDS = {
     'provenance/SIZES.json': {'installed_regular_bytes', 'source_bytes', 'unique_content_bytes'},
     'provenance/zluda-SBOM.json': {'sources', 'license_files'},
     'provenance/bridges-SBOM.json': {'sources', 'license_files'},
-    'provenance/ZLUDA-WINE.json': {'source_commit', 'source_tree', 'build_contract_sha256'},
+    'provenance/ZLUDA-WINE.json': {'contract'},
+    'provenance/WINE-CALLBACK-ATTESTATION.json': {'prepared_commit'},
+    'provenance/WINE-SCOPE.json': {'baseline', 'head'},
 }
+SUPPORT = {'provenance/WINE-BUILD-RECIPE.mk', 'provenance/WINE-OVERLAY',
+           'sources/zluda-wine.tar.gz.json', 'sources/zluda-wine.tar.gz.check.log',
+           'external/prepared-wine-abi.json'}
 
 
 def sha(data):
@@ -48,10 +55,11 @@ def inventory(archive, product):
                 name = parts[1]
             if name in entries:
                 raise ValueError('duplicate archive member: ' + name)
-            record = {'mode': member.mode, 'mtime': member.mtime, 'type': member.type.decode('ascii')}
+            record = {'mode': member.mode, 'mtime': member.mtime, 'uid': member.uid,
+                      'gid': member.gid, 'type': member.type.decode('ascii')}
             if member.isfile():
                 h, saved = hashlib.sha256(), []
-                retain = name.startswith(('sources/', 'external/proton-build-recipes/')) or name in JSON_FIELDS or name in ('MANIFEST', 'SYMLINKS.json', 'external/BRIDGE-BUILD.json')
+                retain = name.startswith(('sources/', 'external/proton-build-recipes/')) or name in JSON_FIELDS or name in SUPPORT or name in ('MANIFEST', 'SYMLINKS.json', 'external/BRIDGE-BUILD.json')
                 with stream.extractfile(member) as source:
                     while block := source.read(1024 * 1024):
                         h.update(block)
@@ -65,6 +73,22 @@ def inventory(archive, product):
             elif not member.isdir():
                 raise ValueError('unsupported archive member: ' + name)
             entries[name] = record
+    def resolve(name, seen):
+        if name in seen or name not in entries:
+            raise ValueError('invalid archive hardlink: ' + name)
+        record = entries[name]
+        if record['type'] == '1':
+            target = safe_name(record['target'])
+            if product:
+                target = target.split('/', 1)[-1]
+            source = resolve(target, seen | {name})
+            record.update(sha256=source['sha256'], size=source['size'])
+        elif 'sha256' not in record:
+            raise ValueError('archive hardlink target is not a regular file: ' + name)
+        return record
+    for name, record in entries.items():
+        if record['type'] == '1':
+            resolve(name, set())
     return entries, content
 
 
@@ -94,29 +118,87 @@ def metadata_change(name, before, after):
     except (ValueError, TypeError):
         return None
     changed = {k for k in old.keys() | new.keys() if old.get(k) != new.get(k)}
+    if name == 'provenance/ZLUDA-WINE.json' and 'contract' in changed:
+        a, b = dict(old['contract']), dict(new['contract'])
+        a.pop('source_commit', None)
+        if b.pop('source_commit', None) != LOCK['components'][bridge_component()] or a != b:
+            return None
     if changed <= JSON_FIELDS[name]:
         return {'classification': 'source-identity-or-derived-metadata', 'changed_fields': sorted(changed)}
     return None
 
 
-def recipe_change(relative, after):
-    path = HERE / relative
-    # Candidate source bytes must be precisely those committed in the packaging
-    # input, not arbitrary bytes in a generated tool source directory.
-    if after is None and path.is_dir():
-        return {'classification': 'moved-packaging-source-directory'}
-    if after is not None and path.is_file() and sha(path.read_bytes()) == sha(after):
-        try:
-            expected = git(RECIPE_ROOT, 'rev-parse', 'HEAD:packaging/zluda-overlay/' + relative)
-            if git(RECIPE_ROOT, 'hash-object', str(path)) == expected:
-                return {'classification': 'moved-packaging-tool-source', 'source_blob': expected}
-        except Exception:
+def recipe_change(relative, after, record=None):
+    spec = 'HEAD:packaging/zluda-overlay/' + relative
+    try:
+        kind = git(RECIPE_ROOT, 'cat-file', '-t', spec)
+        if kind == 'tree':
+            return {'classification': 'moved-packaging-source-directory'} if (
+                after is None and record and record['type'] == '5') else None
+        data = subprocess.check_output(['git', '-C', str(RECIPE_ROOT), 'show', spec])
+        if after is not None and kind == 'blob' and sha(data) == sha(after):
+            return {'classification': 'moved-packaging-tool-source',
+                    'source_blob': git(RECIPE_ROOT, 'rev-parse', spec)}
+    except subprocess.CalledProcessError:
+        if after is not None:
             return None
-    if after is None and not path.exists():
         origin = json.loads((RECIPE_ROOT / 'SOURCE-ORIGIN.json').read_text())['files']
         retired = [x for x in origin if x['path'] == 'packaging/zluda-overlay/' + relative or x['path'].startswith('packaging/zluda-overlay/' + relative.rstrip('/') + '/')]
         if retired and all(x['action'] in {'MOVE-PRIVATE', 'DROP'} for x in retired):
             return {'classification': 'removed-reviewed-test-tool-source'}
+    return None
+
+
+def prepared_identity(before, after):
+    old, new = json.loads(before), json.loads(after)
+    changed = {k for k in old.keys() | new.keys() if old.get(k) != new.get(k)}
+    if changed <= {'prepared_commit'} and re.fullmatch('[0-9a-f]{40}', new.get('prepared_commit', '')):
+        return {'classification': 'prepared-source-commit-metadata', 'changed_fields': sorted(changed)}
+    return None
+
+
+def support_change(name, before, after, contents):
+    if name == 'provenance/WINE-BUILD-RECIPE.mk':
+        import wine_deps
+        scope = json.loads(contents['provenance/WINE-SCOPE.json'])
+        with tempfile.TemporaryDirectory() as temporary:
+            build = Path(temporary)
+            expected = wine_deps.generate(PROTON_ROOT, build, scope['mode'] == 'x86_64-unix-ntdll').read_text()
+            expected = expected.replace(str(PROTON_ROOT), '/src').replace(str(build), '/work/build/wine')
+            expected = expected.replace(str(wine_deps.HERE), '/recipes/packaging/zluda-overlay')
+        if after == expected.encode():
+            return {'classification': 'generated-committed-build-tooling', 'sha256': sha(after)}
+    elif name == 'provenance/WINE-OVERLAY':
+        normalize = lambda data: re.sub(rb'^built=\S+', b'built=<timestamp>', data, flags=re.M)
+        old, new = normalize(before), normalize(after)
+        expected = sha(contents['provenance/WINE-BUILD-RECIPE.mk']).encode()
+        if re.search(rb'^configure_recipe_sha256=' + expected + rb'$', new, re.M) is None:
+            return None
+        old = re.sub(rb'^(rev|configure_recipe_sha256)=\S+', rb'\1=<identity>', old, flags=re.M)
+        new = re.sub(rb'^(rev|configure_recipe_sha256)=\S+', rb'\1=<identity>', new, flags=re.M)
+        if old == new:
+            return {'classification': 'build-tooling-identity-and-timestamp'}
+    elif name == 'sources/zluda-wine.tar.gz.check.log':
+        def normalize(data):
+            data = re.sub(rb'/archive-check-[a-z0-9_]+/', b'/archive-check-<temporary>/', data)
+            return re.sub(rb'^(    Finished .+ in )[0-9.]+s$', rb'\1<duration>s', data, flags=re.M)
+        if normalize(before) == normalize(after):
+            return {'classification': 'source-rebuild-log-temporary-path-and-duration'}
+    elif name == 'sources/zluda-wine.tar.gz.json':
+        old, new = json.loads(before), json.loads(after)
+        changed = {k for k in old.keys() | new.keys() if old.get(k) != new.get(k)}
+        if not changed <= {'source_commit', 'source_tree', 'prepared_abi_receipt_sha256', 'sdk_capsule', 'archive_sha256'}:
+            return None
+        if changed & {'source_commit', 'source_tree'} and (
+                new.get('source_commit') != LOCK['components'][bridge_component()] or
+                new.get('source_tree') != git(bridge_root(PROTON_ROOT), 'rev-parse', 'HEAD^{tree}')):
+            return None
+        capsule = contents['sources/zluda-wine.tar.gz']
+        entries, data = inventory(io.BytesIO(capsule), False)
+        expected = {n:r['sha256'] for n,r in entries.items() if n.startswith('external/') and 'sha256' in r}
+        if (new['archive_sha256'] == sha(capsule) and new['sdk_capsule'] == expected and
+                new['prepared_abi_receipt_sha256'] == sha(data['external/prepared-wine-abi.json'])):
+            return {'classification': 'verified-source-capsule-receipt', 'changed_fields': sorted(changed)}
     return None
 
 
@@ -135,12 +217,15 @@ def nested_changes(name, before, after):
         if a and b and stripped(a) == stripped(b):
             classification = {'classification': 'git-archive-commit-timestamp'}
         elif path.startswith('external/proton-build-recipes/'):
-            classification = recipe_change(path.removeprefix('external/proton-build-recipes/'), nc.get(path))
+            classification = recipe_change(path.removeprefix('external/proton-build-recipes/'), nc.get(path), b)
         elif path == 'external/BRIDGE-BUILD.json':
             x, y = json.loads(oc[path]), json.loads(nc[path])
             changed = {key for key in x.keys() | y.keys() if x.get(key) != y.get(key)}
-            if changed <= {'source_commit', 'source_tree'}:
+            if (changed <= {'source_commit', 'source_tree', 'abi_receipt_sha256'} and
+                    y['abi_receipt_sha256'] == sha(nc['external/prepared-wine-abi.json'])):
                 classification = {'classification': 'bridge-source-identity', 'changed_fields': sorted(changed)}
+        elif path == 'external/prepared-wine-abi.json':
+            classification = prepared_identity(oc[path], nc[path])
         else:
             scope = json.loads((RECIPE_ROOT / 'BRIDGE-ORIGIN.json').read_text())
             admitted = scope.get(path, {})
@@ -183,8 +268,10 @@ def compare(control, candidate, cm, nm, output):
             classification = {'classification': 'derived-verified-manifest'}
         elif name in JSON_FIELDS and name in oc and name in nc:
             classification = metadata_change(name, oc[name], nc[name])
+        elif name in SUPPORT and name in oc and name in nc:
+            classification = support_change(name, oc[name], nc[name], nc)
         elif name.startswith('sources/overlay-recipes/'):
-            classification = recipe_change(name.removeprefix('sources/overlay-recipes/'), nc.get(name))
+            classification = recipe_change(name.removeprefix('sources/overlay-recipes/'), nc.get(name), b)
         elif name.startswith('sources/') and name.endswith('.tar.gz') and name in oc and name in nc:
             classification = nested_changes(name, oc[name], nc[name])
             if classification['unclassified']:
