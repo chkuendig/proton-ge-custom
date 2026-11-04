@@ -65,6 +65,7 @@ if [[ $part == zluda || $part == all ]]; then
         # The real HIP library needs libnuma even for CPU-only test startup.
         # Use the same checksum-locked library installed into the product.
         LD_LIBRARY_PATH="$lib64:$LD_LIBRARY_PATH" bash "$here/check-cleanup-tests.sh"
+        LD_LIBRARY_PATH="$lib64:$LD_LIBRARY_PATH" bash "$here/check-review-tests.sh"
     fi
 fi
 

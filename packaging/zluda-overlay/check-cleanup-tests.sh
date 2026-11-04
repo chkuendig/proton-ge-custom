@@ -46,10 +46,12 @@ for name in ['tex', 'driver', 'surf']:
     path = Path('zluda/src/impl') / (name + '.rs')
     before = path.read_bytes()
     original = subprocess.check_output(['git', 'show', origin + ':' + path.as_posix()])
-    assert before.split(b'#[cfg(test)]', 1)[0] == original.split(b'#[cfg(test)]', 1)[0]
+    production = before.split(b'#[cfg(test)]', 1)[0]
+    original_tests = original.split(b'#[cfg(test)]', 1)[1]
     records.append({'path': str(path), 'compact_sha256': hashlib.sha256(before).hexdigest(),
-                    'original_sha256': hashlib.sha256(original).hexdigest(), 'production_identical': True})
-    path.write_bytes(original)
+                    'original_sha256': hashlib.sha256(original).hexdigest(),
+                    'production_sha256': hashlib.sha256(production).hexdigest(), 'production_preserved': True})
+    path.write_bytes(production + b'#[cfg(test)]' + original_tests)
 out = Path(os.environ['BUILD_ROOT']) / 'native/cleanup-tests/PRIVATE-OVERLAY.json'
 out.write_text(json.dumps({'origin': origin, 'files': records}, indent=2) + '\n')
 PY

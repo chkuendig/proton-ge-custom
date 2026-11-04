@@ -186,6 +186,15 @@ jobs:
           path: /work/build/zoc-capsule
           if-no-files-found: warn
           retention-days: 14
+      - name: Retain paired compiler capsules and removal trials
+        if: always() && matrix.part == 'zluda' && inputs.cleanup_tests
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: review-compiler-capsules
+          path: /work/build/review-capsules
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Upload build and Wine logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
