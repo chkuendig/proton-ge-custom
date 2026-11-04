@@ -199,13 +199,17 @@ def extract(archive, target, ge_base=False):
 def assemble(overlays):
     source, cache, dest, build = map(environment, ['SOURCE_ROOT', 'DOWNLOAD_ROOT', 'DESTDIR', 'BUILD_ROOT'])
     component_commits = {part: reuse_components.expected_commit(source, part) for part in ['zluda', 'bridges']}
-    reuse = None
-    if os.environ.get('REUSE_COMPONENTS_COMMIT') or os.environ.get('REUSE_BRIDGES_COMMIT'):
-        reuse = json.loads(Path(os.environ['COMPONENT_REUSE_RECEIPT']).read_text())
-        reused_parts = ['bridges'] if reuse.get('part') == 'bridges' else ['zluda', 'bridges']
-        if any(reuse['commit'] != component_commits[part] for part in reused_parts):
+    records = []
+    for variable in ['COMPONENT_REUSE_RECEIPT', 'NATIVE_REUSE_RECEIPT']:
+        if not os.environ.get(variable):
+            continue
+        record = json.loads(Path(os.environ[variable]).read_text())
+        reused_parts = [record['part']] if record.get('part') in component_commits else list(component_commits)
+        if any(record['commit'] != component_commits[part] for part in reused_parts):
             raise ValueError('component reuse receipt commit mismatch')
-        reuse['downloaded_archives'] = {p.name: sha256(p) for p in sorted(overlays.glob('*.tar.gz'))}
+        records.append(record)
+    reuse = {'records': records, 'downloaded_archives': {
+        p.name: sha256(p) for p in sorted(overlays.glob('*.tar.gz'))}} if records else None
     archive = overlays / 'valve-stock.tar.gz'
     stock = json.loads((overlays / 'VALVE-STOCK.json').read_text())
     if (stock['proton_pin'] != LOCK['proton_base'] or

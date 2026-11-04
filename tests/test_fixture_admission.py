@@ -11,6 +11,37 @@ import reuse_components as reuse
 
 
 class Admission(unittest.TestCase):
+    def test_native_reuse_retains_common_and_native_recipe_commands_exactly(self):
+        original = ('common\nif [[ $part == zluda || $part == all ]]; then\ncompile-native\nfi\n'
+                    'if [[ $part == bridges || $part == all ]]; then\ncompile-bridges\nfi\n'
+                    'DESTDIR=$DESTDIR python3 metadata\n')
+        changed = original.replace('compile-bridges', 'preflight-tests\ncompile-bridges')
+        self.assertEqual(reuse.native_recipe(original), reuse.native_recipe(changed))
+        for old in ['common', 'compile-native', 'metadata']:
+            self.assertNotEqual(reuse.native_recipe(original),
+                                reuse.native_recipe(changed.replace(old, 'changed')))
+        def admit(candidate):
+            def git(source, *args):
+                if args[0] == 'diff':
+                    return reuse.PREFIX + 'build-components.sh'
+                return candidate if args[1].startswith('HEAD:') else original
+            with mock.patch.object(reuse.subprocess, 'run'), mock.patch.object(reuse, 'git', side_effect=git):
+                return reuse.validate_changes(Path('/source'), 'a' * 40, 'zluda')
+        self.assertEqual(admit(changed), 'a' * 40)
+        with self.assertRaisesRegex(ValueError, 'build input'):
+            admit(changed.replace('compile-native', 'different-native'))
+
+    def test_native_receipt_admits_no_bridge_artifact(self):
+        run = {'repository': {'full_name': 'chkuendig/proton-ge-custom'},
+               'head_branch': 'valve/11.0-zluda-20261104', 'head_sha': 'a' * 40, 'id': 123}
+        artifacts = {'artifacts': [dict(id=1, name='overlay-zluda', expired=False,
+                                       digest='sha256:' + 'b' * 64, size_in_bytes=17)]}
+        with mock.patch.object(reuse, 'validate_changes', return_value='a' * 40):
+            record = reuse.receipt(Path('/source'), run, artifacts, 'zluda')
+            self.assertEqual([a['name'] for a in record['artifacts']], ['overlay-zluda'])
+            with self.assertRaisesRegex(ValueError, 'incomplete'):
+                reuse.receipt(Path('/source'), run, {'artifacts': []}, 'zluda')
+
     def test_bridge_reuse_allows_only_backend_and_control_lock_changes(self):
         before = {'components': {'zluda': 'old-native', 'wine-bridge': 'same-bridge', 'wine': 'same-wine'},
                   'sdk_image': 'same-sdk', 'llvm': 'same-llvm', 'comparison_control': {'components_run': 1}}

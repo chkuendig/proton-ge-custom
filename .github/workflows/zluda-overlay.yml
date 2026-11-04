@@ -22,6 +22,10 @@ on:
         description: 'Rebuild native backend; reuse the complete source-admitted Valve/bridge/fixture set from this run'
         type: string
         default: ''
+      native_run:
+        description: 'Reuse an admitted native/ROCm build while rebuilding the Valve/bridge part'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -36,14 +40,14 @@ env:
 
 jobs:
   components:
-    if: inputs.components_run == ''
+    if: inputs.components_run == '' && (inputs.native_run == '' || inputs.bridges_run == '')
     name: Build ${{ inputs.profile == 'x64-draft' && 'unqualified x64 draft' || matrix.part }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(inputs.profile == 'x64-draft' && '["bridges"]' || inputs.bridges_run != '' && '["zluda"]' || '["zluda", "bridges"]') }}
+        part: ${{ fromJSON(inputs.profile == 'x64-draft' && '["bridges"]' || inputs.bridges_run != '' && '["zluda"]' || inputs.native_run != '' && '["bridges"]' || '["zluda", "bridges"]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -121,7 +125,7 @@ jobs:
             "$SDK_IMAGE" bash /src/packaging/zluda-overlay/ci-build.sh \
             2>&1 | tee /work/logs/build.log
       - name: Rebuild shipped bridge sources offline in the SDK
-        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        if: matrix.part == 'bridges' && inputs.profile == 'overlay'
         run: |
           set -euo pipefail
           mkdir -p /work/archive-rebuild
@@ -152,7 +156,7 @@ jobs:
             /work/cargo/registry/index
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: inputs.profile != 'x64-draft'
+        if: inputs.profile == 'overlay'
         with:
           name: overlay-${{ matrix.part }}
           path: |
@@ -164,7 +168,7 @@ jobs:
           compression-level: 0
           retention-days: 7
       - name: Retain freshly rebuilt W1 fixtures
-        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        if: matrix.part == 'bridges' && inputs.profile == 'overlay'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: w1-fixtures
@@ -172,7 +176,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Retain CPU fixtures compiled with the matching Wine SDK
-        if: matrix.part == 'bridges' && inputs.profile != 'x64-draft'
+        if: matrix.part == 'bridges' && inputs.profile == 'overlay'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wine-cpu-fixtures
@@ -227,7 +231,7 @@ jobs:
           retention-days: 14
 
   scope-cpu:
-    if: inputs.profile != 'x64-draft'
+    if: inputs.profile == 'overlay'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -247,7 +251,7 @@ jobs:
           python3 "$bridge/tests/run_native_tests.py"
 
   pe32-luid:
-    if: inputs.profile != 'x64-draft'
+    if: inputs.profile == 'overlay'
     runs-on: windows-latest
     timeout-minutes: 20
     env:
@@ -283,7 +287,7 @@ jobs:
           retention-days: 90
 
   w1-fixtures:
-    if: always() && inputs.profile != 'x64-draft' && needs.assemble.result == 'success'
+    if: always() && inputs.profile == 'overlay' && needs.assemble.result == 'success'
     needs: assemble
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -342,7 +346,7 @@ jobs:
           retention-days: 90
 
   assemble:
-    if: always() && inputs.profile != 'x64-draft' && (inputs.components_run != '' || needs.components.result == 'success')
+    if: always() && inputs.profile == 'overlay' && (inputs.components_run != '' || (inputs.native_run != '' && inputs.bridges_run != '') || needs.components.result == 'success')
     needs: components
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -364,20 +368,34 @@ jobs:
           COMPONENTS_RUN: ${{ inputs.components_run || inputs.bridges_run }}
           FULL_REUSE_RUN: ${{ inputs.components_run }}
           BRIDGES_REUSE_RUN: ${{ inputs.bridges_run }}
+          NATIVE_REUSE_RUN: ${{ inputs.native_run }}
           REUSE_PART: ${{ inputs.bridges_run != '' && 'bridges' || 'all' }}
         run: |
           set -euo pipefail
-          [[ -z $FULL_REUSE_RUN || -z $BRIDGES_REUSE_RUN ]]
+          [[ -z $FULL_REUSE_RUN || ( -z $BRIDGES_REUSE_RUN && -z $NATIVE_REUSE_RUN ) ]]
           [[ $COMPONENTS_RUN =~ ^[0-9]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN" > "$RUNNER_TEMP/component-run.json"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COMPONENTS_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/component-artifacts.json"
           python3 packaging/zluda-overlay/reuse_components.py --source "$GITHUB_WORKSPACE" \
             --run "$RUNNER_TEMP/component-run.json" --artifacts "$RUNNER_TEMP/component-artifacts.json" \
             --output "$RUNNER_TEMP/COMPONENT-REUSE.json" --part "$REUSE_PART"
+      - name: Admit explicitly requested native reuse
+        if: inputs.native_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NATIVE_RUN: ${{ inputs.native_run }}
+        run: |
+          set -euo pipefail
+          [[ $NATIVE_RUN =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$NATIVE_RUN" > "$RUNNER_TEMP/native-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$NATIVE_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/native-artifacts.json"
+          python3 packaging/zluda-overlay/reuse_components.py --source "$GITHUB_WORKSPACE" \
+            --run "$RUNNER_TEMP/native-run.json" --artifacts "$RUNNER_TEMP/native-artifacts.json" \
+            --output "$RUNNER_TEMP/NATIVE-REUSE.json" --part zluda
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: overlay-zluda
-          run-id: ${{ inputs.components_run || github.run_id }}
+          run-id: ${{ inputs.components_run || inputs.native_run || github.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/overlays
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

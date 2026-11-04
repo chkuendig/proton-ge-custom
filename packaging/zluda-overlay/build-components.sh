@@ -74,6 +74,7 @@ if [[ $part == bridges || $part == all ]]; then
     python3 "$here/component_patches.py" prepare "$SOURCE_ROOT" \
         "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi > "$BUILD_ROOT/log/dxvk-nvapi-patches.json"
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group bridges
+    bash "$here/build-nvapi-tests.sh"
     BUILD_PART=bridges bash "$here/install-rust.sh"
     export PATH="$BUILD_ROOT/rust/bin:$PATH"
     export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
@@ -96,32 +97,13 @@ if [[ $part == bridges || $part == all ]]; then
         "$triplet-w64-mingw32-gcc" -O2 -Wall -Wextra -Werror -shared -static-libgcc \
             "$here/nvcuda-decoy.c" -o "$BUILD_ROOT/wine-cpu-fixtures/nvcuda-decoy$bits.dll"
     done
-    # Test-only matrix extension lives in a separate source tree. Production
-    # DLLs remain exactly fd105c0d plus the two admitted runtime patches.
-    qsrc=$BUILD_ROOT/nvapi-qualification
-    cp -a "$BUILD_ROOT/patched/dxvk-nvapi" "$qsrc"
-    python3 - "$here" <<'CHECK'
-from pathlib import Path
-import sys
-sys.path.insert(0,sys.argv[1])
-from inputs import LOCK,HERE,sha256
-record=LOCK['nvapi_qualification']
-if sha256(HERE.parents[1] / record['path']) != record['sha256']:
-    raise ValueError('NVAPI qualification patch checksum mismatch')
-CHECK
-    patch -d "$qsrc" -p1 < "$here/nvapi-policy-tests.patch"
+    cp "$BUILD_ROOT/nvapi-fixtures/"*.exe "$BUILD_ROOT/wine-cpu-fixtures/"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
         a=$BUILD_ROOT/patched/dxvk-nvapi
         ab=$BUILD_ROOT/nvapi-$bits
         meson setup "$ab" "$a" --cross-file "$a/build-win$bits.txt" --buildtype release -Denable_tests=false
         ninja -C "$ab" -j"$JOBS"
-        qb=$BUILD_ROOT/nvapi-tests-$bits
-        meson setup "$qb" "$qsrc" --cross-file "$qsrc/build-win$bits.txt" --buildtype release -Denable_tests=true
-        test_name=nvapi-tests.exe
-        [[ $bits != 64 ]] || test_name=nvapi64-tests.exe
-        ninja -C "$qb" -j"$JOBS" "tests/$test_name"
-        install -m644 "$qb/tests/$test_name" "$BUILD_ROOT/wine-cpu-fixtures/nvapi-tests$bits.exe"
         mkdir -p "$wl/nvapi/$arch"
         if [[ $bits == 64 ]]; then
             install -m644 "$ab/src/nvapi64.dll" "$ab/src/nvofapi64.dll" "$wl/nvapi/$arch/"
