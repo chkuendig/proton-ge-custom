@@ -36,8 +36,9 @@ def environment(tool, work, arch, root, enabled, backend):
     prefix = work / ('prefix-' + arch)
     for sub in ('tmp', 'runtime'):
         (work / sub).mkdir(mode=0o700, exist_ok=True)
-    env.update(LD_LIBRARY_PATH=':'.join(str(tool / 'files/lib' / a)
-                                        for a in ['wine/x86_64-unix', 'x86_64-linux-gnu', 'i386-linux-gnu']),
+    env.update(LD_LIBRARY_PATH=':'.join(wine_cpu.steam_video_paths() +
+               [str(tool / 'files/lib' / a) for a in
+                ['wine/x86_64-unix', 'x86_64-linux-gnu', 'i386-linux-gnu']]),
                WINEPREFIX=str(prefix), WINEARCH=arch, WINEDEBUG='-all',
                WINELOADER=str(tool / 'files/bin/wine'), WINESERVER=str(tool / 'files/bin/wineserver'),
                WINEESYNC='0', WINEFSYNC='0', WINEDLLPATH=str(tool / 'files/lib/wine-cuda' / root),

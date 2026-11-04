@@ -17,6 +17,7 @@ ALLOWED = {'proton', 'proton_zluda.py', 'default_pfx.py', 'README.md', '.github/
     PREFIX + name for name in ['README.md', 'wine_cpu.py', 'lifecycle_cpu.py', 'launcher_cpu.py',
                               'pinned_fixture_runner.py', 'reuse_components.py']}
 ALLOWED.add(PREFIX + 'release_audit.py')  # Artifact inspection cannot change compiled inputs.
+ALLOWED.update(PREFIX + name for name in ['ci-steam-video.sh', 'check-loader.sh', 'w1_cpu.py'])
 
 
 def admission_ast(data, functions):

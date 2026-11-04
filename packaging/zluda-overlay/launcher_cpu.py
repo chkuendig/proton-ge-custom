@@ -22,14 +22,14 @@ def fixture_runner(fixture):
 
 def environment(tool, directory, winearch, phase):
     wine, server = [tool / 'files/bin' / name for name in ['wine', 'wineserver']]
-    env = wine_cpu.environment(tool, directory, wine, server)
+    env = wine_cpu.environment(tool, directory, wine, server, steam_video=False)
     for key in list(env):
         if key.startswith(('WINE', 'STEAM_', 'PROTON_', 'ZLUDA_')) or key in ('SteamGameId', 'SteamAppId', 'UMU_ID'):
             env.pop(key, None)
     appid = '35140' if winearch == 'wow64' else '999999'
     env.update(HOME=str(directory / 'home'), PWD=str(directory / 'game'),
                STEAM_COMPAT_DATA_PATH=str(directory / 'compatdata'),
-               STEAM_COMPAT_CLIENT_INSTALL_PATH=str(directory / 'steam'),
+               STEAM_COMPAT_CLIENT_INSTALL_PATH=env.get('CI_STEAM_ROOT', str(directory / 'steam')),
                STEAM_COMPAT_INSTALL_PATH=str(directory / 'game'),
                STEAM_COMPAT_APP_ID=appid, SteamGameId=appid, SteamAppId=appid,
                UMU_ID=appid, PROTON_LOG='1', PROTON_LOG_DIR=str(directory / phase),

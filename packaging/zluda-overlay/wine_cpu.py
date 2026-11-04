@@ -51,7 +51,13 @@ def admit_tool(source, tool):
     return binaries
 
 
-def environment(tool, work, wine, server, winearch='win64'):
+def steam_video_paths():
+    root = os.environ.get('CI_STEAM_ROOT')
+    return [root + '/' + arch + '/video/' for arch in
+            ['ubuntu12_64', 'ubuntu12_32', 'steamrtarm64']] if root else []
+
+
+def environment(tool, work, wine, server, winearch='win64', steam_video=True):
     if winearch not in PROFILES:
         raise ValueError('unsupported Wine CPU architecture: ' + winearch)
     env = dict(os.environ)
@@ -60,8 +66,9 @@ def environment(tool, work, wine, server, winearch='win64'):
                 'LD_PRELOAD', 'DISPLAY', 'WAYLAND_DISPLAY', 'CUDA_VISIBLE_DEVICES', 'HIP_VISIBLE_DEVICES'):
             env.pop(key, None)
     # Match ordinary GE runtime paths, excluding bundled lib64 CUDA/ROCm.
-    env.update(LD_LIBRARY_PATH=':'.join(str(tool / 'files/lib' / arch)
-                                      for arch in ['wine/x86_64-unix', 'x86_64-linux-gnu', 'i386-linux-gnu']),
+    env.update(LD_LIBRARY_PATH=':'.join((steam_video_paths() if steam_video else []) +
+               [str(tool / 'files/lib' / arch) for arch in
+                ['wine/x86_64-unix', 'x86_64-linux-gnu', 'i386-linux-gnu']]),
                WINEPREFIX=str(work / 'prefix'), WINEARCH=winearch, WINEDEBUG='-all',
                WINELOADER=str(wine), WINESERVER=str(server), WINEESYNC='0', WINEFSYNC='0',
                PATH=str(tool / 'files/bin') + ':' + env.get('PATH', '/usr/bin:/bin'),
