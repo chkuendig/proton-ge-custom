@@ -249,9 +249,10 @@ def main():
             resolve(args.directory)
         else:
             for item in LOCK['downloads']:
-                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['rust', 'rust-std-x86_64-pc-windows-gnu', 'rust-std-i686-pc-windows-gnu'], 'assembly': ['winetricks'], 'valve': ['wine-mono', 'xalia']}
+                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['rust', 'rust-std-x86_64-pc-windows-gnu', 'rust-std-i686-pc-windows-gnu'], 'assembly': ['winetricks'], 'valve': []}
                 if (args.group == 'all' or item['id'] in ids[args.group]
-                        or (args.group == 'zluda' and item.get('group') == 'rocm')):
+                        or (args.group == 'zluda' and item.get('group') == 'rocm')
+                        or (args.group == 'valve' and item.get('group') == 'valve')):
                     print(item['id'], download(item, args.directory), flush=True)
 
 
