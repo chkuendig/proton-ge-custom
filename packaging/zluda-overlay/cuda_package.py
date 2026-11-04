@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+"""Install and audit the immutable CUDA namespaces; never load a binary."""
+import argparse
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+import shutil
+import struct
+import sys
+import tarfile
+
+from inputs import PROFILE, PROTON_ROOT
+sys.path.insert(0, str(PROTON_ROOT))
+import proton_zluda as policy
+
+STUB_HASHES = PROFILE['stub_artifact']['sha256']
+BASE_ARCHIVE_SHA256 = PROFILE['stub_artifact']['archive_sha256']
+if STUB_HASHES != policy.STUB_SHA256 or BASE_ARCHIVE_SHA256 != policy.GE_ARCHIVE_SHA256:
+    raise ValueError('base profile and launcher stub identities differ')
+
+MODULES = ['x86_64-windows/nvcuda.dll', 'i386-windows/nvcuda.dll', 'x86_64-unix/nvcuda.so']
+NAMES = {'nvcuda.dll', 'nvcuda.dll.so', 'nvcuda.so'}
+CANONICAL_NAMES = NAMES | {'libcuda.so', 'libcuda.so.1'}
+# Windows system runtimes supplied by Wine, never MinGW redistributable DLLs.
+WINDOWS_IMPORTS = {'kernel32.dll', 'msvcrt.dll', 'ntdll.dll', 'userenv.dll',
+                   'ws2_32.dll', 'bcryptprimitives.dll', 'dbghelp.dll',
+                   'advapi32.dll', 'ucrtbase.dll', 'user32.dll'}
+
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def pe_info(path, require_builtin=True):
+    data = path.read_bytes()
+    def unpack(fmt, offset):
+        if offset < 0 or offset + struct.calcsize(fmt) > len(data):
+            raise ValueError('PE field outside file: ' + str(path))
+        return struct.unpack_from(fmt, data, offset)
+    if data[:2] != b'MZ' or (require_builtin and b'Wine builtin DLL' not in data[0x40:0x60]):
+        raise ValueError('not a builtin-marked PE: ' + str(path))
+    nt, = unpack('<I', 0x3c)
+    if data[nt:nt + 4] != b'PE\0\0':
+        raise ValueError('missing PE header: ' + str(path))
+    machine, sections, _, _, _, optional_size, _ = unpack('<HHIIIHH', nt + 4)
+    optional = nt + 24
+    magic, = unpack('<H', optional)
+    if magic not in (0x10b, 0x20b):
+        raise ValueError('invalid PE optional header')
+    directory = optional + {0x10b: 96, 0x20b: 112}[magic]
+    directories, = unpack('<I', directory - 4)
+    if not 2 <= directories <= 16 or directory + directories * 8 > optional + optional_size:
+        raise ValueError('invalid PE directory extent')
+    if optional + optional_size > len(data):
+        raise ValueError('PE optional header outside file')
+    if directories > 13 and any(unpack('<II', directory + 13 * 8)):
+        raise ValueError('unexpected PE delayed import directory')
+    export_rva, export_size = unpack('<II', directory)
+    def offset(rva, size=1):
+        for i in range(sections):
+            _, virtual_size, virtual, length, position = unpack('<8sIIII', optional + optional_size + i * 40)
+            if virtual <= rva < virtual + max(virtual_size, length):
+                if rva - virtual + size > length or position + rva - virtual + size > len(data):
+                    raise ValueError('PE RVA outside file-backed section: ' + str(path))
+                return position + rva - virtual
+        raise ValueError('unmapped PE export RVA: ' + str(path))
+    count = 0 if not export_rva or not export_size else unpack('<I', offset(export_rva) + 24)[0]
+    imports = []
+    rva, size = unpack('<II', directory + 8)
+    if rva or size:
+        stride = 20
+        if not rva or size < stride or size // stride > 65536:
+            raise ValueError('invalid PE import directory')
+        terminated = False
+        for position in range(0, size - stride + 1, stride):
+            record = unpack('<IIIII', offset(rva + position, stride))
+            if not any(record):
+                terminated = True
+                break
+            name_rva = record[3]
+            if not name_rva:
+                raise ValueError('PE import DLL name is missing')
+            start = offset(name_rva)
+            end = data.find(b'\0', start, min(start + 1024, len(data)))
+            if end < 0 or end == start:
+                raise ValueError('unterminated/empty PE import DLL name')
+            offset(name_rva, end - start + 1)
+            try:
+                imports.append(data[start:end].decode('ascii'))
+            except UnicodeDecodeError as error:
+                raise ValueError('non-ASCII PE import DLL name') from error
+        if not terminated:
+            raise ValueError('unterminated PE import descriptor table')
+    return {'machine': machine, 'optional_magic': magic, 'named_exports': count,
+            'imports': imports, 'delay_imports': []}
+
+
+def check_pe_imports(info):
+    names = info['imports'] + info['delay_imports']
+    forbidden = sorted({name for name in names if name.lower() not in WINDOWS_IMPORTS
+                        and not re.fullmatch(r'(?:api|ext)-ms-win-[a-z0-9-]+\.dll', name.lower())})
+    if forbidden:
+        raise ValueError('unexpected PE bridge DLL dependency: ' + ', '.join(forbidden))
+
+
+def elf_info(path, require_wow64=True):
+    from wine_provider import elf_details
+    details = elf_details(path)
+    if not details['eager_binding']:
+        raise ValueError('Unix CUDA bridge requires eager ELF binding')
+    symbols, needed = details['symbols'], details['needed']
+    tables = {'__wine_unix_call_funcs', '__wine_unix_call_wow64_funcs'}
+    required = tables if require_wow64 else {'__wine_unix_call_funcs'}
+    if not required <= symbols:
+        raise ValueError('Unix CUDA bridge missing native/WoW64 call tables')
+    allowed = {'libc.so.6', 'libgcc_s.so.1', 'libdl.so.2', 'libpthread.so.0',
+               'librt.so.1', 'libm.so.6', 'ld-linux-x86-64.so.2', 'ntdll.so'}
+    if set(needed) - allowed:
+        raise ValueError('unexpected bridge dependency: ' + ', '.join(sorted(set(needed) - allowed)))
+    return {'needed': needed, 'call_tables': sorted(tables & symbols)}
+
+
+
+
+def install_bridge(artifacts, tool, commit):
+    contract = json.loads((artifacts / 'BUILD-CONTRACT.json').read_text())
+    if contract.get('contract') != 'zluda-wine-packaging-1' or contract.get('source_commit') != commit:
+        raise ValueError('bridge contract/source pin mismatch')
+    if contract.get('modules') != MODULES or not contract.get('rust', '').startswith('rustc 1.99.0 '):
+        raise ValueError('bridge target/toolchain contract mismatch')
+    checksums = {}
+    for line in (artifacts / 'SHA256SUMS').read_text().splitlines():
+        expected, name = line.split('  ', 1)
+        if not re.fullmatch('[0-9a-f]{64}', expected) or name in checksums or name not in MODULES:
+            raise ValueError('unexpected/duplicate bridge checksum entry: ' + name)
+        checksums[name] = expected
+    if set(checksums) != set(MODULES):
+        raise ValueError('incomplete bridge checksum inventory')
+    target = tool / 'files/lib/wine-cuda/zluda'
+    inspections = {}
+    for name in MODULES:
+        source = artifacts / name
+        if source.is_symlink() or digest(source) != checksums[name]:
+            raise ValueError('bridge checksum/regular-file failure: ' + name)
+        if name.endswith('.dll'):
+            info = pe_info(source)
+            check_pe_imports(info)
+            expected = (0x8664, 788) if name.startswith('x86_64') else (0x14c, 690)
+            if (info['machine'], info['named_exports']) != expected:
+                raise ValueError('bridge PE architecture/export surface mismatch: ' + name)
+        else:
+            info = elf_info(source)
+        inspections[name] = info
+        out = target / name
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if out.is_symlink():
+            out.unlink()
+        shutil.copyfile(source, out)
+        out.chmod(0o755 if name.endswith('.so') else 0o644)
+    provenance = tool / 'provenance'
+    provenance.mkdir(parents=True, exist_ok=True)
+    (provenance / 'ZLUDA-WINE.json').write_text(json.dumps(
+        {'contract': contract, 'sha256': checksums, 'inspection': inspections,
+         'qualification': 'PENDING: equivalence, loader/prefix and target-runtime W1/W2 gates'}, indent=2) + '\n')
+    return inspections
+
+
+def write_stubs(tool, originals):
+    cuda = tool / 'files/lib/wine-cuda'
+    for arch, data in originals.items():
+        if hashlib.sha256(data).hexdigest() != STUB_HASHES[arch]:
+            raise ValueError('base stub does not match pinned hash: ' + arch)
+        out = cuda / 'stub' / arch / 'nvcuda.dll'
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.unlink(missing_ok=True)
+        out.write_bytes(data)
+        out.chmod(0o644)
+        canonical = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        canonical.unlink(missing_ok=True)
+        canonical.write_bytes(data)
+        canonical.chmod(0o644)
+        info = pe_info(out)
+        if (info['machine'], info['named_exports']) != (0x8664 if arch.startswith('x86_64') else 0x14c, 0):
+            raise ValueError('base stub is not an empty builtin PE: ' + arch)
+    (cuda / 'stubs.json').write_text(json.dumps(
+        {PROFILE['stub_manifest']['archive_key']: BASE_ARCHIVE_SHA256, 'sha256': STUB_HASHES,
+         'prefix_policy': PROFILE['stub_manifest']['prefix_policy']}, indent=2) + '\n')
+
+
+def prepare_stubs(tool):
+    """Call while tool still contains the untouched checksum-locked base tree."""
+    originals = {}
+    for arch in STUB_HASHES:
+        original = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
+        if original.is_symlink():
+            raise ValueError('base stub must be a regular file: ' + str(original))
+        originals[arch] = original.read_bytes()
+    write_stubs(tool, originals)
+
+
+def archive_stubs(archive, tool):
+    # Stream the checksum so the half-gigabyte archive never resides in RAM.
+    with archive.open('rb') as stream:
+        if hashlib.file_digest(stream, 'sha256').hexdigest() != BASE_ARCHIVE_SHA256:
+            raise ValueError('base archive checksum mismatch')
+    originals = {}
+    with tarfile.open(archive) as stream:
+        for member in stream:
+            for arch in STUB_HASHES:
+                if member.name.split('/', 1)[-1] == 'files/lib/wine/' + arch + '/nvcuda.dll':
+                    if not member.isfile() or arch in originals or member.size > 1024 * 1024:
+                        raise ValueError('invalid/duplicate base stub archive member')
+                    originals[arch] = stream.extractfile(member).read()
+    if set(originals) != set(STUB_HASHES):
+        raise ValueError('base archive lacks both CUDA stub modules')
+    write_stubs(tool, originals)
+
+
+def materialize_template(tool):
+    policy.materialize_default_prefix(tool, tool / 'files/share/default_pfx')
+
+
+def ge_cuda_path(path, canonical):
+    relative = path.relative_to(canonical)
+    return relative.parts[:2] == ('nvidia-libs', 'nvcuda') and path.name == 'nvcuda.dll.so'
+
+
+def remove_canonical(tool):
+    canonical = tool / 'files/lib/wine'
+    for path in canonical.rglob('*'):
+        if path.name.lower() in CANONICAL_NAMES and not ge_cuda_path(path, canonical):
+            if path.is_dir() and not path.is_symlink():
+                raise ValueError('unexpected canonical CUDA directory: ' + str(path))
+            path.unlink()
+
+
+def audit(tool):
+    cuda, record = policy.stub_assets(tool)
+    expected_stub = {cuda / 'stub' / arch / suffix for arch in policy.ARCHES.values() for suffix in ['', 'nvcuda.dll']}
+    if (cuda / 'stub').is_symlink() or set((cuda / 'stub').rglob('*')) != expected_stub:
+        raise ValueError('off CUDA root contains extra files or a Unix/backend alias')
+    for canonical in [tool / 'files/lib/wine', tool / 'files/lib64/wine']:
+        if not canonical.resolve().is_relative_to(tool.resolve()):
+            raise ValueError('canonical Wine alias leaves tool')
+        if any(p.name.lower() in CANONICAL_NAMES and not ge_cuda_path(p, canonical) for p in canonical.rglob('*')):
+            raise ValueError('canonical nvcuda remains: ' + str(canonical))
+    expected_on = {cuda / 'zluda' / name for name in MODULES}
+    expected_on |= {p.parent for p in expected_on}
+    if (cuda / 'zluda').is_symlink() or set((cuda / 'zluda').rglob('*')) != expected_on:
+        raise ValueError('on CUDA root file set differs from three-module contract')
+    for name in MODULES:
+        path = cuda / 'zluda' / name
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('on CUDA module must be a regular file: ' + name)
+        if name.endswith('.dll'):
+            info = pe_info(path)
+            check_pe_imports(info)
+            expected = (0x8664, 788) if name.startswith('x86_64') else (0x14c, 690)
+            if (info['machine'], info['named_exports']) != expected:
+                raise ValueError('on CUDA PE architecture/export mismatch: ' + name)
+        else:
+            info = elf_info(path)
+            if 'ntdll.so' in info['needed']:
+                from wine_provider import tool_provider
+                tool_provider(tool)
+    policy.validate_default_prefix(tool, tool / 'files/share/default_pfx')
+    return record
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument('command', choices=['install', 'stubs', 'template', 'clean', 'audit', 'archive-stubs', 'licenses'])
+    parser.add_argument('tool', type=Path)
+    parser.add_argument('--artifacts', type=Path)
+    parser.add_argument('--commit')
+    parser.add_argument('--archive', type=Path)
+    parser.add_argument('--source', type=Path)
+    args = parser.parse_args()
+    if args.command == 'archive-stubs':
+        archive_stubs(args.archive, args.tool)
+    elif args.command == 'licenses':
+        from overlay import collect_licenses, collect_bridge_notices
+        collect_bridge_notices(args.source, args.tool)
+        cargo = Path(os.environ['CARGO_HOME'])
+        collect_licenses(cargo / 'registry/src', args.tool / 'licenses/cargo/registry')
+        if (cargo / 'git/checkouts').exists():
+            collect_licenses(cargo / 'git/checkouts', args.tool / 'licenses/cargo/git')
+    elif args.command == 'install':
+        install_bridge(args.artifacts, args.tool, args.commit)
+    else:
+        {'stubs': prepare_stubs, 'template': materialize_template, 'clean': remove_canonical, 'audit': audit}[args.command](args.tool)

@@ -1,0 +1,31 @@
+{
+  "origin": {
+    "pin": "0a5db154b067af26115a0843107ff8ca766fe3b9",
+    "Cargo.lock_sha256": "c7da4ae466c8a93d23a4fbe1c38d0b2f1c69b3815ebae2e4f3757b744a4dcfd0",
+    "method": "Authored Linux dependency topology and active features; SDK builds retain actual Cargo metadata."
+  },
+  "columns": ["name", "version", "workspace", "features", "dependencies"],
+  "packages": [
+    ["zluda", "0.0.0", true, [], [["blake3", null], ["cuda_types", null], ["dark_api", null], ["hip_runtime-sys", null], ["llvm_zluda", null], ["lz4-sys", null], ["ptx", null], ["vergen-gix", "build"], ["zluda_cache", null]]],
+    ["ptx", "0.0.0", true, [], [["cuda_types", null], ["highs", null], ["hip_runtime-sys", null], ["llvm_zluda", null]]],
+    ["llvm_zluda", "0.1.0", true, [], []],
+    ["highs", "1.12.0", false, [], [["highs-sys", null]]],
+    ["highs-sys", "1.11.0", true, ["build", "default", "highs_release"], []],
+    ["cuda_types", "0.0.0", true, [], [["hip_runtime-sys", null], ["hipblaslt-sys", null], ["hipfft-sys", null], ["miopen-sys", null], ["rocblas-sys", null], ["rocm_smi-sys", null], ["rocsparse-sys", null]]],
+    ["dark_api", "0.0.0", true, [], [["cuda_types", null], ["lz4-sys", null], ["zstd-safe", null]]],
+    ["zluda_cache", "0.1.0", true, [], [["libsqlite3-sys", null]]],
+    ["blake3", "1.8.2", false, [], []],
+    ["vergen-gix", "10.0.2", false, [], []],
+    ["lz4-sys", "1.11.1+lz4-1.10.0", false, [], []],
+    ["zstd-safe", "7.2.4", false, [], [["zstd-sys", null]]],
+    ["zstd-sys", "2.0.15+zstd.1.5.7", false, ["default", "legacy", "std", "zdict_builder"], []],
+    ["libsqlite3-sys", "0.35.0", false, ["bundled", "bundled_bindings", "cc"], []],
+    ["hip_runtime-sys", "0.0.0", true, [], []],
+    ["hipblaslt-sys", "0.1.0", true, [], [["hip_runtime-sys", null]]],
+    ["hipfft-sys", "0.0.0", true, [], [["hip_runtime-sys", null]]],
+    ["miopen-sys", "0.0.0", true, [], [["hip_runtime-sys", null]]],
+    ["rocblas-sys", "0.1.0", true, [], [["hip_runtime-sys", null]]],
+    ["rocsparse-sys", "0.0.0", true, [], [["hip_runtime-sys", null]]],
+    ["rocm_smi-sys", "0.0.0", true, [], []]
+  ]
+}

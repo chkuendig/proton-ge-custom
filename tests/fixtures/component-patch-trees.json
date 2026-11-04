@@ -1,0 +1,35 @@
+{
+  "dxvk-nvapi": {
+    "upstream_commit": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
+    "upstream_tree": "c18f660124c0ebcc3a134a697a83cad392154e61",
+    "fork_commit": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+    "fork_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
+    "commits": [
+      {
+        "patch": "patches/dxvk-nvapi/0001-zluda-physx-honor-DXVK_NVAPI_ALLOW_OTHER_DRIVERS-in-.patch",
+        "commit": "cc4540d93efe0d50ce36c8115ec0f0f683894d28",
+        "author": "Christian K\u00fcndig",
+        "email": "christian@kuendig.info",
+        "date": "Sat, 30 May 2026 19:28:43 +0200",
+        "subject": "zluda-physx: honor DXVK_NVAPI_ALLOW_OTHER_DRIVERS in CudaEnumComputeCapableGpus",
+        "message_sha256": "fb27a0fe36e74be19798e6149bb8dadd62e7671a94fe7db0cfc69e4591247f4a"
+      },
+      {
+        "patch": "patches/dxvk-nvapi/0002-Handle-the-legacy-PhysX-compute-topology-V2-query-Ar.patch",
+        "commit": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+        "author": "Christian K\u00fcndig",
+        "email": "christian@kuendig.info",
+        "date": "Sat, 10 Oct 2026 14:41:44 +0200",
+        "subject": "Handle the legacy PhysX compute topology V2 query (Arkham Asylum)",
+        "message_sha256": "1fb7a3e839f9f5fd7985014dc8cdc50c350d783a336d1333b8190e4f2e7166b8"
+      }
+    ]
+  },
+  "protonfixes": {
+    "upstream_commit": "39943545657dffdfb34aacea59c96be9f5f3e00c",
+    "upstream_tree": "25177ee4434100da6e9d10c09b0b2a02a48738fb",
+    "fork_commit": "39943545657dffdfb34aacea59c96be9f5f3e00c",
+    "fork_tree": "25177ee4434100da6e9d10c09b0b2a02a48738fb",
+    "commits": []
+  }
+}

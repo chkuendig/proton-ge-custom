@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "base": "ge",
+  "source_commit": "6d075ec1c0a7a93f23ddbe7b8278929d14c8a829",
+  "source_date_epoch": "1793802357",
+  "stub_artifact": {
+    "archive_sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0",
+    "sha256": {
+      "x86_64-windows": "0939c5e19c3cce99668cd0f07db99aa2ede810690c37af9c70df273b924fdfd3",
+      "i386-windows": "2685d96065ea86c301a3e56f06b61e1e96a22645b7f69e9866721ad2f9f8833f"
+    }
+  },
+  "recipe_lock": "inputs.lock.json",
+  "stub_manifest": {
+    "archive_key": "ge_archive_sha256",
+    "prefix_policy": "stock GE off; GE placeholders with builtin override on"
+  },
+  "source_repository": "chkuendig/proton-ge-custom"
+}
