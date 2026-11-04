@@ -27,7 +27,8 @@ PROFILES = {
 PASS = 'CPU-Wine-PE64-and-PE32-WoW64-pass; GPU-W1-W2-pending'
 WOW64_EVENTS = {'backend-loaded': 1, 'cuInit': 2, 'sparse-512MiB-pool': 1,
                 'bounded-interior-htod': 1, 'bounded-interior-dtoh': 1,
-                'pool-released': 1, 'context-released': 1}
+                'pool-released': 1, 'context-released': 1,
+                'mapped-host-register': 1, 'host-unregister': 1}
 
 
 def admit_source(source):

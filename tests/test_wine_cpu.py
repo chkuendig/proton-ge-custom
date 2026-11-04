@@ -41,7 +41,8 @@ class WineCpu(unittest.TestCase):
                 case['events'] = []
                 if case['mode'] == 'on':
                     case['events'] = ['backend-loaded', 'cuInit', 'cuInit', 'sparse-512MiB-pool',
-                                      'bounded-interior-htod', 'bounded-interior-dtoh', 'pool-released', 'context-released']
+                                      'bounded-interior-htod', 'bounded-interior-dtoh', 'pool-released', 'context-released',
+                                      'mapped-host-register', 'host-unregister']
                     case['wow64_witness'] = {'native_bits': 64, 'native_pid': 1234,
                         'unixlib_path': str(self.tool / 'files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so'),
                         'unixlib_mapped': True, 'i386_unix_cuda_mapped': False, 'unexpected_cuda_mapping': False,

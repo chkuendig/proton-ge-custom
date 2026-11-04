@@ -1,0 +1,35 @@
+From: Christian Kündig <christian@kuendig.info>
+Subject: [PATCH] Borderlands 2: enable ZLUDA and WoW64 before prefix setup
+
+Assisted-by: codex:gpt-6.1-sol
+
+diff --git a/gamefixes-steam/49520.py b/gamefixes-steam/49520.py
+index 8eee00d..c74dd03 100755
+--- a/gamefixes-steam/49520.py
++++ b/gamefixes-steam/49520.py
+@@ -1,8 +1,18 @@
+ """Game fix for Borderlands 2"""
+ 
++import os
++
+ from protonfixes import util
+ 
+ 
++def early() -> None:
++    # This runs at protonfixes import, before Proton selects WINEARCH and
++    # sets up the prefix. The PE32 CUDA bridge needs the new WoW64 mode.
++    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
++    if os.environ['PROTON_ENABLE_ZLUDA'] == '1':
++        util.set_environment('PROTON_USE_WOW64', '1')
++
++
+ def main() -> None:
+     """Launcherfix and NVIDIA PhysX support."""
+     # Fixes the startup process.
+@@ -13,4 +23,5 @@ def main() -> None:
+     util.disable_esync()
+ 
+     # Enables NVIDIA PhysX in Borderlands 2.
+-    util.protontricks('physx')
++    if not util.checkinstalled('physx') and not util.protontricks('physx'):
++        raise RuntimeError('PhysX installation failed; inspect Protonfixes log')

@@ -1,4 +1,5 @@
 """Exact upstream/fork tree proofs and isolated patch preparation; no builds."""
+import ast
 import base64
 import copy
 import json
@@ -57,7 +58,7 @@ class ComponentPatches(unittest.TestCase):
                 self.assertEqual(git(repo, 'write-tree', '--missing-ok'), expected)
                 if name == 'protonfixes':
                     import types
-                    for app in ('208650', '35140', '50130', '17410'):
+                    for app in ('208650', '35140', '50130', '17410', '49520'):
                         code = git(repo, 'show', ':gamefixes-steam/' + app + '.py')
                         for requested in (None, '0', '1'):
                             env = {} if requested is None else {'PROTON_ENABLE_ZLUDA': requested}
@@ -77,6 +78,28 @@ class ComponentPatches(unittest.TestCase):
                                 self.assertEqual(os.environ['PROTON_ENABLE_ZLUDA'], requested or '1')
                                 self.assertEqual(os.environ.get('PROTON_USE_WOW64'),
                                                  '1' if app != '208650' and requested != '0' else None)
+                                if app == '49520':
+                                    # Run the actual GE architecture-selection prefix, after
+                                    # early() has populated the process environment copied
+                                    # by Session. Late user_settings cannot repair this choice.
+                                    tree = ast.parse((ROOT / 'proton').read_text())
+                                    session = next(n for n in tree.body
+                                                   if isinstance(n, ast.ClassDef) and n.name == 'Session')
+                                    init = next(n for n in session.body
+                                                if isinstance(n, ast.FunctionDef) and n.name == 'init_wine')
+                                    prefix = []
+                                    for statement in init.body:
+                                        if any(isinstance(n, ast.Name) and n.id == 'ld_path_var'
+                                               for n in ast.walk(statement)):
+                                            break
+                                        prefix.append(statement)
+                                    arch_code = compile(ast.Module(body=prefix, type_ignores=[]), 'proton', 'exec')
+                                    child = types.SimpleNamespace(env=dict(os.environ))
+                                    exec(arch_code, {'self': child, 'os': os,
+                                                'platform': types.SimpleNamespace(machine=lambda: 'x86_64'),
+                                                'g_proton': types.SimpleNamespace(dist_dir='/tool/')})
+                                    self.assertEqual(child.env.get('WINEARCH'),
+                                                     'wow64' if requested != '0' else None)
 
     def test_patch_hash_inventory_is_closed_and_ordered(self):
         with tempfile.TemporaryDirectory() as temporary:
