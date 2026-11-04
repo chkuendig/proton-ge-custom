@@ -453,7 +453,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/tool:/tool:ro" \
             -v "$RUNNER_TEMP/w1-fixtures:/fixtures:ro" -v "$RUNNER_TEMP/w1-work:/work" \
             -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE "$SDK_IMAGE" python3 /recipes/packaging/zluda-overlay/w1_cpu.py --source /src \
-            --fixture-source /src/w1-source/wine/w1-fixtures --tool /tool --fixtures /fixtures --work /work/run \
+            --fixture-source /recipes/w1-source/wine/w1-fixtures --tool /tool --fixtures /fixtures --work /work/run \
             2>&1 | tee "$RUNNER_TEMP/w1-work/run.log"
       - name: Retain bounded W1 CPU evidence
         if: always()
