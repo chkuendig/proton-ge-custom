@@ -12,7 +12,13 @@ def call(args,env,name):
 try:
  for arch in ['wow64','win64']:
   env=dict(base,WINEPREFIX=str(root/('prefix-'+arch)),WINEARCH=arch)
-  shutil.copytree(tool/'files/share/default_pfx',env['WINEPREFIX'],symlinks=True)
+  template=tool/'files/share/default_pfx'
+  shutil.copytree(template,env['WINEPREFIX'],symlinks=True)
+  # Proton dereferences builtin template links when populating a real prefix.
+  for source in template.rglob('*'):
+   if source.is_symlink() and source.is_file():
+    dest=pathlib.Path(env['WINEPREFIX'])/source.relative_to(template)
+    dest.unlink();shutil.copyfile(source,dest)
   devices=pathlib.Path(env['WINEPREFIX'])/'dosdevices';devices.mkdir(exist_ok=True)
   for name,target in [('c:','../drive_c'),('z:','/')]:
    link=devices/name
