@@ -26,7 +26,14 @@ run_reclaim_cpu_tests 2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/reclaim-cpu.l
 # Restore the full already-public synthetic tests only in this ephemeral CI
 # checkout. No game/NVIDIA corpus or oracle bytes are supplied to the runner.
 restore_tests() {
-    git restore --source=HEAD -- zluda/src/impl/tex.rs zluda/src/impl/driver.rs zluda/src/impl/surf.rs
+    # Read exact tracked bytes without checkout hooks; git-lfs is not in the SDK.
+    python3 - <<'PYRESTORE'
+from pathlib import Path
+import subprocess
+for name in ['tex', 'driver', 'surf']:
+    path = Path('zluda/src/impl') / (name + '.rs')
+    path.write_bytes(subprocess.check_output(['git', 'show', 'HEAD:' + path.as_posix()]))
+PYRESTORE
 }
 trap restore_tests EXIT
 python3 - <<'PY'
