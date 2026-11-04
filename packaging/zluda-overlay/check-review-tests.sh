@@ -73,7 +73,7 @@ assert counts and int(counts[0]) == int(sys.argv[2]), (sys.argv[1], counts, sys.
 PY
 }
 run barrier 3 -p ptx --lib insert_shared_war_barriers
-run llvm 193 -p ptx --lib _llvm
+run llvm 194 -p ptx --lib _llvm
 run parser 24 -p ptx_parser
 run dark 5 -p dark_api
 run hardware 2 -p zluda --lib hardware::
