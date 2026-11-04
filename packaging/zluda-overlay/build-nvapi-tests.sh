@@ -27,18 +27,34 @@ python3 - "$qsrc" "$BUILD_ROOT/nvapi-fixtures/COM-MOCK-ADAPTATION.json" <<'MOCKS
 import hashlib, json, re, sys
 from pathlib import Path
 root = Path(sys.argv[1]) / 'tests/mocks'
+interface = Path(sys.argv[1]) / 'src/interfaces/vkd3d-proton_interfaces.h'
+ordinary = {name for prefix, name in re.findall(
+    r'\bvirtual\s+([^;=]+?)\s+(\w+)\s*\([^;]*?\)\s*=\s*0\s*;', interface.read_text())
+    if 'STDMETHODCALLTYPE' not in prefix}
+if len(ordinary) != 11:
+    raise ValueError('review the pinned native C++ extension method signatures')
 records = {}
 for name, expected in [('dxgi_mocks.h', 65), ('d3d_mocks.h', 11),
                        ('d3d11_mocks.h', 183), ('d3d12_mocks.h', 197)]:
     path = root / name
     before = path.read_text()
-    after, count = re.subn(r'\b(MAKE|IMPLEMENT)_MOCK(?=\d+\()', r'\1_STDMETHOD_MOCK', before)
+    preserved = []
+    def adapt(match):
+        if name == 'd3d12_mocks.h' and match[3] in ordinary:
+            preserved.append(match[3])
+            return match[0]
+        return match[1] + '_STDMETHOD_MOCK' + match[2] + '(' + match[3]
+    after, count = re.subn(r'\b(MAKE|IMPLEMENT)_MOCK(\d+)\((\w+)', adapt, before)
     if count != expected:
         raise ValueError('COM mock source changed: ' + name + ': ' + str(count))
     path.write_text(after)
     digest = lambda data: hashlib.sha256(data.encode()).hexdigest()
-    records[name] = {'source_sha256': digest(before), 'adapted_sha256': digest(after), 'methods': count}
+    if name == 'd3d12_mocks.h' and (set(preserved) != ordinary or len(preserved) != 11):
+        raise ValueError('native C++ mock method inventory changed')
+    records[name] = {'source_sha256': digest(before), 'adapted_sha256': digest(after), 'methods': count,
+                     'stdcall_methods': count - len(preserved), 'native_cpp_methods': preserved}
 Path(sys.argv[2]).write_text(json.dumps({'scope': 'test-only COM mocks; use vendored stdcall macros',
+                                       'native_cpp_interface_sha256': hashlib.sha256(interface.read_bytes()).hexdigest(),
                                        'files': records}, indent=2) + '\n')
 MOCKS
 for bits in 32 64; do
