@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "854720b624f2a61a447d9c3b69a3f986470a0149",
+    "zluda": "0a5db154b067af26115a0843107ff8ca766fe3b9",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
@@ -34,7 +34,7 @@
     "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
     "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
     "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd",
-    "zluda-wine": "b454ac4ce136eb2a732fa13a2d84954b8f94d9c1"
+    "zluda-wine": "2d0c7a2070195c6483d35ec4483085e8894b8a4e"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -256,7 +256,7 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "984fbb5da8927dcd40518498ca43421b7838664c",
+    "tree": "5d21570f3f5e75c2b51b8c88525f4cbe8178fc20",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
     "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
@@ -273,7 +273,7 @@
     "backend_source": {
       "contract": "zluda-wine-backend-source-1",
       "repository": "https://github.com/chkuendig/ZLUDA",
-      "commit": "854720b624f2a61a447d9c3b69a3f986470a0149",
+      "commit": "0a5db154b067af26115a0843107ff8ca766fe3b9",
       "source_inputs": {
         "cuda_macros/src/cuda.rs": "fe4c9326ccb34c894793f99e8f3d403e7f6acd440d6468ab3796003b8db2648a",
         "cuda_types/src/cuda.rs": "b6adddfb2635d66003d6a282cb96a1dbc86cdf9b20d2fed19378c9fc1466a7b6",
@@ -284,7 +284,7 @@
       },
       "source_origin": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b"
     },
-    "backend_contract_sha256": "b52c6b38cc55d7547b1a725feb959b0ff318386853fb03010fbabbf0bd656e69",
+    "backend_contract_sha256": "9f9479459ab678b847f45a8a451b454d09db74a7739978b0dfaea8045f8d083a",
     "fixtures_tree": "e069e3eb5ebc96ebf9687239168cf8247ff7d9c5",
     "source_date_epoch": "1793751497"
   },
