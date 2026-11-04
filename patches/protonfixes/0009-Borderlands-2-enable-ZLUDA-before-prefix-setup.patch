@@ -1,7 +1,7 @@
 From: Christian Kündig <christian@kuendig.info>
-Subject: [PATCH] Borderlands 2: enable ZLUDA and WoW64 before prefix setup
+Subject: [PATCH] Borderlands 2: enable ZLUDA before prefix setup
 
-Assisted-by: codex:gpt-6.1-sol
+Assisted-by: Codex:gpt-6.1-sol, Claude:claude-opus-5-5
 
 diff --git a/gamefixes-steam/49520.py b/gamefixes-steam/49520.py
 index 8eee00d..c74dd03 100755

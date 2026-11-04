@@ -4,18 +4,17 @@ Date: Sat, 10 Oct 2026 14:41:44 +0200
 Subject: [PATCH 2/2] Handle the legacy PhysX compute topology V2 query (Arkham
  Asylum)
 
-NvAPI_GPU_CudaEnumComputeCapableGpus now accepts NV_COMPUTE_GPU_TOPOLOGY_VER
+NvAPI_GPU_CudaEnumComputeCapableGpus accepts NV_COMPUTE_GPU_TOPOLOGY_VER
 (V2) as well as V1. PhysXDevice 2.8.4 initializes only the version field, so
 gpuCount and computeGpus are treated as outputs: the V2 result points at
 driver-owned (thread-local) storage, as ZLUDA's own NVAPI does, and the
 caller's pointer is never dereferenced. The private V2-only entry point
 0x36e39e6b that legacy PhysX requests through nvapi_QueryInterface reuses
 the same checked enumerator. The sysinfo test covers V2 with poisoned
-outputs and with a null array, and its RADV expectation now matches the
-DXVK_NVAPI_ALLOW_OTHER_DRIVERS=1 behaviour from 9ee7d01.
+outputs and with a null array, and its RADV expectation matches
+DXVK_NVAPI_ALLOW_OTHER_DRIVERS=1.
 
-Assisted-by: Claude:claude-fable-5.1
-Assisted-by: Codex:gpt-6.1-sol
+Assisted-by: Codex:gpt-6.1-sol, Claude:claude-fable-5-1, Claude:claude-opus-5-5
 ---
  src/nvapi_gpu.cpp       | 20 +++++++++++++++++++-
  src/nvapi_interface.cpp | 24 ++++++++++++++++++++++++
