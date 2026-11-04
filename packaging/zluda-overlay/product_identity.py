@@ -181,9 +181,14 @@ def support_change(name, before, after, contents):
     elif name == 'sources/zluda-wine.tar.gz.check.log':
         def normalize(data):
             data = re.sub(rb'/archive-check-[a-z0-9_]+/', b'/archive-check-<temporary>/', data)
-            return re.sub(rb'^(    Finished .+ in )[0-9.]+s$', rb'\1<duration>s', data, flags=re.M)
+            data = re.sub(rb'^(    Finished .+ in )[0-9.]+s$', rb'\1<duration>s', data, flags=re.M)
+            lines = data.splitlines(keepends=True)
+            count = 0
+            while count < len(lines) and re.fullmatch(rb'   Compiling [A-Za-z0-9_-]+ v[^\n]+\n', lines[count]):
+                count += 1
+            return b''.join(sorted(lines[:count]) + lines[count:])
         if normalize(before) == normalize(after):
-            return {'classification': 'source-rebuild-log-temporary-path-and-duration'}
+            return {'classification': 'source-rebuild-log-compile-order-temporary-path-and-duration'}
     elif name == 'sources/zluda-wine.tar.gz.json':
         old, new = json.loads(before), json.loads(after)
         changed = {k for k in old.keys() | new.keys() if old.get(k) != new.get(k)}

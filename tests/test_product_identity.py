@@ -118,3 +118,18 @@ class ProductIdentity(unittest.TestCase):
                        linked('target', tarfile.SYMTYPE)]:
             with self.assertRaises(ValueError):
                 gate.inventory(stream, False)
+
+    def test_build_log_permits_only_leading_compile_banner_permutation(self):
+        name = 'sources/zluda-wine.tar.gz.check.log'
+        before = b'   Compiling quote v1.0.45\n   Compiling unicode-ident v1.0.13\nwarning: fixed\n'
+        after = b'   Compiling unicode-ident v1.0.13\n   Compiling quote v1.0.45\nwarning: fixed\n'
+        self.assertIsNotNone(gate.support_change(name,before,after,{}))
+        for bad in [after.replace(b'warning: fixed',b'warning: changed'),
+                    b'   Compiling extra v1.0.0\n'+after, after.replace(b'v1.0.45',b'v1.0.46'),
+                    after+after.splitlines(keepends=True)[0], after.replace(b'   Compiling quote v1.0.45\n',b''),
+                    after+b'warning: other\n   Compiling quote v1.0.45\n']:
+            self.assertIsNone(gate.support_change(name,before,bad,{}))
+
+        tail_a = before+b'   Compiling first v1.0.0\n   Compiling second v1.0.0\n'
+        tail_b = before+b'   Compiling second v1.0.0\n   Compiling first v1.0.0\n'
+        self.assertIsNone(gate.support_change(name,tail_a,tail_b,{}))
