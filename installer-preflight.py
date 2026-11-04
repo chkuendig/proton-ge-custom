@@ -13,7 +13,12 @@ try:
  for arch in ['wow64','win64']:
   env=dict(base,WINEPREFIX=str(root/('prefix-'+arch)),WINEARCH=arch)
   shutil.copytree(tool/'files/share/default_pfx',env['WINEPREFIX'],symlinks=True)
-  call([env['WINE'],'wineboot','-u'],env,arch+'-boot');call([env['WINESERVER'],'-w'],env,arch+'-wait')
+  devices=pathlib.Path(env['WINEPREFIX'])/'dosdevices';devices.mkdir(exist_ok=True)
+  for name,target in [('c:','../drive_c'),('z:','/')]:
+   link=devices/name
+   if not link.is_symlink():link.symlink_to(target)
+  boot=call([env['WINE'],'wineboot','-u'],env,arch+'-boot');assert boot['code']==0,boot
+  call([env['WINESERVER'],'-w'],env,arch+'-wait')
   for flag in ['0','1']:
    for inherited in ['yes','no']:
     e=dict(env,PROTON_ENABLE_ZLUDA=flag,PROTON_USE_WOW64='1')
