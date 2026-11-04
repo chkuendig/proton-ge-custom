@@ -45,9 +45,6 @@ if [[ $part == zluda || $part == all ]]; then
     ccache --max-size=4G
     bash "$here/build-native.sh"
     bash "$here/build-zoc.sh"
-    if [[ ${CLEANUP_TESTS:-0} == 1 ]]; then
-        bash "$here/check-cleanup-tests.sh"
-    fi
     cp "$BUILD_ROOT/native/link-layout.json" "$DESTDIR/provenance/NATIVE-LINK-LAYOUT.json"
     objcopy --strip-debug "$SOURCE_ROOT/zluda/target/release/libnvcuda.so" "$lib64/libcuda.so.1"
     ln -s libcuda.so.1 "$lib64/libcuda.so"
@@ -64,6 +61,11 @@ if [[ $part == zluda || $part == all ]]; then
     )
     mkdir -p "$DESTDIR/sources"
     cp "$DOWNLOAD_ROOT/numactl-2.0.18.tar.gz" "$DESTDIR/sources/"
+    if [[ ${CLEANUP_TESTS:-0} == 1 ]]; then
+        # The real HIP library needs libnuma even for CPU-only test startup.
+        # Use the same checksum-locked library installed into the product.
+        LD_LIBRARY_PATH="$lib64:$LD_LIBRARY_PATH" bash "$here/check-cleanup-tests.sh"
+    fi
 fi
 
 if [[ $part == bridges || $part == all ]]; then
