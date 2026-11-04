@@ -9,7 +9,7 @@ apply_patch() {
 apply_all_in_dir() {
     local dir="$1"
     for patch in "$dir"/*.patch; do
-        apply_patch "$patch"
+        apply_patch "$patch" || return 1
     done
 }
 
@@ -42,13 +42,15 @@ apply_all_in_dir() {
     pushd dxvk-nvapi
     git reset --hard HEAD
     git clean -xdf
+    echo "DXVK-NVAPI: enable ZLUDA PhysX adapter enumeration and legacy topology"
+    apply_all_in_dir "../patches/dxvk-nvapi/" || exit 1
     popd
 
     pushd protonfixes
     git reset --hard HEAD
     git clean -xdf
     echo "PROTONFIXES: add optiscaler support"
-    apply_all_in_dir "../patches/protonfixes/"
+    apply_all_in_dir "../patches/protonfixes/" || exit 1
     popd
 
     pushd wineopenxr

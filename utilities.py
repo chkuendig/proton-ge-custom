@@ -170,7 +170,7 @@ def get_vulkan_gpus() -> list[GPU]:
             for device in instance.enumerate_physical_devices():
                 gpus.append(GPU.from_physical_device(device))
     except VulkanError:
-        pass
+        return []
     return gpus
 
 

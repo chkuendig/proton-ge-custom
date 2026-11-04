@@ -10,6 +10,20 @@
 
 # GE-Proton
 
+ZLUDA targets AMD GPUs only. Set `PROTON_ENABLE_ZLUDA=1` to select its bundled
+Wine CUDA bridge; 32-bit CUDA games also require `PROTON_USE_WOW64=1`.
+The four supported PhysX title fixes enable ZLUDA early by default. NVIDIA users
+can opt out with `PROTON_ENABLE_ZLUDA=0 %command%`; the same knob disables the
+fixes' automatic WoW64 choice.
+
+With ZLUDA off, CUDA prefix files and DLL overrides follow stock GE, including
+its unmodified SveSop relay and `PROTON_NVIDIA_*` flags. With ZLUDA on, one guard
+skips GE's nvcuda copies and selects the ZLUDA root; conflicting NVIDIA CUDA
+flags produce one warning. ZLUDA-on retains the published launcher's late NVAPI
+environment writes. An explicit early `PROTON_FORCE_NVAPI=1` still follows GE's
+force policy, including its GPU spoof.
+See the [ZLUDA packaging and qualification notes](packaging/zluda-overlay/README.md).
+
 > [!Warning]
 > **Running non-Steam games with GE-Proton outside of Steam is only supported using [umu](https://github.com/Open-Wine-Components/umu-launcher):**
 > 
@@ -63,7 +77,7 @@ Things it contains that Valve's Proton currently does not:
 - Additional media foundation patches for better video playback support
 - AMD FSR patches added directly to fullscreen hack that can be toggled with WINE_FULLSCREEN_FSR=1
 - FSR fake resolution patch details [here](https://github.com/GloriousEggroll/proton-ge-custom/pull/52)
-- NVIDIA CUDA support for PhysX and NVAPI
+- ZLUDA Wine CUDA support for PhysX (qualification pending); DXVK-NVAPI support
 - Raw input mouse support
 - 'protonfixes' system -- this is an automated system that applies per-game fixes (such as winetricks changes, environment variables, Easy Anti-Cheat workarounds, overrides, etc)
 - Various upstream Wine patches backported

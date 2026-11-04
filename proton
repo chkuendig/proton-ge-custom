@@ -41,6 +41,7 @@ from random import randrange
 from pathlib import Path
 
 import protonfixes
+import proton_zluda
 
 #To enable debug logging, copy "user_settings.sample.py" to "user_settings.py"
 #and edit it if needed.
@@ -305,6 +306,35 @@ def merge_user_dir(src, dst):
         else:
             extant_dirs += dst_dir
 
+def atomic_copy(src, dst, follow_symlinks=True, copy_metadata=None, add_write_perm=False,
+                preserve_dst_mode=False):
+    # Create beside the destination so replace is atomic and never opens dst.
+    temporary = str(dst) + "." + uuid.uuid4().hex + ".tmp"
+    created = False
+    try:
+        dst_mode = stat.S_IMODE(os.stat(dst).st_mode) if preserve_dst_mode and os.path.exists(dst) else None
+        if not follow_symlinks and os.path.islink(src):
+            os.symlink(os.readlink(src), temporary)
+            created = True
+        else:
+            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o666)
+            created = True
+            with os.fdopen(fd, 'wb', buffering=0) as output, open(src, 'rb', buffering=0) as source:
+                if dst_mode is not None:
+                    os.fchmod(output.fileno(), dst_mode)
+                copyfile_fds(source, output)
+        if copy_metadata is True:
+            shutil.copystat(src, temporary, follow_symlinks=follow_symlinks)
+        elif copy_metadata is False:
+            shutil.copymode(src, temporary, follow_symlinks=follow_symlinks)
+        if add_write_perm:
+            new_mode = os.lstat(temporary).st_mode | stat.S_IWUSR | stat.S_IWGRP
+            os.chmod(temporary, new_mode)
+        os.replace(temporary, dst)
+    finally:
+        if created and os.path.lexists(temporary):
+            os.unlink(temporary)
+
 def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, optional=False,
              follow_symlinks=True, track_file=None, link_debug=False):
     try:
@@ -314,24 +344,11 @@ def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, op
         if os.path.isdir(dst):
             dst = os.path.join(dst, os.path.basename(src))
 
-        if file_exists(dst, follow_symlinks=False):
-            os.remove(dst)
-        elif track_file and prefix is not None:
+        if not file_exists(dst, follow_symlinks=False) and track_file and prefix is not None:
             track_file.write(os.path.relpath(dst, prefix) + '\n')
 
-        if os.path.islink(src) and not follow_symlinks:
-            shutil.copyfile(src, dst, follow_symlinks=False)
-        else:
-            copyfile(src, dst)
-
-        if copy_metadata:
-            shutil.copystat(src, dst, follow_symlinks=follow_symlinks)
-        else:
-            shutil.copymode(src, dst, follow_symlinks=follow_symlinks)
-
-        if add_write_perm:
-            new_mode = os.lstat(dst).st_mode | stat.S_IWUSR | stat.S_IWGRP
-            os.chmod(dst, new_mode)
+        atomic_copy(src, dst, follow_symlinks=follow_symlinks,
+                    copy_metadata=copy_metadata, add_write_perm=add_write_perm)
 
         if not file_exists(src + '.debug', follow_symlinks=True):
             link_debug = False
@@ -381,6 +398,35 @@ def copy_file_range_ctypes(fd_in, fd_out, count):
 
     return ret
 
+def copyfile_fds(src, dst):
+    # Keep the reflink fast path while writing only to the exclusive temp fd.
+    global copyfile
+    if copyfile is copyfile_reflink:
+        try:
+            remaining = os.fstat(src.fileno()).st_size
+            while remaining:
+                count = copy_file_range(src.fileno(), dst.fileno(), remaining)
+                if not count:
+                    raise OSError(errno.EINVAL, "short copy_file_range")
+                remaining -= count
+            return
+        except OSError as e:
+            if e.errno not in (errno.EXDEV, errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
+                raise
+            if e.errno in (errno.ENOSYS, errno.EOPNOTSUPP):
+                copyfile = shutil.copyfile
+            src.seek(0)
+            dst.seek(0)
+            dst.truncate()
+    # shutil.copyfile uses sendfile before falling back to copyfileobj on Linux.
+    if getattr(shutil, '_USE_CP_SENDFILE', False):
+        try:
+            shutil._fastcopy_sendfile(src, dst)
+            return
+        except shutil._GiveupOnFastCopy:
+            pass
+    shutil.copyfileobj(src, dst)
+
 def copyfile_reflink(srcname, dstname):
     "Copy srcname to dstname, making reflink if possible"
     global copyfile
@@ -410,9 +456,7 @@ def try_copyfile(src, dst):
     try:
         if os.path.isdir(dst):
             dst = dst + "/" + os.path.basename(src)
-        if file_exists(dst, follow_symlinks=False):
-            os.remove(dst)
-        copyfile(src, dst)
+        atomic_copy(src, dst)
     except PermissionError as e:
         if e.errno == errno.EPERM:
             #be forgiving about permissions errors; if it's a real problem, things will explode later anyway
@@ -993,12 +1037,43 @@ class CompatData:
                 # wine builtin dll
                 # make the destination an absolute symlink
                 contents = os.path.normpath(os.path.join(os.path.dirname(src), contents))
+                dll_copy = dll_copy or os.environ.get("PROTON_DLL_COPY") == "*"
             if dll_copy:
                 try_copyfile(src, dst)
             else:
                 os.symlink(contents, dst)
         else:
             try_copyfile(src, dst)
+
+    def isolate_module_links(self, tool_root):
+        # A prior tool may have left builtins linked into its installation.
+        windows = Path(self.prefix_dir) / "drive_c/windows"
+        for directory in (Path(self.prefix_dir), windows.parent, windows):
+            if directory.is_symlink():
+                raise RuntimeError("Refusing linked prefix directory: " + str(directory))
+        if not windows.exists():
+            return
+        def walk_error(error):
+            raise error
+        own_root = Path(tool_root).resolve()
+        for root, directories, files in os.walk(windows, followlinks=False, onerror=walk_error):
+            for name in directories:
+                if (Path(root) / name).is_symlink():
+                    raise RuntimeError("Refusing linked Windows directory: " + str(Path(root) / name))
+            for name in files:
+                path = Path(root) / name
+                symlink = path.is_symlink()
+                if not symlink and path.stat().st_nlink == 1:
+                    continue
+                if not (file_is_wine_builtin_dll(str(path)) or
+                        name.lower() in ("icuin68.dll", "icuuc68.dll", "icudt68.dll")):
+                    continue
+                if symlink and path.resolve().is_relative_to(own_root):
+                    continue
+                if not path.exists():
+                    path.unlink()  # Only the broken prefix entry, never its target.
+                    continue
+                atomic_copy(str(path), str(path))
 
     def copy_pfx(self):
         with open(self.tracked_files_file, "w") as tracked_files:
@@ -1342,7 +1417,7 @@ class CompatData:
                         if not os.path.exists(srcvdf):
                             continue
                         os.makedirs(os.path.dirname(dstvdf), exist_ok=True)
-                        shutil.copyfile(srcvdf, dstvdf)
+                        atomic_copy(srcvdf, dstvdf, preserve_dst_mode=True)
 
                 #copy openvr files into place
                 makedirs(self.prefix_dir + "/drive_c/vrclient/bin")
@@ -1406,15 +1481,10 @@ class CompatData:
                     g_session.dlloverrides[f] = "n"
 
                 for f in icufiles:
-                    dst = "drive_c/windows/system32/" + f + ".dll"
-                    if not file_exists(self.prefix_dir + dst, follow_symlinks=False):
-                        tracked_files.write(dst + '\n')
-                    self.create_symlink(self.prefix_dir + dst, g_proton.arch_pe_dir("wine/icu", False) + f + ".dll")
-
-                    dst = "drive_c/windows/syswow64/" + f + ".dll"
-                    if not file_exists(self.prefix_dir + dst, follow_symlinks=False):
-                        tracked_files.write(dst + '\n')
-                    self.create_symlink(self.prefix_dir + dst, g_proton.arch_pe_dir("wine/icu", True) + f + ".dll")
+                    try_copy(g_proton.arch_pe_dir("wine/icu", False) + f + ".dll", "drive_c/windows/system32",
+                            prefix=self.prefix_dir, track_file=tracked_files)
+                    try_copy(g_proton.arch_pe_dir("wine/icu", True) + f + ".dll", "drive_c/windows/syswow64",
+                            prefix=self.prefix_dir, track_file=tracked_files)
 
                 allow_nvidia_libs = os.path.isdir(g_proton.lib_dir + "wine/nvidia-libs")
                 disable_nvlibs32 = "nvidialibsno32" in g_session.compat_config or "wow64" in g_session.compat_config
@@ -1450,27 +1520,28 @@ class CompatData:
                     if file_exists(nvapi32_dll + '.debug', follow_symlinks=False):
                         os.unlink(nvapi32_dll + '.debug')
 
-                if use_nvcuda and use_nvapi:
-                    try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvcuda", False) + "nvcuda.dll.so", "drive_c/windows/system32/nvcuda.dll",
-                            prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
-                    g_session.dlloverrides["nvcuda"] = "n,b"
-                else:
-                    nvcuda64_dll = self.prefix_dir + "drive_c/windows/system32/nvcuda.dll"
-                    if file_exists(nvcuda64_dll, follow_symlinks=False):
-                        os.unlink(nvcuda64_dll)
-                    try_copy(g_proton.default_pfx_dir + "drive_c/windows/system32/nvcuda.dll", "drive_c/windows/system32",
-                            prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+                if not proton_zluda.prepare_cuda_prefix(g_session, g_proton, self, log=log):
+                    if use_nvcuda and use_nvapi:
+                        try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvcuda", False) + "nvcuda.dll.so", "drive_c/windows/system32/nvcuda.dll",
+                                prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+                        g_session.dlloverrides["nvcuda"] = "n,b"
+                    else:
+                        nvcuda64_dll = self.prefix_dir + "drive_c/windows/system32/nvcuda.dll"
+                        if file_exists(nvcuda64_dll, follow_symlinks=False):
+                            os.unlink(nvcuda64_dll)
+                        try_copy(g_proton.default_pfx_dir + "drive_c/windows/system32/nvcuda.dll", "drive_c/windows/system32",
+                                prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
 
-                if use_nvcuda and use_nvapi and not disable_nvlibs32:
-                    try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvcuda", True) + "nvcuda.dll.so", "drive_c/windows/syswow64/nvcuda.dll",
-                             prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
-                    g_session.dlloverrides["nvcuda"] = "n,b"
-                else:
-                    nvcuda32_dll = self.prefix_dir + "drive_c/windows/syswow64/nvcuda.dll"
-                    if file_exists(nvcuda32_dll, follow_symlinks=False):
-                        os.unlink(nvcuda32_dll)
-                    try_copy(g_proton.default_pfx_dir + "drive_c/windows/syswow64/nvcuda.dll", "drive_c/windows/syswow64",
-                             prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+                    if use_nvcuda and use_nvapi and not disable_nvlibs32:
+                        try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvcuda", True) + "nvcuda.dll.so", "drive_c/windows/syswow64/nvcuda.dll",
+                                 prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+                        g_session.dlloverrides["nvcuda"] = "n,b"
+                    else:
+                        nvcuda32_dll = self.prefix_dir + "drive_c/windows/syswow64/nvcuda.dll"
+                        if file_exists(nvcuda32_dll, follow_symlinks=False):
+                            os.unlink(nvcuda32_dll)
+                        try_copy(g_proton.default_pfx_dir + "drive_c/windows/syswow64/nvcuda.dll", "drive_c/windows/syswow64",
+                                 prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
 
                 if use_nvenc and use_nvapi:
                     try_copy(g_proton.arch_pe_dir("wine/nvidia-libs/nvenc", False) + "nvcuvid.dll.so", "drive_c/windows/system32/nvcuvid.dll",
@@ -2875,6 +2946,8 @@ if __name__ == "__main__":
         log("No compat data path?")
         sys.exit(1)
 
+    os.environ.setdefault("PROTON_DLL_COPY", "*")
+
     g_proton = Proton(os.path.dirname(sys.argv[0]))
 
     g_proton.cleanup_legacy_dist()
@@ -2886,8 +2959,10 @@ if __name__ == "__main__":
 
     g_session.init_wine()
 
-    if g_proton.missing_default_prefix():
-        g_proton.make_default_prefix()
+    with g_compatdata.prefix_lock:
+        g_compatdata.isolate_module_links(g_proton.base_dir)
+
+    proton_zluda.bootstrap(g_session, g_proton, ld_path_var)
 
     g_session.init_session(sys.argv[1] != "runinprefix")
 
@@ -2912,21 +2987,16 @@ if __name__ == "__main__":
     g_compatdata.setup_ddraw("PROTON_USE_D7VK" in g_session.env
             and nonzero(g_session.env["PROTON_USE_D7VK"]))
 
-    # Per-game hooks opt in explicitly; forcing NVAPI alone is independent.
-    from proton_zluda import enabled as zluda_enabled, configure_hardware
-    if zluda_enabled(g_session.env):
-        zluda_lib_dir = g_proton.path("files/lib64/")
-        prepend_to_env_str(g_session.env, ld_path_var, zluda_lib_dir, ":")
-        prepend_to_env_str(g_session.env, ld_path_var,
-                os.path.join(zluda_lib_dir, "wine/x86_64-unix"), ":")
-        # ZLUDA links the bundled HIP runtime; neither runtime nor shim is
-        # preloaded into unrelated Wine processes. Hardware policy runs before
-        # the game can load HIP, preserving explicit user overrides.
-        configure_hardware(g_session.env)
-        g_session.env["PROTON_FORCE_NVAPI"] = "1"
-        g_session.env["DXVK_NVAPI_ALLOW_OTHER_DRIVERS"] = "1"
-        g_session.env["DXVK_ENABLE_NVAPI"] = "1"
-        log("ZLUDA enabled: CUDA-on-HIP translation active")
+    proton_zluda.configure_launch(g_session, g_proton, sys.argv[2:], ld_path_var, log)
+    try:
+        if (g_session.env.get("PROTON_ENABLE_ZLUDA") == "1"
+                and "HSA_OVERRIDE_GFX_VERSION" not in g_session.env
+                and any(gpu.vendorID == 0x1002 and "VANGOGH" in gpu.deviceName.upper()
+                        for gpu in utilities.get_vulkan_gpus())):
+            g_session.env["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+    except Exception:
+        # GPU detection is optional; enumeration failure leaves the ISA unchanged.
+        pass
 
     #determine mode
     rc = 0
