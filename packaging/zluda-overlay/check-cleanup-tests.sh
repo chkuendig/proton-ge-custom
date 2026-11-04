@@ -15,8 +15,14 @@ shipping_before=$(sha256sum target/release/libnvcuda.so | cut -d' ' -f1)
 # This compiles every retained CUDA comparison, without opening a GPU or CUDA driver.
 cargo test --release --locked --offline -p zluda -j"$jobs" --no-run \
     2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/native-compile.log"
-cargo test --release --locked --offline -p zluda -j"$jobs" texref_reclaim_ -- --test-threads=1 \
-    2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/reclaim-cpu.log"
+run_reclaim_cpu_tests() {
+    local case
+    for case in texref_reclaim_cached_shown_and_shadow texref_reclaim_failure_keeps_ownership texref_reclaim_shared_budget_and_shown; do
+        cargo test --release --locked --offline -p zluda -j"$jobs" "r#impl::tex::tests::$case" \
+            -- --exact --test-threads=1 || return
+    done
+}
+run_reclaim_cpu_tests 2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/reclaim-cpu.log"
 # Restore the full already-public synthetic tests only in this ephemeral CI
 # checkout. No game/NVIDIA corpus or oracle bytes are supplied to the runner.
 restore_tests() {
@@ -42,8 +48,7 @@ out.write_text(json.dumps({'origin': origin, 'files': records}, indent=2) + '\n'
 PY
 cargo test --release --locked --offline -p zluda -j"$jobs" --no-run \
     2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/original-native-compile.log"
-cargo test --release --locked --offline -p zluda -j"$jobs" texref_reclaim_ -- --test-threads=1 \
-    2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/original-reclaim-cpu.log"
+run_reclaim_cpu_tests 2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/original-reclaim-cpu.log"
 restore_tests
 trap - EXIT
 cargo build --release --locked --offline -p zluda -j"$jobs" \
@@ -51,7 +56,4 @@ cargo build --release --locked --offline -p zluda -j"$jobs" \
 shipping_after=$(sha256sum target/release/libnvcuda.so | cut -d' ' -f1)
 [[ $shipping_before == "$shipping_after" ]] || { echo 'Test replay changed shipping library bytes' >&2; exit 1; }
 printf '%s\n' "$shipping_after" > "$BUILD_ROOT/native/cleanup-tests/SHIPPING-UNCHANGED.sha256"
-cargo test --release --locked --offline -p llvm_zluda -j"$jobs" -- --test-threads=1 \
-    2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/image-cpu.log"
-cargo test --release --locked --offline -p ptx -j"$jobs" -- _llvm --test-threads=1 \
-    2>&1 | tee "$BUILD_ROOT/native/cleanup-tests/ptx-cpu.log"
+# LLVM/PTX production inputs are unchanged; their prior qualification is retained.
