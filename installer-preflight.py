@@ -1,5 +1,6 @@
 import json,os,pathlib,subprocess,shutil
 root=pathlib.Path('/work');tool=pathlib.Path('/tool');records=[]
+receipts=root/'receipts';receipts.mkdir()
 (tool/'protonfixes/files/bin/winetricks').rename(tool/'protonfixes/files/bin/winetricks-real')
 wrapper=tool/'protonfixes/files/bin/winetricks'
 wrapper.write_text('''#!/usr/bin/python3
@@ -22,12 +23,14 @@ for variant in ['automatic','automatic-log','manual-off','late-off']:
  settings=tool/'user_settings.py'
  if variant=='late-off':settings.write_text("user_settings={'PROTON_ENABLE_ZLUDA':'0','PROTON_USE_WOW64':'1','WINEARCH':'wow64'}\n")
  else:settings.unlink(missing_ok=True)
- log=d/'proton.log'
+ log=receipts/(variant+'-proton.log')
  with log.open('w') as output:
   p=subprocess.run([str(tool/'proton'),'waitforexitandrun','C:\\windows\\system32\\cmd.exe','/c','echo FIRSTUSE_OK'],env=env,cwd=d/'game',stdout=output,stderr=subprocess.STDOUT,timeout=240)
- text=log.read_text();r={'variant':variant,'returncode':p.returncode,'hook_failed':'PhysX installation failed' in text,'game_output':'FIRSTUSE_OK' in text,'winetricks_logged':(d/'compatdata/pfx/winetricks.log.forced').exists()};records.append(r)
+ text=log.read_text();print(text[-9000:],flush=True);r={'variant':variant,'returncode':p.returncode,'hook_failed':'PhysX installation failed' in text,'game_output':'FIRSTUSE_OK' in text,'winetricks_logged':(d/'compatdata/pfx/winetricks.log.forced').exists()};records.append(r)
+ (receipts/'REPORT.json').write_text(json.dumps(records,indent=2))
+ if (d/'installer-env.json').exists():shutil.copyfile(d/'installer-env.json',receipts/(variant+'-installer-env.json'))
  e=json.loads((d/'installer-env.json').read_text())
  for flag in ['-k','-w']:
   subprocess.run([str(tool/'files/bin/wineserver'),flag],env=e,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
- (root/'REPORT.json').write_text(json.dumps(records,indent=2))
+ (receipts/'REPORT.json').write_text(json.dumps(records,indent=2))
 print(json.dumps(records,indent=2))
