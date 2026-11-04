@@ -26,3 +26,44 @@ index 05795c0..bdacf80 100644
 +        ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", args.allowOtherDrivers ? "1" : nullptr);
 @@ -287 +293,0 @@ TEST_CASE("Sysinfo methods succeed", "[.sysinfo]") {
 -        ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
+diff --git a/tests/nvapi_vulkan.cpp b/tests/nvapi_vulkan.cpp
+index 3fea37c..fb0406d 100644
+--- a/tests/nvapi_vulkan.cpp
++++ b/tests/nvapi_vulkan.cpp
+@@ -3,0 +4,3 @@
++#include <cstdint>
++#include <type_traits>
++
+@@ -5,0 +9,8 @@ using namespace trompeloeil;
++template <typename Handle>
++static Handle TestVulkanHandle(std::uintptr_t value) {
++    if constexpr (std::is_pointer_v<Handle>)
++        return reinterpret_cast<Handle>(value);
++    else
++        return static_cast<Handle>(value);
++}
++
+@@ -56 +67 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-        REQUIRE(signalSemaphoreHandle == VK_NULL_HANDLE);
++        REQUIRE(signalSemaphoreHandle == nullptr);
+@@ -93 +104 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-        auto vkSemaphore = reinterpret_cast<VkSemaphore>(0x12345678);
++        auto vkSemaphore = TestVulkanHandle<VkSemaphore>(0x12345678);
+@@ -102 +113 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-        REQUIRE(signalSemaphoreHandle == vkSemaphore);
++        REQUIRE(signalSemaphoreHandle == reinterpret_cast<HANDLE>(vkSemaphore));
+@@ -105 +116 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            .WITH(_2->semaphore == signalSemaphoreHandle && _2->value == 1)
++            .WITH(_2->semaphore == vkSemaphore && _2->value == 1)
+@@ -216 +227 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            auto vkSemaphore = reinterpret_cast<VkSemaphore>(0x12345678);
++            auto vkSemaphore = TestVulkanHandle<VkSemaphore>(0x12345678);
+@@ -225 +236 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            REQUIRE(signalSemaphoreHandle == vkSemaphore);
++            REQUIRE(signalSemaphoreHandle == reinterpret_cast<HANDLE>(vkSemaphore));
+@@ -234 +245 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            auto vkSemaphore = reinterpret_cast<VkSemaphore>(0x12345678);
++            auto vkSemaphore = TestVulkanHandle<VkSemaphore>(0x12345678);
+@@ -381 +392 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            auto vkSemaphore = reinterpret_cast<VkSemaphore>(0x12345678);
++            auto vkSemaphore = TestVulkanHandle<VkSemaphore>(0x12345678);
