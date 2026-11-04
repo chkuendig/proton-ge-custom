@@ -606,6 +606,7 @@ jobs:
             ${{ runner.temp }}/assembly.log
             ${{ runner.temp }}/loader.log
             ${{ runner.temp }}/video-build/build.log
+            ${{ runner.temp }}/video-build/build/*/ffbuild/config.log
             ${{ runner.temp }}/steam-video/CI-STEAM-VIDEO.json
           retention-days: 14
 

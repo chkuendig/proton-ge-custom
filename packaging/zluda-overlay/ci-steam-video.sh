@@ -17,6 +17,8 @@ assert not git('-C', 'ffmpeg', 'status', '--porcelain', '--untracked-files=all')
 assert not Path(os.environ['FIXTURE_ROOT']).exists(), 'fixture must be fresh'
 PY
 mkdir -p "$BUILD_ROOT" "$FIXTURE_ROOT/steamrtarm64/video"
+# The SDK compiler wrappers must not use their default cache under /root.
+export CCACHE_DIR=$BUILD_ROOT/ccache
 flags=(--enable-shared --disable-static --disable-everything --disable-programs
        --disable-doc --disable-inline-asm --enable-demuxer=matroska)
 for entry in x86_64:64 i686:32; do
@@ -25,9 +27,12 @@ for entry in x86_64:64 i686:32; do
     mkdir -p "$BUILD_ROOT/$machine"
     (
         cd "$BUILD_ROOT/$machine"
-        "$SOURCE_ROOT/ffmpeg/configure" "${flags[@]}" --cross-prefix="$machine-linux-gnu-" \
+        if ! "$SOURCE_ROOT/ffmpeg/configure" "${flags[@]}" --cross-prefix="$machine-linux-gnu-" \
             --arch="$arch" --target-os=linux --prefix="$FIXTURE_ROOT/ubuntu12_$bits" \
-            --libdir="$FIXTURE_ROOT/ubuntu12_$bits/video"
+            --libdir="$FIXTURE_ROOT/ubuntu12_$bits/video"; then
+            tail -n 80 ffbuild/config.log
+            exit 1
+        fi
         make -j"${JOBS:-3}"
         make install-libs
     )
