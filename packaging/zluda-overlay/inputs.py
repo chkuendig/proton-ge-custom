@@ -121,6 +121,31 @@ def components_for_part(part):
     return LOCK['build_parts'][part]
 
 
+def bridge_component():
+    return LOCK['wine_bridge'].get('component', 'zluda')
+
+
+def bridge_root(root):
+    return root / bridge_component()
+
+
+def check_bridge_contract(root):
+    bridge = LOCK['wine_bridge']
+    child = bridge_root(root)
+    if (git(child, 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree'] or
+            sha256(child / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']):
+        raise ValueError('locked Wine bridge tree/lock mismatch')
+    if 'backend_source' in bridge:
+        contract = child / 'BACKEND-SOURCE.json'
+        if (sha256(contract) != bridge['backend_contract_sha256'] or
+                json.loads(contract.read_text()) != bridge['backend_source'] or
+                bridge['backend_source']['commit'] != LOCK['components']['zluda']):
+            raise ValueError('locked bridge backend source contract mismatch')
+        for name, expected in bridge['backend_source']['source_inputs'].items():
+            if sha256(root / 'zluda' / name) != expected:
+                raise ValueError('locked bridge backend source bytes differ: ' + name)
+
+
 def check_bridge_sources(root):
     """Full GE prep intentionally patches other components and main-tree files.
 
@@ -131,17 +156,15 @@ def check_bridge_sources(root):
     path = 'packaging/zluda-overlay/inputs.lock.json'
     if (root / path).read_bytes() != subprocess.check_output(['git', '-C', str(root), 'show', 'HEAD:' + path]):
         raise ValueError('dirty bridge input lock')
-    child = root / 'zluda'
-    pin = LOCK['components']['zluda']
-    if git(root, 'rev-parse', 'HEAD:zluda') != pin or git(child, 'rev-parse', 'HEAD') != pin:
-        raise ValueError('locked Wine bridge gitlink mismatch')
-    if git(child, 'status', '--porcelain', '--untracked-files=no'):
-        raise ValueError('dirty Wine bridge component')
-    check_tree(child)
-    bridge = LOCK['wine_bridge']
-    if (git(child, 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree'] or
-            sha256(child / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']):
-        raise ValueError('locked Wine bridge tree/lock mismatch')
+    for name in dict.fromkeys(['zluda', bridge_component()]):
+        child = root / name
+        pin = LOCK['components'][name]
+        if git(root, 'rev-parse', 'HEAD:' + name) != pin or git(child, 'rev-parse', 'HEAD') != pin:
+            raise ValueError('locked Wine bridge gitlink mismatch: ' + name)
+        if git(child, 'status', '--porcelain', '--untracked-files=no'):
+            raise ValueError('dirty Wine bridge component: ' + name)
+        check_tree(child)
+    check_bridge_contract(root)
     from component_patches import series
     for name in LOCK.get('component_patches', {}):
         series(root, name, LOCK)
@@ -165,11 +188,7 @@ def check_sources(root, part):
             from component_patches import series
             series(root, name, LOCK)
     if part in ('bridges', 'all'):
-        bridge = LOCK['wine_bridge']
-        if git(root / 'zluda', 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree']:
-            raise ValueError('locked Wine bridge tree mismatch')
-        if sha256(root / 'zluda' / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']:
-            raise ValueError('locked Wine bridge Cargo.lock mismatch')
+        check_bridge_contract(root)
     if part in ('zluda', 'all'):
         if not (git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']):
             raise ValueError("inputs.py integrity gate failed: git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']")

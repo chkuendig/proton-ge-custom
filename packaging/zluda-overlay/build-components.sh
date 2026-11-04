@@ -78,8 +78,9 @@ if [[ $part == bridges || $part == all ]]; then
     bash "$here/build-wine.sh"
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
     python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
-    n=$SOURCE_ROOT/zluda/wine/zluda_wine
-    export BRIDGE_SOURCE=$n
+    n=$SOURCE_ROOT/zluda-wine/wine/zluda_wine
+    export ZLUDA_WINE_BACKEND_SOURCE=$SOURCE_ROOT/zluda
+export BRIDGE_SOURCE=$n
     source "$here/bridge-env.sh"
     BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
     # transition.exe needs this exact prepared Wine SDK; assembly has only
@@ -123,7 +124,7 @@ if [[ $part == bridges || $part == all ]]; then
     cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
     cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    python3 "$here/source_archive.py" --source "$SOURCE_ROOT/zluda" \
+    python3 "$here/source_archive.py" --source "$SOURCE_ROOT/zluda-wine" \
         --build "$BUILD_ROOT/zluda-wine/target" --output "$DESTDIR/sources/zluda-wine.tar.gz"
     python3 "$here/component_patches.py" stage "$SOURCE_ROOT" \
         "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi --dest "$DESTDIR"

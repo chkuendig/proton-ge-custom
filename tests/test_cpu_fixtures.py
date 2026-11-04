@@ -17,7 +17,7 @@ from inputs import sha256
 class CpuFixtures(unittest.TestCase):
     def fixture(self, root):
         source, build, sdk, dest = [root/name for name in ['source','build','sdk.json','package']]
-        path=source/'zluda'/gate.LOCK['wine_bridge']['path']/'tests/abi/fixture.c'
+        path=source/gate.bridge_component()/gate.LOCK['wine_bridge']['path']/'tests/abi/fixture.c'
         path.parent.mkdir(parents=True);path.write_text('pinned fixture source')
         build.mkdir()
         for name in gate.REQUIRED:

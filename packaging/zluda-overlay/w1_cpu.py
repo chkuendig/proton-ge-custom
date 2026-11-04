@@ -22,7 +22,7 @@ import shutil
 import subprocess
 import time
 
-from inputs import git, sha256
+from inputs import LOCK, bridge_component, git, sha256
 import wine_cpu
 from pathlib import Path
 
@@ -91,7 +91,7 @@ def terminated(result):
         bool(events(result, 'finish')) or result['exit'] == 2)
 
 
-FIXTURE_PIN = 'f61fda4e73c88b71303806a27775803524f30ae7'
+FIXTURE_PIN = LOCK['components'][bridge_component()]
 
 def admit_fixtures(fixtures, source):
     if git(source, 'rev-parse', 'HEAD') != FIXTURE_PIN:

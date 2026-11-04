@@ -103,6 +103,8 @@ def extracted_environment(root, original):
                ZLUDA_WINE_ABI_RECEIPT=str(root / 'external/prepared-wine-abi.json'),
                ZLUDA_WINE_ABI_RECEIPT_SHA256=record['abi_receipt_sha256'],
                ZLUDA_WINE_SOURCE_ID=record['source_commit'], SOURCE_DATE_EPOCH=record['source_date_epoch'])
+    if record.get('backend_source_commit'):
+        env['ZLUDA_WINE_BACKEND_SOURCE'] = str(root / 'external/backend')
     sdk_inputs(env)  # Actual bytes, before Cargo also performs production admission.
     return env
 
@@ -135,6 +137,25 @@ def create(source, build, output, cargo='cargo'):
                 'abi_receipt_sha256': os.environ['ZLUDA_WINE_ABI_RECEIPT_SHA256']}
     if os.environ['ZLUDA_WINE_SOURCE_ID'] != identity['source_commit']:
         raise ValueError('source archive shipping source identity mismatch')
+    backend_inputs = {}
+    if (source / 'BACKEND-SOURCE.json').is_file():
+        contract = json.loads((source / 'BACKEND-SOURCE.json').read_text())
+        backend = Path(os.environ['ZLUDA_WINE_BACKEND_SOURCE']).resolve(strict=True)
+        if git(backend, 'rev-parse', 'HEAD') != contract['commit']:
+            raise ValueError('source archive backend pin mismatch')
+        observed, backend_records = observed_inputs(backend, build)
+        if observed != set(contract['source_inputs']):
+            raise ValueError('source archive backend observed closure differs from admitted six inputs')
+        for name, expected in contract['source_inputs'].items():
+            if sha256(backend / name) != expected:
+                raise ValueError('source archive backend bytes differ: ' + name)
+            capsule['external/backend/' + name] = (backend / name).read_bytes()
+            backend_inputs[name] = expected
+        for name in ['LICENSE-MIT', 'LICENSE-APACHE']:
+            capsule['external/backend/' + name] = (backend / name).read_bytes()
+        identity.update(backend_source_commit=contract['commit'],
+                        backend_source_tree=git(backend, 'rev-parse', 'HEAD^{tree}'),
+                        backend_source_inputs=backend_inputs, backend_cargo_inputs=backend_records)
     capsule['external/BRIDGE-BUILD.json'] = (json.dumps(identity, indent=2) + '\n').encode()
     for path in HERE.rglob('*'):
         if path.is_file() and '__pycache__' not in path.parts:
@@ -144,7 +165,8 @@ def create(source, build, output, cargo='cargo'):
     raw = subprocess.check_output(['git', '-C', str(source), 'archive', 'HEAD'])
     output.parent.mkdir(parents=True, exist_ok=True)
     receipt = {'source_commit': git(source, 'rev-parse', 'HEAD'), 'source_tree': git(source, 'rev-parse', 'HEAD^{tree}'),
-               'method': 'full tracked superproject plus Cargo-observed submodule files',
+               'method': 'full tracked component plus observed inputs and admitted backend closure',
+               'backend_source': {key: value for key, value in identity.items() if key.startswith('backend_')},
                'cargo_inputs': records, 'extra_submodule_files': {name: sha256(source / name) for name in extras},
                'production_license': 'MIT OR Apache-2.0',
                'recipe_license': 'Prepared-Wine reviewer contracts retain Wine terms; dependencies retain their own notices',

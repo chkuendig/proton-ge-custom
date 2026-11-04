@@ -128,7 +128,7 @@ class PackageContract(unittest.TestCase):
             path.write_text(text)
             result = subprocess.check_output([os.environ.get('PACKAGING_TEST_MAKE') or 'make', '--no-print-directory', '-n', '-f', str(path), 'all-dist'],
                                              cwd=root, text=True)
-            self.assertIn(str(root / 'source/zluda/wine/zluda_wine'), result)
+            self.assertIn(str(root / 'source/zluda-wine/wine/zluda_wine'), result)
             self.assertIn('--generated', result)
             self.assertNotIn('build-wine64.txt', result)
             self.assertIn('--object "prepared-object" --source "prepared-source"', result)

@@ -13,7 +13,7 @@ import shutil
 import subprocess
 
 import cuda_package
-from inputs import HERE, LOCK, git, sha256
+from inputs import bridge_component, HERE, LOCK, git, sha256
 
 MODES = ['off-unset', 'on', 'off-zero', 'on-missing-backend', 'on-relative-backend', 'off-again']
 PROFILES = {
@@ -32,9 +32,10 @@ WOW64_EVENTS = {'backend-loaded': 1, 'cuInit': 2, 'sparse-512MiB-pool': 1,
 
 
 def admit_source(source):
-    pin = LOCK['components']['zluda']
-    child = source / 'zluda'
-    if git(source, 'rev-parse', 'HEAD:zluda') != pin or git(child, 'rev-parse', 'HEAD') != pin:
+    component = bridge_component()
+    pin = LOCK['components'][component]
+    child = source / component
+    if git(source, 'rev-parse', 'HEAD:' + component) != pin or git(child, 'rev-parse', 'HEAD') != pin:
         raise ValueError('Wine CPU source gitlink differs from input lock')
     if git(child, 'status', '--porcelain', '--untracked-files=no', '--ignore-submodules=all'):
         raise ValueError('dirty Wine CPU source')

@@ -22,6 +22,50 @@ def git(root, *args):
 
 
 class SourceArchive(unittest.TestCase):
+    def test_component_capsule_relocates_the_admitted_backend_without_original_checkout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, backend, build = [root / name for name in ['component', 'backend', 'build']]
+            for directory in [source, backend, build]:
+                directory.mkdir()
+            for directory in [source, backend]:
+                git(directory, 'init', '-q')
+            name = 'cuda_types/src/cuda.rs'
+            path = backend / name
+            path.parent.mkdir(parents=True)
+            path.write_text('// admitted backend declaration\n')
+            for notice in ['LICENSE-MIT', 'LICENSE-APACHE']:
+                (backend / notice).write_text('retained backend notice')
+            git(backend, 'add', '.'); git(backend, 'commit', '-qm', 'backend')
+            crate = source / 'wine/zluda_wine'
+            (crate / 'src').mkdir(parents=True)
+            (crate / 'Cargo.toml').write_text('[package]\nname="fixture"\nversion="0.1.0"\n')
+            (crate / 'src/lib.rs').write_text('// fixture\n')
+            (source / 'BACKEND-SOURCE.json').write_text(json.dumps({
+                'commit': git(backend, 'rev-parse', 'HEAD'),
+                'source_inputs': {name: source_archive.sha256(path)}}))
+            git(source, 'add', '.'); git(source, 'commit', '-qm', 'component')
+            (build / 'fixture.d').write_text('out: ' + str(crate / 'src/lib.rs'))
+            (build / 'output').write_text('cargo:rerun-if-changed=' + str(path) + '\n')
+            cargo = root / 'cargo'
+            cargo.write_text('#!/usr/bin/env python3\nimport json,os,pathlib,sys\n'
+                'if sys.argv[1]=="check":\n'
+                ' p=pathlib.Path(os.environ["ZLUDA_WINE_BACKEND_SOURCE"])\n'
+                ' assert "archive-check-" in str(p) and p.name=="backend"\n'
+                ' assert (p/"cuda_types/src/cuda.rs").read_text()=="// admitted backend declaration\\n"\n'
+                'print(json.dumps({"packages":[{"source":None,"manifest_path":sys.argv[-1]}]}))\n')
+            cargo.chmod(0o755)
+            env = dict(self.sdk_fixture(root, git(source, 'rev-parse', 'HEAD')),
+                       ZLUDA_WINE_BACKEND_SOURCE=str(backend))
+            output = root / 'capsule.tar.gz'
+            with mock.patch.dict(os.environ, env):
+                record = source_archive.create(source, build, output, str(cargo))
+                self.assertEqual(record['backend_source']['backend_source_inputs'],
+                                 {name: source_archive.sha256(path)})
+                path.write_text('// changed backend declaration\n')
+                with self.assertRaisesRegex(ValueError, 'backend bytes differ'):
+                    source_archive.create(source, build, output, str(cargo))
+
     def sdk_fixture(self, root, source_id):
         sdk = root / 'prepared-sdk'
         for name, data in [('bin/winebuild', b'portable tool'), ('lib/ntdll.so', b'prepared provider')]:

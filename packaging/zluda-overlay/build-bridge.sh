@@ -12,7 +12,7 @@ mkdir -p "$BUILD_ROOT/log"
 # Full checkout provenance, pinned independent crate tree and lock are checked
 # by inputs.py before this entry in both CI and make redist.
 commit=$(git -C "$BRIDGE_SOURCE" rev-parse HEAD)
-expected=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["components"]["zluda"])' "$here/inputs.lock.json")
+expected=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["components"]["zluda-wine"])' "$here/inputs.lock.json")
 [[ $commit == "$expected" ]] || { echo 'ZLUDA Wine source pin mismatch' >&2; exit 1; }
 # All three targets and the independent lock are required by this entry. Its
 # incomplete source must fail rather than package a pilot or a C fallback.

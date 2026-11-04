@@ -108,8 +108,9 @@ def create(source, binary, dest, stack_build=None):
     # LLVM and Cargo dependencies are linked into zoc even when they do not
     # appear in DT_NEEDED. Retain their notices with this separate capsule.
     collect_licenses(source, dest / 'licenses/source', required=True)
-    if (source / 'wine/zluda_wine').is_dir():
-        collect_bridge_notices(source, dest)
+    bridge = Path(os.environ.get('BRIDGE_COMPONENT_SOURCE', str(source)))
+    if (bridge / 'wine/zluda_wine').is_dir():
+        collect_bridge_notices(bridge, dest)
     if 'CARGO_HOME' in os.environ:
         cargo = Path(os.environ['CARGO_HOME'])
         collect_licenses(cargo / 'registry/src', dest / 'licenses/cargo-registry', required=True)
@@ -117,7 +118,7 @@ def create(source, binary, dest, stack_build=None):
             collect_licenses(cargo / 'git/checkouts', dest / 'licenses/cargo-git', required=True)
     shutil.copyfile(source / 'Cargo.lock', dest / 'licenses/Cargo.lock')
     if stack_build is not None:
-        stack_source = source / 'wine/zluda_wine/tests/stack'
+        stack_source = bridge / 'wine/zluda_wine/tests/stack'
         for filename, root in [('SOURCE-SHA256SUMS', stack_source), ('SHA256SUMS', stack_build)]:
             for line in (stack_build / filename).read_text().splitlines():
                 digest, name = line.split(None, 1)

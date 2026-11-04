@@ -140,3 +140,8 @@
 	path = zluda
 	url = https://github.com/chkuendig/ZLUDA
 	branch = v7-preview.20-proton
+
+[submodule "zluda-wine"]
+	path = zluda-wine
+	url = https://github.com/chkuendig/ZLUDA.git
+	branch = component/zluda-wine-20261104

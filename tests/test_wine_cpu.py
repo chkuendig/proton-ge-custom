@@ -408,7 +408,7 @@ class WineCpu(unittest.TestCase):
 
     def test_source_gate_checks_parent_child_tree_lock_and_dirty_files(self):
         bridge = gate.LOCK['wine_bridge']
-        pin = gate.LOCK['components']['zluda']
+        pin = gate.LOCK['components'][gate.bridge_component()]
         for mismatch in [None, 'parent', 'child', 'tree', 'dirty', 'lock']:
             with self.subTest(mismatch=mismatch):
                 def git(root, *args):
@@ -424,7 +424,7 @@ class WineCpu(unittest.TestCase):
                             gate.admit_source(self.source)
                     else:
                         self.assertEqual(gate.admit_source(self.source),
-                                         self.source / 'zluda' / bridge['path'] / 'tests/abi')
+                                         self.source / gate.bridge_component() / bridge['path'] / 'tests/abi')
 
 
 if __name__ == '__main__':

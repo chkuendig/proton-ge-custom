@@ -7,7 +7,14 @@ runbooks and installed tool are untouched. This is packaging step 1: `make redis
 copies `proton_zluda.py`, but full ZLUDA component dependencies in `all-dist` remain
 separate work.
 
-The A2 bridge entry is `zluda/wine/zluda_wine` in the pinned ZLUDA checkout.
+The bridge entry is `zluda-wine/wine/zluda_wine` in the independently pinned
+permissive component. Set `ZLUDA_WINE_BACKEND_SOURCE` to the separate locked
+ZLUDA checkout; its six canonical declaration/admission inputs are digest-checked.
+The shared schema and all three modules rebuild together. The source capsule
+contains both the component and its admitted backend source closure. The
+temporary component staging ref is an orphan branch in chkuendig/ZLUDA; a
+later dedicated repository receives those exact commits unchanged.
+Optional PE32 call tracing is retained by owner request; cuda-count is test-only.
 It builds the independent Rust lock for native x64, x64 GNU Windows and i686
 GNU Windows. It never substitutes the Stage A C relay or packages an incomplete
 pilot. The input lock records the crate tree and independent Cargo.lock hash.

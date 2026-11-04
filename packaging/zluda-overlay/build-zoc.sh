@@ -16,6 +16,7 @@ cd "$SOURCE_ROOT/zluda"
 # No PTX input is used or retained by CI, and zoc is not executed here.
 cargo build --release --locked --offline -p compiler -j"$jobs" \
     2>&1 | tee "$BUILD_ROOT/native/log/zoc.log"
-STACK_PROBE_BUILD_ROOT=$BUILD_ROOT/stack-probe bash "$SOURCE_ROOT/zluda/wine/zluda_wine/tests/stack/build-probe.sh"
+STACK_PROBE_BUILD_ROOT=$BUILD_ROOT/stack-probe bash "$SOURCE_ROOT/zluda-wine/wine/zluda_wine/tests/stack/build-probe.sh"
+export BRIDGE_COMPONENT_SOURCE=$SOURCE_ROOT/zluda-wine
 python3 "$here/zoc_capsule.py" --source "$SOURCE_ROOT/zluda" \
     --binary "$SOURCE_ROOT/zluda/target/release/zoc" --dest "$BUILD_ROOT/zoc-capsule" --stack-probe-build "$BUILD_ROOT/stack-probe"

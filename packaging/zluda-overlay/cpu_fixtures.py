@@ -9,7 +9,7 @@ from pathlib import Path
 import shutil
 import tarfile
 
-from inputs import HERE, LOCK, git, manifest, sha256, verify_manifest
+from inputs import bridge_component, bridge_root, HERE, LOCK, git, manifest, sha256, verify_manifest
 import reuse_components
 
 REQUIRED = {'probe.exe', 'probe32.exe', 'libcuda.so.1', 'libcuda-wow64.so.1',
@@ -17,7 +17,7 @@ REQUIRED = {'probe.exe', 'probe32.exe', 'libcuda.so.1', 'libcuda-wow64.so.1',
 
 
 def check_source_hashes(source, build):
-    base = source / 'zluda' / LOCK['wine_bridge']['path'] / 'tests/abi'
+    base = bridge_root(source) / LOCK['wine_bridge']['path'] / 'tests/abi'
     lines = (build / 'SOURCE-SHA256SUMS').read_text().splitlines()
     if not lines:
         raise ValueError('CPU fixture source hash inventory is empty')
@@ -28,7 +28,7 @@ def check_source_hashes(source, build):
             raise ValueError('invalid/duplicate CPU fixture source hash')
         seen.add(name)
         path = (base / name).resolve()
-        if not path.is_relative_to((source / 'zluda').resolve()) or sha256(path) != digest:
+        if not path.is_relative_to(bridge_root(source).resolve()) or sha256(path) != digest:
             raise ValueError('CPU fixture source differs from pinned checkout: ' + name)
 
 
@@ -51,7 +51,7 @@ def package(source, build, sdk_receipt, dest):
                     member.size, member.mode = len(data), file.stat().st_mode & 0o777
                     tar.addfile(member, io.BytesIO(data))
     record = {'format': 'pinned-sdk-cpu-fixtures-1', 'proton': git(source, 'rev-parse', 'HEAD'),
-              'source_pin': LOCK['components']['zluda'], 'sdk_image': LOCK['sdk_image'],
+              'source_pin': LOCK['components'][bridge_component()], 'sdk_image': LOCK['sdk_image'],
               'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
               'decoy_source_sha256': sha256(HERE / 'nvcuda-decoy.c'),
               'manifest_sha256': sha256(build / 'MANIFEST'), 'archive_sha256': sha256(archive),
@@ -66,7 +66,7 @@ def admit(source, directory, dest):
     archive = directory / 'cpu-fixtures.tar.gz'
     if (record.get('format') != 'pinned-sdk-cpu-fixtures-1' or
             record.get('proton') != reuse_components.expected_commit(source) or
-            record.get('source_pin') != LOCK['components']['zluda'] or
+            record.get('source_pin') != LOCK['components'][bridge_component()] or
             record.get('sdk_image') != LOCK['sdk_image'] or
             record.get('input_lock_sha256') != sha256(HERE / 'inputs.lock.json') or
             record.get('decoy_source_sha256') != sha256(HERE / 'nvcuda-decoy.c') or

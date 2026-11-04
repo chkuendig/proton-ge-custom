@@ -88,8 +88,8 @@ jobs:
           path: |
             /work/cargo/registry/cache
             /work/cargo/registry/index
-          key: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/Cargo.lock', 'zluda/wine/zluda_wine/Cargo.lock') }}-
+          key: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/Cargo.lock', 'zluda-wine/wine/zluda_wine/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'zluda/Cargo.lock', 'zluda-wine/wine/zluda_wine/Cargo.lock') }}-
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
@@ -210,6 +210,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
+      ZLUDA_WINE_BACKEND_SOURCE: ${{ github.workspace }}/backend-source
       CARGO_BUILD_JOBS: "3"
       ZLUDA_WINE_DECLARATIONS_ONLY: "1"
     steps:
@@ -219,13 +220,25 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: 8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b
+          ref: b454ac4ce136eb2a732fa13a2d84954b8f94d9c1
           path: scope-source
           persist-credentials: false
+      - name: Checkout the admitted backend declaration source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: chkuendig/ZLUDA
+          ref: 854720b624f2a61a447d9c3b69a3f986470a0149
+          path: backend-source
+          persist-credentials: false
+          sparse-checkout: |
+            cuda_types/src
+            cuda_macros/src
+            dark_api/src
+            zluda/src
       - name: Verify source pin and run native scope tests including 18 PCI parity cases
         run: |
           set -euo pipefail
-          expected=$(python3 -c 'import json; print(json.load(open("packaging/zluda-overlay/inputs.lock.json"))["components"]["zluda"])')
+          expected=$(python3 -c 'import json; print(json.load(open("packaging/zluda-overlay/inputs.lock.json"))["components"]["zluda-wine"])')
           test "$(git -C scope-source rev-parse HEAD)" = "$expected"
           rustup toolchain install 1.99.0 --profile minimal
           python3 scope-source/wine/zluda_wine/tests/run_native_tests.py
@@ -235,6 +248,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     env:
+      ZLUDA_WINE_BACKEND_SOURCE: ${{ github.workspace }}/backend-source
       CARGO_BUILD_JOBS: "3"
       CARGO_TARGET_DIR: ${{ github.workspace }}/target/pe32-luid
       ZLUDA_WINE_DECLARATIONS_ONLY: "1"
@@ -248,12 +262,24 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: 8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b
+          ref: b454ac4ce136eb2a732fa13a2d84954b8f94d9c1
           path: luid-source
           persist-credentials: false
+      - name: Checkout the admitted backend declaration source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: chkuendig/ZLUDA
+          ref: 854720b624f2a61a447d9c3b69a3f986470a0149
+          path: backend-source
+          persist-credentials: false
+          sparse-checkout: |
+            cuda_types/src
+            cuda_macros/src
+            dark_api/src
+            zluda/src
       - name: Verify source admission and install the pinned PE32 toolchain
         run: |
-          $expected = (Get-Content packaging/zluda-overlay/inputs.lock.json -Raw | ConvertFrom-Json).components.zluda
+          $expected = (Get-Content packaging/zluda-overlay/inputs.lock.json -Raw | ConvertFrom-Json).components.'zluda-wine'
           $actual = git -C luid-source rev-parse HEAD
           if ($actual -ne $expected) { throw "LUID fixture source pin mismatch" }
           rustup toolchain install 1.99.0 --profile minimal
@@ -286,7 +312,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: f61fda4e73c88b71303806a27775803524f30ae7
+          ref: b454ac4ce136eb2a732fa13a2d84954b8f94d9c1
           path: w1-source
           sparse-checkout: wine/w1-fixtures
           persist-credentials: false
@@ -397,7 +423,7 @@ jobs:
             -e DESTDIR=/tool "$SDK_IMAGE" bash /src/packaging/zluda-overlay/check-loader.sh \
             2>&1 | tee "$RUNNER_TEMP/loader.log"
       - name: Checkout pinned CPU fixture sources
-        run: GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --filter=blob:none -- zluda
+        run: GIT_LFS_SKIP_SMUDGE=1 git submodule update --init --filter=blob:none -- zluda zluda-wine
       - name: Download checksum-bound CPU fixtures from the bridges SDK
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:

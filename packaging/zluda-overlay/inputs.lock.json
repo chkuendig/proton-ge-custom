@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b",
+    "zluda": "854720b624f2a61a447d9c3b69a3f986470a0149",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
@@ -33,7 +33,8 @@
     "dav1d": "b546257f770768b2c88258c533da38b91a06f737",
     "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
     "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
-    "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd"
+    "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd",
+    "zluda-wine": "b454ac4ce136eb2a732fa13a2d84954b8f94d9c1"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -224,7 +225,8 @@
   },
   "build_parts": {
     "zluda": [
-      "zluda"
+      "zluda",
+      "zluda-wine"
     ],
     "bridges": [
       "zluda",
@@ -248,22 +250,43 @@
       "dav1d",
       "xz",
       "Vulkan-Headers",
-      "SPIRV-Headers"
+      "SPIRV-Headers",
+      "zluda-wine"
     ]
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "872ded44f6fca02719ad76ec1ddf0686ab571175",
+    "tree": "984fbb5da8927dcd40518498ca43421b7838664c",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
     "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
     "license": "MIT OR Apache-2.0",
-    "implementation": "clean-room production on ZLUDA c60462dc ancestry; Wine/Proton retain their own terms",
+    "implementation": "Independent clean-room component; staging orphan commits move unchanged to dedicated repo after owner approval",
     "provenance_bundle": {
-      "LICENSES/PRODUCTION-INPUTS.json": "16bfefc0b0c0fb780e83161db284493a7b77ff52ad6a26b3891755e5330de8be",
+      "LICENSES/PRODUCTION-INPUTS.json": "f3ec09e8adfa010aa0f5afb945c86c71ac1493160945ff6ab2f668c299cc5930",
       "LICENSES/PROVENANCE.md": "f66359e0f4407af1121780d82db7e0656d2278e9ae6a782d22a35b497bdafe06",
       "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
-    }
+    },
+    "component": "zluda-wine",
+    "repository": "https://github.com/chkuendig/ZLUDA.git",
+    "staging_branch": "component/zluda-wine-20261104",
+    "backend_source": {
+      "contract": "zluda-wine-backend-source-1",
+      "repository": "https://github.com/chkuendig/ZLUDA",
+      "commit": "854720b624f2a61a447d9c3b69a3f986470a0149",
+      "source_inputs": {
+        "cuda_macros/src/cuda.rs": "fe4c9326ccb34c894793f99e8f3d403e7f6acd440d6468ab3796003b8db2648a",
+        "cuda_types/src/cuda.rs": "b6adddfb2635d66003d6a282cb96a1dbc86cdf9b20d2fed19378c9fc1466a7b6",
+        "cuda_types/src/dark_api.rs": "3b7f25038ecb8208f7784755c16ff6d655a3aeadf3d2116e342522dfd331941b",
+        "dark_api/src/lib.rs": "69d27adc2465e27b0cb31d5e67306899ad2f3f4fa2a3d53b76cc49f022afb2dc",
+        "zluda/src/impl/mod.rs": "4b83a64de2a74ae2e98c8357813aca71f7436c72a9ecd871aa6e4d2baa97ca7e",
+        "zluda/src/lib.rs": "de960078b0d9a99022fe64f635765057368471708445fac6b8c559e9a941aa23"
+      },
+      "source_origin": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b"
+    },
+    "backend_contract_sha256": "b52c6b38cc55d7547b1a725feb959b0ff318386853fb03010fbabbf0bd656e69",
+    "fixtures_tree": "e069e3eb5ebc96ebf9687239168cf8247ff7d9c5",
+    "source_date_epoch": "1793751497"
   },
   "component_patches": {
     "dxvk-nvapi": {

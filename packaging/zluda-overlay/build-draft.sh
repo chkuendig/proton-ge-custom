@@ -19,7 +19,8 @@ export PATH="$WINE_SDK_ROOT/bin:$PATH"
 python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
 export PILOT_BUILD_ROOT=$BUILD_ROOT/zluda-wine-draft
 mkdir -p "$BUILD_ROOT/log"
-bridge=$SOURCE_ROOT/zluda/wine/zluda_wine
+bridge=$SOURCE_ROOT/zluda-wine/wine/zluda_wine
+export ZLUDA_WINE_BACKEND_SOURCE=$SOURCE_ROOT/zluda
 export BRIDGE_SOURCE=$bridge
 source "$here/bridge-env.sh"
 bash "$bridge/build-pilot.sh" 2>&1 | tee "$BUILD_ROOT/log/zluda-wine-draft.log"
