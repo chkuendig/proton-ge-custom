@@ -14,7 +14,10 @@ pin=$(python3 -c 'import json,os; print(json.load(open(os.environ["SOURCE_ROOT"]
 git -C "$stock" init -q
 git -C "$stock" fetch --depth=1 https://github.com/ValveSoftware/Proton.git "$pin" refs/tags/proton-11.0-2e
 git -C "$stock" checkout -q --detach "$pin"
-git -C "$stock" tag proton-11.0-2e "$pin"
+if ! git -C "$stock" show-ref --verify --quiet refs/tags/proton-11.0-2e; then
+    git -C "$stock" tag proton-11.0-2e "$pin"
+fi
+[[ $(git -C "$stock" rev-parse proton-11.0-2e^{commit}) == "$pin" ]]
 git -C "$stock" submodule update --init --recursive --depth=1 --filter=blob:none --jobs=3
 python3 "$here/valve_tool.py" admit "$stock" --output "$out/log/valve-source-pins.json"
 python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group valve
@@ -22,9 +25,15 @@ mkdir -p "$stock/contrib"
 cp "$DOWNLOAD_ROOT/wine-mono-11.2.0-x86.tar.xz" "$DOWNLOAD_ROOT/xalia-0.4.9-net48-mono.zip" "$stock/contrib/"
 epoch=$(git -C "$stock" show -s --format=%ct HEAD)
 cd "$out"
+# Valve's media stack needs the SDK's i686 Linux Rust standard library.
+# The private 1.99 bridge compiler deliberately installs only PE targets.
+# Keep both complete stock/rebuild invocations on the same locked SDK tools.
+valve_path=${PATH#"$BUILD_ROOT/rust/bin:"}
+PATH="$valve_path" cargo --version
+PATH="$valve_path" rustc --version --verbose
 # This invokes Valve's normal full distribution target inside the already
 # locked hosted SDK. It never invokes configure's container-probing launcher.
-make -f "$stock/Makefile.in" SRCDIR="$stock" CONTAINER=1 \
+PATH="$valve_path" make -f "$stock/Makefile.in" SRCDIR="$stock" CONTAINER=1 \
     BUILD_NAME=Valve-Proton11.0-2e-stock INTERNAL_TOOL_NAME=Valve-Proton11.0-2e-stock \
     SOURCE_DATE_EPOCH="$epoch" BASE_SOURCE_DATE_EPOCH="$epoch" -j"$jobs" dist
 # Normalize the locally built stock distribution to its pinned source epoch.
@@ -37,7 +46,7 @@ python3 "$here/valve_tool.py" stock "$out/dist" --archive /work/valve-stock.tar.
     --output /work/VALVE-STOCK.json
 # Rebuild through the same upstream recipe, changing only the Mafia II line.
 patch -d "$stock/wine" -p1 < "$SOURCE_ROOT/patches/wine-hotfixes/pending/ntdll-restore-thread-state-after-steamclient-fault-redirect.patch"
-make -f "$stock/Makefile.in" SRCDIR="$stock" CONTAINER=1 \
+PATH="$valve_path" make -f "$stock/Makefile.in" SRCDIR="$stock" CONTAINER=1 \
     BUILD_NAME=Valve-Proton11.0-2e-stock INTERNAL_TOOL_NAME=Valve-Proton11.0-2e-stock \
     SOURCE_DATE_EPOCH="$epoch" BASE_SOURCE_DATE_EPOCH="$epoch" -j"$jobs" wine
 # Give the rsynced, configured source its real upstream lineage before the
