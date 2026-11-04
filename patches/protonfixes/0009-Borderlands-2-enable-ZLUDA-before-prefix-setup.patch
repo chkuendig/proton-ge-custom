@@ -4,7 +4,7 @@ Subject: [PATCH] Borderlands 2: enable ZLUDA and WoW64 before prefix setup
 Assisted-by: codex:gpt-6.1-sol
 
 diff --git a/gamefixes-steam/49520.py b/gamefixes-steam/49520.py
-index 8eee00d..c74dd03 100755
+index 8eee00d..a6ef063 100755
 --- a/gamefixes-steam/49520.py
 +++ b/gamefixes-steam/49520.py
 @@ -1,8 +1,18 @@
@@ -26,10 +26,16 @@ index 8eee00d..c74dd03 100755
  def main() -> None:
      """Launcherfix and NVIDIA PhysX support."""
      # Fixes the startup process.
-@@ -13,4 +23,5 @@ def main() -> None:
+@@ -13,4 +23,11 @@ def main() -> None:
      util.disable_esync()
  
      # Enables NVIDIA PhysX in Borderlands 2.
 -    util.protontricks('physx')
-+    if not util.checkinstalled('physx') and not util.protontricks('physx'):
++    # A cold-prefix discovery failure can be transient. Each protontricks
++    # call waits for wineserver -w before winetricks; retry once, then fail.
++    if (
++        not util.checkinstalled('physx')
++        and not util.protontricks('physx')
++        and not util.protontricks('physx')
++    ):
 +        raise RuntimeError('PhysX installation failed; inspect Protonfixes log')

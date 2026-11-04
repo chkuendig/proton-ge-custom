@@ -100,6 +100,64 @@ class ComponentPatches(unittest.TestCase):
                                                 'g_proton': types.SimpleNamespace(dist_dir='/tool/')})
                                     self.assertEqual(child.env.get('WINEARCH'),
                                                      'wow64' if requested != '0' else None)
+                                    self.assert_bl2_installer_retry(namespace, git(repo, 'show', ':util.py'))
+
+    def assert_bl2_installer_retry(self, namespace, utility_source):
+        """Exercise the shipped fix and pinned helper, including each server wait."""
+        import types
+        function = next(node for node in ast.parse(utility_source).body
+                        if isinstance(node, ast.FunctionDef) and node.name == 'protontricks')
+        for installed, statuses in [(True, []), (False, [0]), (False, [1, 0]), (False, [1, 1])]:
+            with self.subTest(installed=installed, installer_statuses=statuses):
+                events, pending = [], list(statuses)
+                marker = [installed]
+                original_env = dict(os.environ)
+                session = types.SimpleNamespace(env=dict(original_env))
+                def checkinstalled(verb):
+                    self.assertEqual(verb, 'physx')
+                    return marker[0]
+                def forceinstalled(verb):
+                    self.assertEqual(verb, 'physx')
+                    marker[0] = True
+                def wait_server(argv, env):
+                    self.assertEqual(argv, ['/tool/wineserver', '-w'])
+                    self.assertEqual(env['WINEPREFIX'], '/prefix')
+                    events.append('wait')
+                    return 0
+                class Process:
+                    def __init__(self, argv, env):
+                        self.returncode = pending.pop(0)
+                        events.append('install')
+                    def __enter__(self):
+                        return self
+                    def __exit__(self, *args):
+                        return False
+                    def wait(self):
+                        pass
+                scope = {
+                    'log': mock.Mock(), 'checkinstalled': checkinstalled,
+                    'check_internet': lambda: True, 'protonprefix': lambda: '/prefix',
+                    'is_custom_verb': lambda verb: False, '_forceinstalled': forceinstalled,
+                    '_killhanging': mock.Mock(),
+                    'sys': types.SimpleNamespace(argv=['proton', 'waitforexitandrun', 'game.exe']),
+                    'subprocess': types.SimpleNamespace(call=wait_server, Popen=Process),
+                    'protonmain': types.SimpleNamespace(g_session=session,
+                        g_proton=types.SimpleNamespace(wine_bin='/tool/wine',
+                                                      wineserver_bin='/tool/wineserver')),
+                }
+                exec(compile(ast.Module(body=[function], type_ignores=[]), 'pinned-util.py', 'exec'), scope)
+                namespace['util'] = types.SimpleNamespace(
+                    checkinstalled=checkinstalled, protontricks=scope['protontricks'],
+                    replace_command=mock.Mock(), append_argument=mock.Mock(), disable_esync=mock.Mock())
+                if statuses == [1, 1]:
+                    with self.assertRaisesRegex(RuntimeError, 'PhysX installation failed'):
+                        namespace['main']()
+                else:
+                    namespace['main']()
+                self.assertEqual(events, ['wait', 'install'] * len(statuses))
+                self.assertFalse(pending)
+                self.assertEqual(session.env, original_env)
+                self.assertEqual(dict(os.environ), original_env)
 
     def test_patch_hash_inventory_is_closed_and_ordered(self):
         with tempfile.TemporaryDirectory() as temporary:

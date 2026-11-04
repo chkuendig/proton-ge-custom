@@ -288,7 +288,7 @@
       "upstream_tree": "25177ee4434100da6e9d10c09b0b2a02a48738fb",
       "fork_commit": "39943545657dffdfb34aacea59c96be9f5f3e00c",
       "fork_tree": "25177ee4434100da6e9d10c09b0b2a02a48738fb",
-      "prepared_tree": "e68ee7d6c270324edddec489cfbb6a2c9a892702",
+      "prepared_tree": "302983153121cdc3e27c6cfcc116c838be0367b1",
       "patches": [
         {
           "path": "patches/protonfixes/0001-upscalers-add-optiscaler-downloader.patch",
@@ -308,7 +308,7 @@
         },
         {
           "path": "patches/protonfixes/0009-Borderlands-2-enable-ZLUDA-before-prefix-setup.patch",
-          "sha256": "1acdd47914f3611c072467910ffd6e9109582bd89bda4c059b7a1d96c5daff9e",
+          "sha256": "190f48f79f090c7dd9a8686fd63990658a2c322e9e559f538231f058edbc9b5e",
           "fork_change": true,
           "post_fork": true
         }
