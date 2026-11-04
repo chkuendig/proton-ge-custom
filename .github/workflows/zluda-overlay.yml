@@ -43,7 +43,36 @@ env:
   SDK_IMAGE: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
 
 jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Resolve the explicit Proton profile
+        shell: bash
+        run: |
+          python3 - <<'PYPROFILE'
+          import json, os
+          p=json.load(open('packaging/zluda-overlay/profiles/'+os.environ['ZLUDA_PACKAGING_PROFILE']+'.json'))
+          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('PROTON_PIN='+p['source_commit']+'\n')
+          PYPROFILE
+      - name: Checkout the admitted Proton source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: chkuendig/proton-ge-custom
+          ref: ${{ env.PROTON_PIN }}
+          path: proton-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Static tests and shell syntax before component fetch/build
+        run: |
+          python3 -m unittest discover -s tests
+          for script in packaging/zluda-overlay/*.sh make/*.sh; do bash -n "$script"; done
+
   components:
+    needs: static
     if: inputs.components_run == ''
     name: Build ${{ inputs.profile == 'x64-draft' && 'unqualified x64 draft' || matrix.part }}
     runs-on: ubuntu-24.04
@@ -61,6 +90,7 @@ jobs:
           submodules: false
           lfs: true
       - name: Resolve the explicit Proton profile
+        shell: bash
         run: |
           python3 - <<'PYPROFILE'
           import json, os
@@ -87,10 +117,6 @@ jobs:
             git -C "$PROTON_SOURCE_ROOT/$component" submodule foreach --recursive 'git lfs pull'
           done
           python3 packaging/zluda-overlay/inputs.py check "$PROTON_SOURCE_ROOT" --part "$PART"
-      - name: Static tests
-        run: |
-          python3 -m unittest discover -s tests
-          for script in packaging/zluda-overlay/*.sh; do bash -n "$script"; done
       - name: Make room on the ephemeral GitHub runner
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache
@@ -250,6 +276,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Resolve the explicit Proton profile
+        shell: bash
         run: |
           python3 - <<'PYPROFILE'
           import json, os
@@ -306,6 +333,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Resolve the explicit Proton profile
+        shell: bash
         run: |
           python3 - <<'PYPROFILE'
           import json, os
@@ -371,6 +399,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Resolve the explicit Proton profile
+        shell: bash
         run: |
           python3 - <<'PYPROFILE'
           import json, os
@@ -453,6 +482,7 @@ jobs:
           fetch-tags: true
           persist-credentials: false
       - name: Resolve the explicit Proton profile
+        shell: bash
         run: |
           python3 - <<'PYPROFILE'
           import json, os
@@ -598,6 +628,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Resolve the explicit Proton profile
+        shell: bash
         run: |
           python3 - <<'PYPROFILE'
           import json, os
