@@ -9,7 +9,11 @@ import shutil
 import subprocess
 import tarfile
 
-from inputs import HERE, LOCK, check_sources, git, manifest, sha256, verify_manifest
+from inputs import HERE, LOCK, components_for_part, git, manifest, sha256, verify_manifest
+import wine_scope
+import cuda_package
+import component_patches
+import reuse_components
 
 
 def environment(name):
@@ -21,21 +25,39 @@ def license_name(name):
         r'^(licen[sc]e|copying|copyright|notice)([._-].*|$)', name, re.I))
 
 
-def collect_licenses(source, target):
-    found = 0
+def collect_licenses(source, target, required=True):
+    found = []
     for directory, dirs, files in os.walk(source):
         dirs[:] = [d for d in dirs if d not in ('.git', 'target', 'build') and
                    not (Path(directory) / d).is_symlink()]
         for name in files:
-            if license_name(name):
+            if license_name(name) or 'LICENSES' in Path(directory).relative_to(source).parts or name.endswith('.license'):
                 path = Path(directory) / name
                 if path.is_file():
                     out = target / path.relative_to(source)
                     out.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(path, out)
-                    found += 1
-    if not found:
+                    found.append(path.relative_to(source).as_posix())
+    if not found and required:
         raise ValueError('no license/copyright notices in ' + str(source))
+    return sorted(found)
+
+
+def collect_bridge_notices(source, dest):
+    crate = source / 'wine/zluda_wine'
+    target = dest / 'licenses/zluda-wine'
+    collect_licenses(crate, target)
+    for name, expected in LOCK['wine_bridge']['provenance_bundle'].items():
+        if sha256(crate / name) != expected:
+            raise ValueError('bridge provenance bundle differs: ' + name)
+    for name in ['LICENSE-MIT', 'LICENSE-APACHE']:
+        shutil.copyfile(source / name, target / name)
+    shutil.copyfile(crate / 'Cargo.lock', target / 'Cargo.lock')
+    (dest / 'ZLUDA-WINE-NOTICE.md').write_text(
+        'The zluda_wine production bridge is MIT OR Apache-2.0. See '
+        'licenses/zluda-wine/LICENSE-MIT, LICENSE-APACHE and LICENSES/PROVENANCE.md.\n'
+        'Wine and Proton remain under their own terms, with separate corresponding '
+        'source and notices. Cargo dependencies retain their own notices.\n')
 
 
 def sdk():
@@ -43,45 +65,70 @@ def sdk():
     root = build / 'sdk-extracted'
     if root.exists() or sdk.exists():
         raise ValueError('SDK extraction directories must be new')
+    packages = []
+    owned = set()
     for item in LOCK['downloads']:
         if item.get('group') != 'rocm':
             continue
         archive = cache / item['url'].rsplit('/', 1)[1]
-        assert sha256(archive) == item['sha256'], item['id']
+        if not (sha256(archive) == item['sha256']):
+            raise ValueError(item['id'])
         package = build / 'packages' / item['id']
+        package.mkdir(parents=True)
         subprocess.run(['dpkg-deb', '-x', str(archive), str(package)], check=True)
-        collect_licenses(package, dest / 'licenses/rocm' / item['id'])
+        usage = item['usage']
+        if usage not in ('build', 'runtime'):
+            raise ValueError('unknown ROCm package usage: ' + item['id'])
+        payload = item['runtime_files']
+        if (usage == 'build' and payload) or (usage == 'runtime' and not payload):
+            raise ValueError('invalid ROCm runtime ownership: ' + item['id'])
+        for name in payload:
+            if name not in LOCK['rocm_runtime'] or name in owned:
+                raise ValueError('unexpected/duplicate runtime owner: ' + name)
+            if not (package / 'opt/rocm-7.2.4/lib' / name).is_file():
+                raise ValueError('missing declared runtime file in ' + item['id'] + ': ' + name)
+            owned.add(name)
+        notices = collect_licenses(package, dest / 'licenses/rocm' / item['id'], required=usage == 'runtime')
+        packages.append(dict(item, notices=notices))
         shutil.copytree(package, root, dirs_exist_ok=True, symlinks=True)
+    if owned != set(LOCK['rocm_runtime']):
+        raise ValueError('ROCm runtime ownership is incomplete')
     source = root / 'opt/rocm-7.2.4'
     shutil.copytree(source, sdk, symlinks=True)
     for real, aliases in LOCK['rocm_runtime'].items():
         path = sdk / 'lib' / real
         with path.open('rb') as stream:
-            assert stream.read(4) == b'\x7fELF', real
+            if not (stream.read(4) == b'\x7fELF'):
+                raise ValueError(real)
         out = dest / 'files/lib64' / real
+        out.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, out)
         out.chmod(0o755)
         for alias in aliases:
             (out.parent / alias).symlink_to(real)
+    provenance = dest / 'provenance'
+    provenance.mkdir(parents=True, exist_ok=True)
+    (provenance / 'ROCM-PACKAGES.json').write_text(json.dumps(packages, indent=2) + '\n')
 
 
 def metadata(part):
     source, dest = environment('SOURCE_ROOT'), environment('DESTDIR')
-    names = ['zluda'] if part == 'zluda' else ['nvcuda', 'dxvk', 'dxvk-nvapi', 'wine', 'wine-staging', 'protonfixes']
-    if part == 'all':
-        names += ['zluda']
+    names = components_for_part(part)
     for name in names:
         collect_licenses(source / name, dest / 'licenses' / name)
+    if part in ('bridges', 'all'):
+        collect_bridge_notices(source / 'zluda', dest)
     if part in ('zluda', 'all'):
         # Autogenerated Cargo output is excluded; retain the authoritative lock.
         collect_licenses(environment('BUILD_ROOT') / 'numactl-2.0.18', dest / 'licenses/numactl')
         shutil.copyfile(source / 'zluda/Cargo.lock', dest / 'licenses/zluda/Cargo.lock')
+    if part in ('zluda', 'bridges', 'all'):
         cargo = Path(os.environ['CARGO_HOME'])
         collect_licenses(cargo / 'registry/src', dest / 'licenses/cargo/registry')
         if (cargo / 'git/checkouts').exists():
             collect_licenses(cargo / 'git/checkouts', dest / 'licenses/cargo/git')
     prov = dest / 'provenance'
-    prov.mkdir(exist_ok=True)
+    prov.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / 'inputs.lock.json', prov / 'inputs.lock.json')
     recipes = dest / 'sources/overlay-recipes'
     shutil.copytree(HERE, recipes, ignore=shutil.ignore_patterns('__pycache__'))
@@ -89,6 +136,9 @@ def metadata(part):
               'proton': git(source, 'rev-parse', 'HEAD'),
               'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
               'components': {n: LOCK['components'][n] for n in names},
+              'component_patches': {n: LOCK['component_patches'][n] for n in names
+                                    if n in LOCK.get('component_patches', {})},
+              'wine_bridge': LOCK['wine_bridge'],
               'sdk_image': LOCK['sdk_image'], 'rust': LOCK['rust_version'],
               'llvm': LOCK['llvm'], 'architecture': LOCK['architecture'],
               'reproducibility': 'Pinned recipe; bitwise reproducibility and target-runtime/GPU qualification pending'}
@@ -105,6 +155,7 @@ def metadata(part):
                            cwd=source / 'zluda', stdout=out, check=True)
     # This is deliberately a minimal inventory, not an asserted SPDX document.
     sbom = {'format': 'zluda-overlay-sbom-1', 'scope': 'overlay; GE archive retains its own licenses',
+            'production_bridge_license': LOCK['wine_bridge']['license'],
             'sources': record['components'], 'binary_and_source_inputs': LOCK['downloads'],
             'license_files': sorted(p.relative_to(dest).as_posix() for p in (dest / 'licenses').rglob('*') if p.is_file()),
             'cargo_lock': LOCK['cargo_lock_sha256']}
@@ -113,10 +164,10 @@ def metadata(part):
 
 def required_payload():
     required = ['proton', 'proton_zluda.py', 'files/lib64/libcuda.so.1', 'files/lib64/libcuda.so',
-                'files/lib/wine/x86_64-unix/libcuda.so.1', 'files/lib/wine/x86_64-unix/libcuda.so',
                 'files/lib64/libnuma.so.1',
-                'files/lib/wine/x86_64-unix/nvcuda.dll.so', 'files/lib/wine/x86_64-unix/nvcuda.so',
-                'files/lib/wine/x86_64-windows/nvcuda.dll', 'files/lib/wine/i386-windows/nvcuda.dll',
+                *['files/lib/wine-cuda/zluda/' + name for name in cuda_package.MODULES],
+                *['files/lib/wine-cuda/stub/' + arch + '/nvcuda.dll' for arch in cuda_package.policy.ARCHES.values()],
+                'files/lib/wine-cuda/stubs.json',
                 'files/lib/wine/nvapi/x86_64-windows/nvapi64.dll',
                 'files/lib/wine/nvapi/x86_64-windows/nvofapi64.dll',
                 'files/lib/wine/nvapi/i386-windows/nvapi.dll']
@@ -125,6 +176,9 @@ def required_payload():
     required += [f'files/lib/wine/dxvk/{arch}/{name}.dll'
                  for arch in ['x86_64-windows', 'i386-windows']
                  for name in ['d3d11', 'dxgi', 'd3d10core', 'd3d9', 'd3d8']]
+    required += ['ZLUDA-WINE-NOTICE.md', 'licenses/zluda-wine/LICENSE-MIT',
+                 'licenses/zluda-wine/LICENSE-APACHE', 'provenance/WINE-CALLBACK-ATTESTATION.json']
+    required += ['licenses/zluda-wine/' + name for name in LOCK['wine_bridge']['provenance_bundle']]
     return required
 
 
@@ -143,20 +197,31 @@ def extract(archive, target, ge_base=False):
 
 def assemble(overlays):
     source, cache, dest, build = map(environment, ['SOURCE_ROOT', 'DOWNLOAD_ROOT', 'DESTDIR', 'BUILD_ROOT'])
-    # Assembly only consumes the protonfixes submodule; verify its parent gitlink.
-    expected = LOCK['components']['protonfixes']
-    assert git(source, 'rev-parse', 'HEAD:protonfixes') == expected
-    assert git(source / 'protonfixes', 'rev-parse', 'HEAD') == expected
+    component_commit = reuse_components.expected_commit(source)
+    reuse = None
+    if os.environ.get('REUSE_COMPONENTS_COMMIT'):
+        reuse = json.loads(Path(os.environ['COMPONENT_REUSE_RECEIPT']).read_text())
+        if reuse['commit'] != component_commit:
+            raise ValueError('component reuse receipt commit mismatch')
+        reuse['downloaded_archives'] = {p.name: sha256(p) for p in sorted(overlays.glob('*.tar.gz'))}
+    # Keep source submodules at their upstream gitlinks. Runtime Python files
+    # come from the same locked GE-plus-ZLUDA patch series as a full GE build.
+    pf = build / 'patched/protonfixes'
+    component_patches.prepare(source, pf, 'protonfixes', LOCK)
     ge = next(x for x in LOCK['downloads'] if x['id'] == 'ge')
     archive = cache / ge['url'].rsplit('/', 1)[1]
-    assert sha256(archive) == ge['sha256']
+    if not (sha256(archive) == ge['sha256']):
+        raise ValueError("overlay.py integrity gate failed: sha256(archive) == ge['sha256']")
     if dest.exists():
         raise ValueError('DESTDIR already exists')
+    dest.parent.mkdir(parents=True, exist_ok=True)
     unpack = build / 'ge-unpacked'
     extract(archive, unpack, ge_base=True)
     children = list(unpack.iterdir())
-    assert len(children) == 1 and children[0].is_dir(), 'unexpected GE archive layout'
+    if not (len(children) == 1 and children[0].is_dir()):
+        raise ValueError('unexpected GE archive layout')
     shutil.move(str(children[0]), dest)
+    cuda_package.prepare_stubs(dest)
     template_links = {p.relative_to(dest).as_posix(): os.readlink(p)
                       for p in dest.rglob('*') if p.is_symlink() and
                       (not p.resolve().is_relative_to(dest) or not p.exists())}
@@ -168,39 +233,59 @@ def assemble(overlays):
         extract(overlays / (part + '.tar.gz'), overlay)
         verify_manifest(overlay)
         record = json.loads((overlay / 'provenance' / (part + '.json')).read_text())
-        assert record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')
-        assert record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')
+        if not (record['part'] == part and record['proton'] == component_commit):
+            raise ValueError("overlay.py integrity gate failed: record['part'] == part and record['proton'] == git(source, 'rev-parse', 'HEAD')")
+        if not (record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')):
+            raise ValueError("overlay.py integrity gate failed: record['input_lock_sha256'] == sha256(HERE / 'inputs.lock.json')")
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
-    for name in ['proton', 'proton_zluda.py']:
+    scope = dest / 'provenance/WINE-SCOPE.json'
+    if reuse:
+        (dest / 'provenance/COMPONENT-REUSE.json').write_text(json.dumps(reuse, indent=2) + '\n')
+        shutil.copytree(HERE, dest / 'sources/overlay-recipes', dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns('__pycache__'))
+    wine_scope.verify(dest, json.loads(scope.read_text()))
+    for name in ['proton', 'proton_zluda.py', 'utilities.py']:
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
     (dest / 'proton').chmod(0o755)
-    pf = source / 'protonfixes'
     base = git(source, 'rev-parse', LOCK['ge_source'] + ':protonfixes')
-    for line in git(pf, 'diff', '--name-status', '--no-renames', base, 'HEAD').splitlines():
+    for line in git(pf, 'diff', '--cached', '--name-status', '--no-renames', base).splitlines():
         status, name = line.split('\t', 1)
         path = dest / 'protonfixes' / name
-        assert path.resolve().is_relative_to((dest / 'protonfixes').resolve())
+        if not (path.resolve().is_relative_to((dest / 'protonfixes').resolve())):
+            raise ValueError("overlay.py integrity gate failed: path.resolve().is_relative_to((dest / 'protonfixes').resolve())")
         if status == 'D':
             path.unlink(missing_ok=True)
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'show', 'HEAD:' + name]))
+            path.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'show', ':' + name]))
+            mode = git(pf, 'ls-files', '--stage', '--', name).split()[0]
+            path.chmod(0o755 if mode == '100755' else 0o644)
+    patches_record = component_patches.stage_sources(source, pf, 'protonfixes', dest, LOCK)
     for path in (dest / 'protonfixes').rglob('*.pyc'):
         path.unlink()
     vdf = dest / 'compatibilitytool.vdf'
     text, n = re.subn(r'(\n\s*)"[^"]+"(\s*// Internal name)',
                       lambda m: m[1] + '"' + LOCK['tool_name'] + '"' + m[2], vdf.read_text(), count=1)
-    assert n == 1, 'unknown compatibilitytool.vdf layout'
+    if not (n == 1):
+        raise ValueError('unknown compatibilitytool.vdf layout')
     text, n = re.subn(r'("display_name"\s*)"[^"]*"', r'\1"GE-Proton11-7 ZLUDA"', text, count=1)
-    assert n == 1
+    if not (n == 1):
+        raise ValueError('overlay.py integrity gate failed: n == 1')
     vdf.write_text(text)
+    cuda_package.remove_canonical(dest)
+    cuda_package.materialize_template(dest)
+    cuda_package.audit(dest)
     for name in required_payload():
-        assert (dest / name).is_file() and (dest / name).stat().st_size, name
-    assert (dest / 'files/lib64/wine/x86_64-unix/nvcuda.so').samefile(dest / 'files/lib/wine/x86_64-unix/nvcuda.so')
+        if not ((dest / name).is_file() and (dest / name).stat().st_size):
+            raise ValueError(name)
     provenance = {'format': 'zluda-overlay-release-1', 'proton': git(source, 'rev-parse', 'HEAD'),
+                  'component_build_proton': component_commit, 'component_reuse': reuse,
                   'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
+                  'component_patches': LOCK['component_patches'],
+                  'wine_bridge': LOCK['wine_bridge'],
+                  'protonfixes_prepared_tree': patches_record['prepared_tree'],
                   'input_lock_sha256': sha256(HERE / 'inputs.lock.json'),
                   'qualification': 'CI assembly is not target-runtime or GPU qualification'}
     (dest / 'provenance/PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')

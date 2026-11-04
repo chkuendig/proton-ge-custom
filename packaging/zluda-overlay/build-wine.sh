@@ -7,6 +7,7 @@ export GIT_AUTHOR_NAME='Christian Kündig' GIT_COMMITTER_NAME='Christian Kündig
 export GIT_AUTHOR_EMAIL=christian@kuendig.info GIT_COMMITTER_EMAIL=christian@kuendig.info
 : "${SOURCE_ROOT:?}" "${BUILD_ROOT:?}" "${DOWNLOAD_ROOT:?}" "${WINE_SDK_ROOT:?}"
 repo=$SOURCE_ROOT out=$BUILD_ROOT/wine
+here=$(cd -- "$(dirname -- "$0")" && pwd)
 jobs=${JOBS:-3}
 [[ $jobs =~ ^[1-3]$ ]] || { echo 'JOBS must be 1..3' >&2; exit 2; }
 cache=$DOWNLOAD_ROOT
@@ -15,13 +16,17 @@ full=0 rev=HEAD
 [[ $# == 0 ]] || { echo 'no arguments; use explicit environment inputs' >&2; exit 2; }
 mkdir -p "$out/log"
 exec > >(tee -a "$out/log/build-wine.log") 2>&1
+python3 "$here/bridge_tools.py" "$repo" "$out/log/bridge-tools-system.json" --generated
 for tool in git patch python3 autoreconf bison flex perl gcc x86_64-w64-mingw32-gcc i686-w64-mingw32-gcc objcopy; do
     command -v "$tool" >/dev/null
 done
 [[ $(gcc -m32 -print-file-name=libc.so) == /* ]]
 rev=$(git -C "$repo" rev-parse --verify "$rev^{commit}")
-base=$(git -C "$repo" describe --tags --abbrev=0 --match 'GE-Proton*' --exclude '*-zluda*' "$rev")
-src=$out/src tgz=$cache/$base-x86_64.tar.gz
+# Tags are optional in CI clones. Use the same exact GE source/archive pins as
+# final assembly, never a nearest-tag guess or a descriptive SHA as a filename.
+base_inputs=$(python3 "$here/inputs.py" wine-base "$repo")
+read -r base base_name ge_archive <<< "$base_inputs"
+src=$out/src tgz=$cache/$ge_archive
 [[ -s $tgz ]] || { echo "missing $tgz" >&2; exit 1; }
 mkdir -p "$src" "$out/stamps"
 
@@ -49,6 +54,7 @@ wine_inputs() {
 }
 url() { git -C "$repo" config --blob "$1:.gitmodules" "submodule.$2.url"; }
 fetch() {  # dir url commit [depth]
+    mkdir -p "$1"
     [[ -d $1/.git ]] || git init -q "$1"
     git -C "$1" cat-file -e "$3^{commit}" 2>/dev/null || git -C "$1" fetch -q --depth "${4:-1}" "$2" "$3"
 }
@@ -150,25 +156,20 @@ if [[ ! -s $out/changed-sources.txt ]]; then
     echo "$rev prepares the same Wine as $base: nothing to build"
     rm -rf "$out/overlay"; exit 0
 fi
+wine_scope=$(python3 "$here/wine_scope.py" "$src/wine" "$tag_base" "$tag_ours" "$out/wine-scope.json")
+scope_args=()
+[[ $wine_scope != x86_64-unix-ntdll ]] || scope_args=(--native-only)
 
-# GE: Makefile.in (CFLAGS, <arch>_CFLAGS, WINE_CFLAGS, WINE_*_AUTOCONF_ARGS).
-cflags='-Wno-discarded-qualifiers -O2 -fwrapv -fno-strict-aliasing -ggdb -ffunction-sections -fdata-sections -fno-omit-frame-pointer -std=gnu17'
-x86_64_flags='-mcmodel=small -march=nocona -mtune=core-avx2 -mfpmath=sse'
-i386_flags='-mstackrealign -march=nocona -mtune=core-avx2 -mfpmath=sse'
-# GE11-7's x86_64 ntdll needs libgcc_s.so.1 and libc.so.6, not libunwind.
-# Arch detects libunwind and replaces that unwind path; it is unavailable in
-# Steam's runtime. Match GE's effective configuration rather than shipping it.
-common=(--with-wayland --with-mingw=gcc --disable-tests --without-unwind)
-# Blob identities include file contents and paths, without the Proton SHA.
-# config.h.in also feeds configure's generated headers.
-configure_sources=$(git -C "$src/wine" ls-tree -r "$tag_ours" | \
-    awk '$4 == "configure" || $4 == "configure.ac" || $4 == "include/config.h.in" || $4 ~ /(^|\/)Makefile\.in$/' | \
-    sha256sum | cut -d' ' -f1)
-# Configure probes the box's installed headers and libraries as well as the
-# source. Package changes must invalidate cached feature/library detection.
+# Reuse Proton's complete prerequisite graph and exact per-arch Wine flags.
+# The focused Makefile drops unrelated factories; dependency recipes themselves
+# and their source/configure/build/post-build ordering remain GE's.
+make_tool=$(command -v make)
+ninja_tool=$(command -v ninja)
+python3 "$here/wine_deps.py" "$repo" "$out" --make-tool "$make_tool" --ninja-tool "$ninja_tool" --jobs "$jobs" "${scope_args[@]}"
+export PATH="$out/proton-tools:$PATH"
+export CMAKE_BUILD_PARALLEL_LEVEL=$jobs CARGO_BUILD_JOBS=$jobs
 build_dependencies=$(dpkg-query -W | LC_ALL=C sort | sha256sum | cut -d' ' -f1)
-echo ":: build dependency fingerprint $build_dependencies"
-build_modules=() build_targets=(all)
+build_modules=()
 if (( ! full )); then
     while read -r path; do
         case $path in
@@ -178,61 +179,28 @@ if (( ! full )); then
         esac
     done < "$out/changed-sources.txt"
     mapfile -t build_modules < <(printf '%s\n' "${build_modules[@]}" | sort -u)
-    # Make follows each module's generated-header, library and tool dependencies.
-    # Keep the tools needed by the i386 tree available in the x86_64 tree too.
-    build_targets=(include/all tools/winebuild/all tools/winegcc/all tools/widl/all tools/wrc/all tools/wmc/all dlls/winecrt0/all dlls/kernel32/all)
-    for m in "${build_modules[@]}"; do build_targets+=("$m/all"); done
 fi
-echo ":: build targets: ${build_targets[*]}"
-build() {  # arch configure-args...
-    local arch=$1 obj=$out/obj-$1 dst=$out/dst-$1 key configure_key flags
-    local targets=("${build_targets[@]}")
-    shift
-    # --with-wine-tools reuses x86_64's tools and omits these local targets.
-    if [[ $arch == i386 ]] && (( ! full )); then
-        targets=(include/all)
-        for m in "${build_modules[@]}"; do targets+=("$m/all"); done
-    fi
-    flags=${arch}_flags; flags=${!flags}
-    configure_key=$(printf '%s\n' "$configure_sources" "$build_dependencies" "$cflags $flags" \
-        "$cflags $x86_64_flags" "$cflags $i386_flags" "$HOST_GLIBC" \
-        "${PKG_CONFIG_LIBDIR-}" "--prefix=$dst" "--libdir=$dst/lib" \
-        "${common[@]}" "$@" | sha256sum | cut -d' ' -f1)
-    key="$tag_ours|$configure_key|${targets[*]}"
-    if stamped "build-$arch" "$key"; then echo ":: $arch: built"; return; fi
-    if [[ ! -f $obj/Makefile ]] || ! stamped "configure-$arch" "$configure_key"; then
-        echo ":: configuring $arch"
-        rm -rf "$obj"; mkdir -p "$obj"
-        (cd "$obj" && env CFLAGS="$cflags $flags" CROSSCFLAGS="$cflags $flags" \
-            x86_64_CFLAGS="$cflags $x86_64_flags" i386_CFLAGS="$cflags $i386_flags" \
-            "$src/wine/configure" -C --prefix="$dst" --libdir="$dst/lib" "${common[@]}" "$@") \
-            > "$out/log/configure-$arch.log" 2>&1 || { echo "configure $arch failed: $out/log/configure-$arch.log" >&2; exit 1; }
-        stamp "configure-$arch" "$configure_key"
-    else
-        echo ":: $arch: configure inputs unchanged, reusing object tree"
-    fi
-    echo ":: building $arch (make -j$jobs ${targets[*]}), log $out/log/make-$arch.log"
-    make -C "$obj" -j"$jobs" "${targets[@]}" > "$out/log/make-$arch.log" 2>&1 || { tail -30 "$out/log/make-$arch.log" >&2; exit 1; }
-    if (( full )); then
-        rm -rf "$dst"
-        make -C "$obj" install-lib >> "$out/log/make-$arch.log" 2>&1
-    fi
-    stamp "build-$arch" "$key"
+printf '%s\n' "${build_modules[@]}" > "$out/build-modules.txt"
+wine_profile=$wine_scope
+(( ! full )) || wine_profile=all
+build() {
+    local arch=$1
+    "$make_tool" -C "$out/proton-deps" -f "$out/proton-wine.mk" -j1 \
+        "MAKE=$out/proton-tools/make" "overlay-wine-$arch" \
+        "OVERLAY_WINE_PROFILE=$wine_profile" "OVERLAY_WINE_MODULES=$out/build-modules.txt" \
+        > "$out/log/make-$arch.log" 2>&1 || { tail -40 "$out/log/make-$arch.log" >&2; exit 1; }
 }
-build x86_64 --enable-win64 --enable-archs=x86_64 --with-ffmpeg
-PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig:/usr/share/pkgconfig \
-    build i386 --with-wine-tools="$out/obj-x86_64" --without-ffmpeg
+build x86_64
+if [[ $wine_scope != x86_64-unix-ntdll ]]; then build i386; fi
 
 # --- overlay -----------------------------------------------------------------
 # The release's regular files (top directory stripped) and their sizes.
-python3 - "$tgz" "$out/ge-files.txt" "$out/ge-sizes.txt" <<'PY'
-import sys, tarfile
-with tarfile.open(sys.argv[1]) as tf, open(sys.argv[2], 'w') as names, open(sys.argv[3], 'w') as sizes:
-    for m in tf:
-        if m.isfile():
-            p = m.name.split('/', 1)[1]
-            names.write(p + '\n')
-            sizes.write(f'{p}\t{m.size}\n')
+python3 - "$here" "$tgz" "$out/ge-files.txt" "$out/ge-sizes.txt" "$out/wine-scope.json" <<'PY'
+from pathlib import Path
+import sys
+sys.path.insert(0, sys.argv[1])
+import wine_scope
+wine_scope.inventory(*map(Path, sys.argv[2:]))
 PY
 ours() {  # GE release path -> our built module, or installed file for --full
     local p=$1 f=${1##*/} arch subdir m candidate
@@ -295,6 +263,11 @@ if (( full )); then
         o=$(ours "$p"); [[ -e $o ]] || echo "   $p"
     done
 fi
+if [[ $wine_scope == x86_64-unix-ntdll ]]; then
+    # This exact prepared-source hunk compiles only into the native Unix ntdll.
+    # Keep both PE ntdlls and classic i386 ntdll.so from the locked GE archive.
+    sel=(files/lib/wine/x86_64-unix/ntdll.so)
+fi
 
 ovl=$out/overlay
 rm -rf "$ovl.partial"; mkdir -p "$ovl.partial"
@@ -307,7 +280,9 @@ for p in $(printf '%s\n' "${sel[@]}" | sort -u); do
     case $(file -b "$t") in
         ELF*)
             objcopy -p --strip-debug "$t"
-            v=$(objdump -T "$t" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1 || true)
+            symbols=$(objdump -T "$t")
+            # A valid ELF may have no GLIBC requirement; objdump failure is fatal.
+            v=$(grep -o 'GLIBC_[0-9.]*' <<< "$symbols" | sort -uV | tail -1 || true)
             if [[ -n $v ]]; then
                 [[ $glibc_max == none ]] || v=$(printf '%s\n' "$glibc_max" "$v" | sort -V | tail -1)
                 glibc_max=$v
@@ -400,14 +375,14 @@ if [[ $glibc_max != none ]] && [[ $(printf '%s\n' "GLIBC_$HOST_GLIBC" "$glibc_ma
 fi
 (cd "$ovl.partial" && find files -type f | sort | xargs sha256sum) > "$ovl.partial/FILES.sha256"
 {
-    echo "rev=$rev $(git -C "$repo" describe --tags --always "$rev")"
-    echo "base=$base $(git -C "$repo" rev-parse "$base^{commit}") $(sha256sum < "$tgz" | cut -c1-64)"
+    echo "rev=$rev"
+    echo "base=$base_name $base $(sha256sum < "$tgz" | cut -c1-64)"
     echo "inputs=$(wine_inputs "$rev")"
     echo "base_inputs=$(wine_inputs "$base")"
     echo "wine=$(git -C "$repo" rev-parse "$rev:wine") staging=$(git -C "$repo" rev-parse "$rev:wine-staging")"
     echo "built=$(date -Is) gcc=$(gcc -dumpfullversion) mingw=$(x86_64-w64-mingw32-gcc -dumpfullversion) glibc_build=$(ldd --version | awk 'NR == 1 { print $NF }')"
     echo "build_dependencies=$build_dependencies"
-    echo "configure_flags=${common[*]}"
+    echo "configure_recipe_sha256=$(sha256sum "$out/proton-wine.mk" | cut -d' ' -f1)"
     echo "mode=$mode glibc_max=$glibc_max host_glibc=$HOST_GLIBC"
     echo '# changed sources'
     sed 's/^/  /' "$out/changed-sources.txt"
@@ -420,19 +395,5 @@ rm -rf "$ovl"; mv "$ovl.partial" "$ovl"
 cat "$ovl/OVERLAY"
 echo "== done $(date -Is): $ovl"
 
-# Expose the exact prepared Wine headers/tools for the external relay build.
-# --wine-objdir selects build-tree tools and import libraries, avoiding system Wine.
-mkdir -p "$WINE_SDK_ROOT/bin"
-python3 - "$out" "$WINE_SDK_ROOT" <<'PYSDK'
-import pathlib, shlex, sys
-out, sdk = map(pathlib.Path, sys.argv[1:])
-obj, src = out / 'obj-x86_64', out / 'src/wine'
-command = [str(obj / 'tools/winegcc/winegcc'), '--wine-objdir=' + str(obj),
-           '-I' + str(src / 'include'), '-fshort-wchar', '-DWINE_UNICODE_NATIVE', '-lwinecrt0', '-lkernel32', '-lntdll']
-(sdk / 'bin/winegcc').write_text('#!/bin/sh\nexec ' + shlex.join(command) + ' "$@"\n')
-(sdk / 'bin/winegcc').chmod(0o755)
-for name in ['winebuild', 'wrc']:
-    path = sdk / 'bin' / name
-    path.unlink(missing_ok=True)
-    path.symlink_to(obj / 'tools' / name / name)
-PYSDK
+# Expose exact prepared headers/tools and the native callback provider.
+python3 "$here/wine_sdk.py" "$out" "$WINE_SDK_ROOT" --generated

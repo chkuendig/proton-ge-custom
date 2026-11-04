@@ -11,6 +11,9 @@ here=$(cd -- "$(dirname -- "$0")" && pwd)
 python3 "$here/inputs.py" check "$SOURCE_ROOT" --part "$part"
 [[ ! -e $DESTDIR ]] || { echo "DESTDIR already exists: $DESTDIR" >&2; exit 1; }
 mkdir -p "$DESTDIR" "$BUILD_ROOT" "$DOWNLOAD_ROOT"
+# Keep the final overlay destination out of upstream build/install environments
+# (including cargo's CMake builds). Only our assembly helpers consume it.
+export -n DESTDIR
 export SOURCE_DATE_EPOCH
 SOURCE_DATE_EPOCH=$(git -C "$SOURCE_ROOT" show -s --format=%ct HEAD)
 wl=$DESTDIR/files/lib/wine
@@ -20,10 +23,8 @@ mkdir -p "$wl/x86_64-unix" "$wl/x86_64-windows" "$wl/i386-windows" "$lib64"
 if [[ $part == zluda || $part == all ]]; then
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group zluda
     # Extraction and per-package license collection are checked before compiling.
-    python3 "$here/overlay.py" sdk
-    tar -xf "$DOWNLOAD_ROOT/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz" -C "$BUILD_ROOT"
-    "$BUILD_ROOT/rust-1.99.0-x86_64-unknown-linux-gnu/install.sh" \
-        --prefix="$BUILD_ROOT/rust" --without=rust-docs --disable-ldconfig
+    DESTDIR=$DESTDIR python3 "$here/overlay.py" sdk
+    BUILD_PART=zluda bash "$here/install-rust.sh"
     export PATH="$BUILD_ROOT/rust/bin:$PATH"
     [[ $(rustc --version) == 'rustc 1.99.0 '* ]]
     export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
@@ -42,13 +43,13 @@ if [[ $part == zluda || $part == all ]]; then
     export SCCACHE_PATH
     SCCACHE_PATH=$(command -v ccache)
     ccache --max-size=4G
-    (cd "$SOURCE_ROOT/zluda" && cargo fetch --locked && cargo build --offline --locked --release -p zluda)
+    bash "$here/build-native.sh"
+    bash "$here/build-zoc.sh"
+    cp "$BUILD_ROOT/native/link-layout.json" "$DESTDIR/provenance/NATIVE-LINK-LAYOUT.json"
     objcopy --strip-debug "$SOURCE_ROOT/zluda/target/release/libnvcuda.so" "$lib64/libcuda.so.1"
     ln -s libcuda.so.1 "$lib64/libcuda.so"
     # Keep the launcher LD order untouched. Both Wine paths resolve to GE's
     # canonical files/lib/wine tree; lib64 still wins for CUDA and ROCm.
-    ln -s ../../../lib64/libcuda.so.1 "$wl/x86_64-unix/libcuda.so.1"
-    ln -s libcuda.so.1 "$wl/x86_64-unix/libcuda.so"
     ln -s ../lib/wine "$lib64/wine"
     tar -xf "$DOWNLOAD_ROOT/numactl-2.0.18.tar.gz" -C "$BUILD_ROOT"
     (
@@ -63,31 +64,37 @@ if [[ $part == zluda || $part == all ]]; then
 fi
 
 if [[ $part == bridges || $part == all ]]; then
+    mkdir -p "$BUILD_ROOT/log"
+    # Admit and patch before Wine's expensive prerequisites; original gitlinks
+    # remain clean upstream checkouts throughout the CI build.
+    python3 "$here/component_patches.py" prepare "$SOURCE_ROOT" \
+        "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi > "$BUILD_ROOT/log/dxvk-nvapi-patches.json"
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group bridges
+    BUILD_PART=bridges bash "$here/install-rust.sh"
+    export PATH="$BUILD_ROOT/rust/bin:$PATH"
+    export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
     # This source line changes ntdll relative to GE11-7. Build exactly the
     # changed Wine modules and retain the existing ELF dependency/version gate.
     bash "$here/build-wine.sh"
     export PATH="$WINE_SDK_ROOT/bin:$PATH"
-    [[ -x $WINE_SDK_ROOT/bin/winegcc && -x $WINE_SDK_ROOT/bin/winebuild && -x $WINE_SDK_ROOT/bin/wrc ]]
-    n=$SOURCE_ROOT/nvcuda
-    meson setup "$BUILD_ROOT/nvcuda-x64" "$n" --cross-file "$n/build-wine64.txt" \
-        --buildtype release -Dfakedll=true
-    ninja -C "$BUILD_ROOT/nvcuda-x64" -j"$JOBS"
-    install -m755 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda/nvcuda.dll.so" "$wl/x86_64-unix/"
-    install -m644 "$BUILD_ROOT/nvcuda-x64/dlls/nvcuda_fdll/nvcuda.dll" "$wl/x86_64-windows/"
-    # Compile the same bridge as tests/build-wow64.sh, with explicit tool paths.
-    wow=$BUILD_ROOT/wow64
-    mkdir -p "$wow"
-    python3 "$n/tests/generate-wow64-unsupported.py" "$n" "$wow"
-    i686-w64-mingw32-gcc -O2 -Wall -Wextra -Werror -shared \
-        "$n/dlls/nvcuda/wow64/pe.c" "$wow/unsupported.c" "$wow/exports.def" \
-        -Wl,--kill-at -o "$wl/i386-windows/nvcuda.dll"
-    "$WINE_SDK_ROOT/bin/winebuild" --builtin "$wl/i386-windows/nvcuda.dll"
-    cc -O2 -Wall -Wextra -Werror -fPIC -shared "$n/dlls/nvcuda/wow64/unix.c" \
-        -ldl -pthread -o "$wl/x86_64-unix/nvcuda.so"
+    python3 "$here/bridge_tools.py" "$SOURCE_ROOT" "$BUILD_ROOT/wine/log/bridge-tools-sdk.json" --sdk "$WINE_SDK_ROOT" --generated
+    n=$SOURCE_ROOT/zluda/wine/zluda_wine
+    export BRIDGE_SOURCE=$n
+    source "$here/bridge-env.sh"
+    BRIDGE_SOURCE=$n BRIDGE_DEST=$DESTDIR bash "$here/build-bridge.sh"
+    # transition.exe needs this exact prepared Wine SDK; assembly has only
+    # the runtime tool, so compile fixtures here and bind their provenance.
+    FIXTURE_BUILD_ROOT=$BUILD_ROOT/wine-cpu-fixtures bash "$n/tests/abi/build-fixtures.sh"
+    for spec in 'x86_64 64' 'i686 32'; do
+        read -r triplet bits <<< "$spec"
+        "$triplet-w64-mingw32-gcc" -O2 -Wall -Wextra -Werror -shared -static-libgcc \
+            "$here/nvcuda-decoy.c" -o "$BUILD_ROOT/wine-cpu-fixtures/nvcuda-decoy$bits.dll"
+    done
+    python3 "$here/cpu_fixtures.py" --source "$SOURCE_ROOT" --build "$BUILD_ROOT/wine-cpu-fixtures" \
+        --sdk-receipt "$BUILD_ROOT/wine/log/wine-sdk.json" --dest "$BUILD_ROOT/cpu-fixtures-package"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
         read -r bits arch <<< "$spec"
-        a=$SOURCE_ROOT/dxvk-nvapi
+        a=$BUILD_ROOT/patched/dxvk-nvapi
         ab=$BUILD_ROOT/nvapi-$bits
         meson setup "$ab" "$a" --cross-file "$a/build-win$bits.txt" --buildtype release -Denable_tests=false
         ninja -C "$ab" -j"$JOBS"
@@ -113,10 +120,15 @@ if [[ $part == bridges || $part == all ]]; then
     mkdir -p "$DESTDIR/provenance" "$DESTDIR/sources"
     cp "$BUILD_ROOT/wine/overlay/OVERLAY" "$DESTDIR/provenance/WINE-OVERLAY"
     cp "$BUILD_ROOT/wine/overlay/ELF-DEPENDENCIES" "$DESTDIR/provenance/WINE-ELF-DEPENDENCIES"
+    cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
+    cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
     git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
-    git -C "$n" archive HEAD | gzip -n > "$DESTDIR/sources/nvcuda.tar.gz"
+    python3 "$here/source_archive.py" --source "$SOURCE_ROOT/zluda" \
+        --build "$BUILD_ROOT/zluda-wine/target" --output "$DESTDIR/sources/zluda-wine.tar.gz"
+    python3 "$here/component_patches.py" stage "$SOURCE_ROOT" \
+        "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi --dest "$DESTDIR"
 fi
-python3 "$here/overlay.py" metadata --part "$part"
+DESTDIR=$DESTDIR python3 "$here/overlay.py" metadata --part "$part"
 python3 "$here/inputs.py" manifest "$DESTDIR"
 python3 "$here/inputs.py" verify "$DESTDIR"
 echo "Complete $part overlay: $DESTDIR"

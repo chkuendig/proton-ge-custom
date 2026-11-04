@@ -139,4 +139,4 @@
 [submodule "zluda"]
 	path = zluda
 	url = https://github.com/chkuendig/ZLUDA
-	branch = v7-preview.15-proton
+	branch = v7-preview.20-proton

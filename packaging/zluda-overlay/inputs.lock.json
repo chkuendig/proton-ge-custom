@@ -6,19 +6,34 @@
   "architecture": "x86_64 + i386 PE (WoW64), no i386 ROCm",
   "sdk_image": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1",
   "rust_version": "1.99.0",
-  "llvm": "107e2bfaf44d07e70050da61ab0655b297c0dd4a",
+  "llvm": "4a6836057ed58f19ec492d064671d97d3674f9d8",
   "rocm_index": {
     "url": "https://repo.radeon.com/rocm/apt/7.2.4/dists/noble/main/binary-amd64/Packages.gz",
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "c60462dc06e9e4b4c3185464919eff5908e763e6",
-    "nvcuda": "fa81f481ceffa0b2228e2eacc1530a4c1f9ef494",
+    "zluda": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
-    "dxvk-nvapi": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
-    "protonfixes": "63f5d6760c18d921263b692b7afe25f977ba7afa",
+    "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
+    "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
     "wine": "46b29104e3741fe23bf5e2547196a253aab88c89",
-    "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300"
+    "wine-staging": "6cc805ea57132eeaf44764e9213823c9b8d0d300",
+    "ffmpeg": "9047fa1b084f76b1b4d065af2d743df1b40dfb56",
+    "openfst": "18e94e63870ebcf79ebb42b7035cd3cb626ec090",
+    "kaldi": "a25f216f5ce4eec5e45a6ab7651e20c9840a05cd",
+    "vosk-api": "12f29a3415e4967e088ed09202bfb0007e5a1787",
+    "libxml2": "b7fa62cbe8ef0df5869e000d5b690bdedd07f33e",
+    "libxkbcommon": "dd642359f8d43c09968e34ca7f1eb1121b2dfd70",
+    "libpcap": "792b4c95e5f10468e846a3d638349ce5a5ddf928",
+    "vkd3d": "84a77b438f0b7a45441db20d390a240a8580f3bc",
+    "piper": "9d06b74959570772e8bcbe7a3f696664d2421167",
+    "OpenXR-SDK": "8899a91c17ce9618f565f42408b47db1d6e9ccc7",
+    "wayland-protocols": "810f1adaf33521cc55fc510566efba2a1418174f",
+    "bzip2": "6a8690fc8d26c815e798c588f796eabe9d684cf0",
+    "dav1d": "b546257f770768b2c88258c533da38b91a06f737",
+    "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
+    "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
+    "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -26,12 +41,12 @@
       "size": 266372
     },
     "ptx/lib/zluda_ptx_impl.bc": {
-      "sha256": "6a044b905bdd292276012e4d6b97de5fda8671dbe14634c83bfe3bc525b15b7c",
-      "size": 85756
+      "sha256": "39884e98adde2c17666142b74b362a7b43f7e2872c0deae56e85d502b9c6f9be",
+      "size": 87316
     },
     "ptx/lib/zluda_ptx_impl_constrained.bc": {
-      "sha256": "21c24eb2e5004182a06d156ade82801486cb05c73c0a29ee7174034cd92890cd",
-      "size": 93444
+      "sha256": "c1e23cfee6a4edf0fe315f2b2009b6e2ee99e53a1584632d1525ad4899a0bfac",
+      "size": 95328
     },
     "zluda/bin/nvcudart_hybrid64.dll": {
       "sha256": "bf430d65b863c49bab525001a0712992d17f52f4b5a205536160a337cf8b22b3",
@@ -52,7 +67,11 @@
       "version": "3.0.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/c/comgr/comgr_3.0.0.70204-93~24.04_amd64.deb",
       "sha256": "02951341120d23ebf34b066a84ab172e4813cba4a601f910545c6658989bee87",
-      "size": 58023494
+      "size": 58023494,
+      "usage": "runtime",
+      "runtime_files": [
+        "libamd_comgr.so.3.0.0"
+      ]
     },
     {
       "id": "hip-dev",
@@ -60,7 +79,9 @@
       "version": "7.2.53211.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-dev/hip-dev_7.2.53211.70204-93~24.04_amd64.deb",
       "sha256": "1fd68b7e90c17d201563f9cd4eae536bd2cf089fad026181770be2750d552376",
-      "size": 372772
+      "size": 372772,
+      "usage": "build",
+      "runtime_files": []
     },
     {
       "id": "hip-runtime-amd",
@@ -68,7 +89,13 @@
       "version": "7.2.53211.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-runtime-amd/hip-runtime-amd_7.2.53211.70204-93~24.04_amd64.deb",
       "sha256": "70961d0f79708148a54f23bdde2ebab5c389d5ab4373170d8df94f3e54d87a0b",
-      "size": 13391130
+      "size": 13391130,
+      "usage": "runtime",
+      "runtime_files": [
+        "libamdhip64.so.7.2.70204",
+        "libhiprtc-builtins.so.7.2.70204",
+        "libhiprtc.so.7.2.70204"
+      ]
     },
     {
       "id": "hsa-rocr",
@@ -76,7 +103,11 @@
       "version": "1.18.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr/hsa-rocr_1.18.0.70204-93~24.04_amd64.deb",
       "sha256": "6af02a99d15efbf21ba0e20a333aac32e2d712aa4b325dd0617842f4cde64ab4",
-      "size": 1661210
+      "size": 1661210,
+      "usage": "runtime",
+      "runtime_files": [
+        "libhsa-runtime64.so.1.18.70204"
+      ]
     },
     {
       "id": "hsa-rocr-dev",
@@ -84,7 +115,9 @@
       "version": "1.18.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr-dev/hsa-rocr-dev_1.18.0.70204-93~24.04_amd64.deb",
       "sha256": "dec6c34a06b888fe2f1717647817a00bc7d09e00089f5b97358697032362a7db",
-      "size": 139482
+      "size": 139482,
+      "usage": "build",
+      "runtime_files": []
     },
     {
       "id": "rocm-core",
@@ -92,7 +125,11 @@
       "version": "7.2.4.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocm-core/rocm-core_7.2.4.70204-93~24.04_amd64.deb",
       "sha256": "dfe0d173da998a669921faf08351a01add377cd4d1b471865f921a03484974b6",
-      "size": 32692
+      "size": 32692,
+      "usage": "runtime",
+      "runtime_files": [
+        "librocm-core.so.1.0.70204"
+      ]
     },
     {
       "id": "rocprofiler-register",
@@ -100,7 +137,11 @@
       "version": "0.6.0.70204-93~24.04",
       "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocprofiler-register/rocprofiler-register_0.6.0.70204-93~24.04_amd64.deb",
       "sha256": "3b13874e567fa40b6eaf9f8d572d5c9a4ac780eb37496b31565755463a378295",
-      "size": 242888
+      "size": 242888,
+      "usage": "runtime",
+      "runtime_files": [
+        "librocprofiler-register.so.0.6.0"
+      ]
     },
     {
       "id": "numactl",
@@ -113,9 +154,19 @@
       "id": "rust",
       "url": "https://static.rust-lang.org/dist/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz",
       "sha256": "891c6366d7100feda0bca4c03ce63f3c9ac827cbebbc283e7433061d42c6a376"
+    },
+    {
+      "id": "rust-std-x86_64-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-x86_64-pc-windows-gnu.tar.xz",
+      "sha256": "a2382bf189d5621e09db647da419a8e1d4c604d60941cb116da00ce34042b1dd"
+    },
+    {
+      "id": "rust-std-i686-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-i686-pc-windows-gnu.tar.xz",
+      "sha256": "8c3f4dd0743b8f092651fac16d00a64c6f06ea9420355099e0f52954cc1a61c2"
     }
   ],
-  "cargo_lock_sha256": "41f2ba5dc741f54717b3613cd18175f8b13bd8df46a963c63936016148b05185",
+  "cargo_lock_sha256": "c7da4ae466c8a93d23a4fbe1c38d0b2f1c69b3815ebae2e4f3757b744a4dcfd0",
   "rocm_runtime": {
     "libamd_comgr.so.3.0.0": [
       "libamd_comgr.so.3",
@@ -148,12 +199,120 @@
   },
   "source_repositories": {
     "zluda": "https://github.com/chkuendig/ZLUDA",
-    "nvcuda": "https://github.com/chkuendig/nvcuda",
     "dxvk": "https://github.com/doitsujin/dxvk.git",
     "dxvk-nvapi": "https://github.com/chkuendig/dxvk-nvapi",
     "protonfixes": "https://github.com/chkuendig/umu-protonfixes",
     "wine": "https://github.com/ValveSoftware/wine",
     "wine-staging": "https://github.com/wine-staging/wine-staging",
-    "llvm": "https://github.com/chkuendig/llvm-project"
+    "llvm": "https://github.com/chkuendig/llvm-project",
+    "ffmpeg": "https://github.com/FFmpeg/FFmpeg",
+    "openfst": "https://github.com/alphacep/openfst",
+    "kaldi": "https://github.com/alphacep/kaldi",
+    "vosk-api": "https://github.com/alphacep/vosk-api",
+    "libxml2": "https://gitlab.gnome.org/GNOME/libxml2.git",
+    "libxkbcommon": "https://github.com/xkbcommon/libxkbcommon.git",
+    "libpcap": "https://github.com/the-tcpdump-group/libpcap.git",
+    "vkd3d": "https://gitlab.winehq.org/wine/vkd3d",
+    "piper": "https://github.com/shaunren/piper.git",
+    "OpenXR-SDK": "https://github.com/KhronosGroup/OpenXR-SDK",
+    "wayland-protocols": "https://gitlab.freedesktop.org/wayland/wayland-protocols.git",
+    "bzip2": "https://sourceware.org/git/bzip2.git",
+    "dav1d": "https://github.com/videolan/dav1d.git",
+    "xz": "https://github.com/tukaani-project/xz.git",
+    "Vulkan-Headers": "https://github.com/KhronosGroup/Vulkan-Headers",
+    "SPIRV-Headers": "https://github.com/KhronosGroup/SPIRV-Headers"
+  },
+  "build_parts": {
+    "zluda": [
+      "zluda"
+    ],
+    "bridges": [
+      "zluda",
+      "dxvk",
+      "dxvk-nvapi",
+      "protonfixes",
+      "wine",
+      "wine-staging",
+      "ffmpeg",
+      "openfst",
+      "kaldi",
+      "vosk-api",
+      "libxml2",
+      "libxkbcommon",
+      "libpcap",
+      "vkd3d",
+      "piper",
+      "OpenXR-SDK",
+      "wayland-protocols",
+      "bzip2",
+      "dav1d",
+      "xz",
+      "Vulkan-Headers",
+      "SPIRV-Headers"
+    ]
+  },
+  "wine_bridge": {
+    "path": "wine/zluda_wine",
+    "tree": "872ded44f6fca02719ad76ec1ddf0686ab571175",
+    "contract": "zluda-wine-packaging-1",
+    "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
+    "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",
+    "license": "MIT OR Apache-2.0",
+    "implementation": "clean-room production on ZLUDA c60462dc ancestry; Wine/Proton retain their own terms",
+    "provenance_bundle": {
+      "LICENSES/PRODUCTION-INPUTS.json": "16bfefc0b0c0fb780e83161db284493a7b77ff52ad6a26b3891755e5330de8be",
+      "LICENSES/PROVENANCE.md": "f66359e0f4407af1121780d82db7e0656d2278e9ae6a782d22a35b497bdafe06",
+      "LICENSES/ZLUDA-WoW64-MIT.txt": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+    }
+  },
+  "component_patches": {
+    "dxvk-nvapi": {
+      "upstream_tree": "c18f660124c0ebcc3a134a697a83cad392154e61",
+      "fork_commit": "f9ddebf94c593bf2891bb6967db6f263ad04080d",
+      "fork_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
+      "prepared_tree": "ed6fc1a53e6feea358b9ff3741fc85e62da48936",
+      "patches": [
+        {
+          "path": "patches/dxvk-nvapi/0001-zluda-physx-honor-DXVK_NVAPI_ALLOW_OTHER_DRIVERS-in-.patch",
+          "sha256": "5b6fe887cfa84f9f8cebe29b749dd572cb0c85b4840e3847b2dab56950704f35",
+          "fork_change": true
+        },
+        {
+          "path": "patches/dxvk-nvapi/0002-Handle-the-legacy-PhysX-compute-topology-V2-query-Ar.patch",
+          "sha256": "8dbd3b387fbaa96d749b407e1d2591d1848e0e1b5b68664833cb48c77310f893",
+          "fork_change": true
+        }
+      ]
+    },
+    "protonfixes": {
+      "upstream_tree": "25177ee4434100da6e9d10c09b0b2a02a48738fb",
+      "fork_commit": "39943545657dffdfb34aacea59c96be9f5f3e00c",
+      "fork_tree": "25177ee4434100da6e9d10c09b0b2a02a48738fb",
+      "prepared_tree": "e68ee7d6c270324edddec489cfbb6a2c9a892702",
+      "patches": [
+        {
+          "path": "patches/protonfixes/0001-upscalers-add-optiscaler-downloader.patch",
+          "sha256": "7d497cac30195c0d06a59d4154fd160de41c246bac18bb451bc69e06573b4d76",
+          "fork_change": false
+        },
+        {
+          "path": "patches/protonfixes/0002-upscalers-control-ffx4-version-through-fsr4-version-.patch",
+          "sha256": "7905d65d2d825fe4caaf9f525f7826ba29b83a3d15e0322ec07bcd5d80edc827",
+          "fork_change": false
+        },
+        {
+          "path": "patches/protonfixes/0008-Select-ZLUDA-early-and-respect-explicit-opt-out.patch",
+          "sha256": "f53977b727f7bb8a43ab53453fcbdd345fe4c0027b62e4752ad8cfcf09e9b328",
+          "fork_change": true,
+          "post_fork": true
+        },
+        {
+          "path": "patches/protonfixes/0009-Borderlands-2-enable-ZLUDA-before-prefix-setup.patch",
+          "sha256": "1acdd47914f3611c072467910ffd6e9109582bd89bda4c059b7a1d96c5daff9e",
+          "fork_change": true,
+          "post_fork": true
+        }
+      ]
+    }
   }
 }

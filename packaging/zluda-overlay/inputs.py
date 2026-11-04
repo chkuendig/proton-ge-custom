@@ -57,7 +57,8 @@ def resolve(cache):
     headers = {'Authorization': 'Bearer ' + token,
                'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
     with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as response:
-        assert 'sha256:' + hashlib.sha256(response.read()).hexdigest() == digest
+        if not ('sha256:' + hashlib.sha256(response.read()).hexdigest() == digest):
+            raise ValueError("inputs.py integrity gate failed: 'sha256:' + hashlib.sha256(response.read()).hexdigest() == digest")
     print('resolved SDK manifest', digest, flush=True)
     index = download(dict(LOCK['rocm_index'], id='Packages'), cache)
     records = {}
@@ -67,24 +68,31 @@ def resolve(cache):
         if 'Filename' in record:
             records[record['Filename']] = record
     for item in LOCK['downloads']:
-        assert re.fullmatch('[0-9a-f]{64}', item['sha256']), item['id']
+        if not (re.fullmatch('[0-9a-f]{64}', item['sha256'])):
+            raise ValueError(item['id'])
         with request(item['url'], 'HEAD') as response:
             length = response.headers.get('Content-Length')
             if length and 'size' in item:
-                assert int(length) == item['size'], item['id']
+                if not (int(length) == item['size']):
+                    raise ValueError(item['id'])
         if item.get('group') == 'rocm':
             record = records[item['url'].split('/7.2.4/', 1)[1]]
-            assert record['SHA256'] == item['sha256'], item['id']
-            assert record['Version'] == item['version'], item['id']
-            assert int(record['Size']) == item['size'], item['id']
+            if not (record['SHA256'] == item['sha256']):
+                raise ValueError(item['id'])
+            if not (record['Version'] == item['version']):
+                raise ValueError(item['id'])
+            if not (int(record['Size']) == item['size']):
+                raise ValueError(item['id'])
         elif item['id'] == 'ge':
             with request(item['digest_url']) as response:
                 release = json.load(response)
             asset = next(a for a in release['assets'] if a['browser_download_url'] == item['url'])
-            assert asset['digest'] == 'sha256:' + item['sha256']
-        elif item['id'] == 'rust':
+            if not (asset['digest'] == 'sha256:' + item['sha256']):
+                raise ValueError("inputs.py integrity gate failed: asset['digest'] == 'sha256:' + item['sha256']")
+        elif item['id'] == 'rust' or item['id'].startswith('rust-std-'):
             with request(item['url'] + '.sha256') as response:
-                assert response.read().decode().split()[0] == item['sha256']
+                if not (response.read().decode().split()[0] == item['sha256']):
+                    raise ValueError("inputs.py integrity gate failed: response.read().decode().split()[0] == item['sha256']")
         else:
             download(item, cache)  # libnuma source is less than 500 KiB
         print('resolved', item['id'], item['sha256'], flush=True)
@@ -107,13 +115,44 @@ def check_tree(root):
         check_tree(child)
 
 
+def components_for_part(part):
+    if part == 'all':
+        return list(dict.fromkeys(LOCK['build_parts']['zluda'] + LOCK['build_parts']['bridges']))
+    return LOCK['build_parts'][part]
+
+
+def check_bridge_sources(root):
+    """Full GE prep intentionally patches other components and main-tree files.
+
+    The independent Wine bridge consumes the exact clean ZLUDA checkout and
+    committed lock/patch inputs, rather than those unrelated prepared trees.
+    """
+    git(root, 'merge-base', '--is-ancestor', LOCK['proton_base'], 'HEAD')
+    path = 'packaging/zluda-overlay/inputs.lock.json'
+    if (root / path).read_bytes() != subprocess.check_output(['git', '-C', str(root), 'show', 'HEAD:' + path]):
+        raise ValueError('dirty bridge input lock')
+    child = root / 'zluda'
+    pin = LOCK['components']['zluda']
+    if git(root, 'rev-parse', 'HEAD:zluda') != pin or git(child, 'rev-parse', 'HEAD') != pin:
+        raise ValueError('locked Wine bridge gitlink mismatch')
+    if git(child, 'status', '--porcelain', '--untracked-files=no'):
+        raise ValueError('dirty Wine bridge component')
+    check_tree(child)
+    bridge = LOCK['wine_bridge']
+    if (git(child, 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree'] or
+            sha256(child / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']):
+        raise ValueError('locked Wine bridge tree/lock mismatch')
+    from component_patches import series
+    for name in LOCK.get('component_patches', {}):
+        series(root, name, LOCK)
+    print('checked immutable ZLUDA bridge and committed patch inputs')
+
+
 def check_sources(root, part):
     git(root, 'merge-base', '--is-ancestor', LOCK['proton_base'], 'HEAD')
     if git(root, 'status', '--porcelain', '--untracked-files=no', '--ignore-submodules=all'):
         raise ValueError('dirty Proton checkout')
-    names = ['zluda'] if part == 'zluda' else ['nvcuda', 'dxvk', 'dxvk-nvapi', 'wine', 'wine-staging', 'protonfixes']
-    if part == 'all':
-        names += ['zluda']
+    names = components_for_part(part)
     for name in names:
         child = root / name
         expected = git(root, 'rev-parse', 'HEAD:' + name)
@@ -122,13 +161,39 @@ def check_sources(root, part):
         if git(child, 'status', '--porcelain', '--untracked-files=no'):
             raise ValueError('dirty component: ' + name)
         check_tree(child)
+        if name in LOCK.get('component_patches', {}):
+            from component_patches import series
+            series(root, name, LOCK)
+    if part in ('bridges', 'all'):
+        bridge = LOCK['wine_bridge']
+        if git(root / 'zluda', 'rev-parse', 'HEAD:' + bridge['path']) != bridge['tree']:
+            raise ValueError('locked Wine bridge tree mismatch')
+        if sha256(root / 'zluda' / bridge['path'] / 'Cargo.lock') != bridge['cargo_lock_sha256']:
+            raise ValueError('locked Wine bridge Cargo.lock mismatch')
     if part in ('zluda', 'all'):
-        assert git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']
-        assert sha256(root / 'zluda/Cargo.lock') == LOCK['cargo_lock_sha256']
+        if not (git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']):
+            raise ValueError("inputs.py integrity gate failed: git(root / 'zluda/ext/llvm-project', 'rev-parse', 'HEAD') == LOCK['llvm']")
+        if not (sha256(root / 'zluda/Cargo.lock') == LOCK['cargo_lock_sha256']):
+            raise ValueError("inputs.py integrity gate failed: sha256(root / 'zluda/Cargo.lock') == LOCK['cargo_lock_sha256']")
         for name, item in LOCK['lfs'].items():
             path = root / 'zluda' / name
-            assert path.stat().st_size == item['size'] and sha256(path) == item['sha256'], name
+            if not (path.stat().st_size == item['size'] and sha256(path) == item['sha256']):
+                raise ValueError(name)
     print('checked recursive gitlinks and locked inputs:', ', '.join(names))
+
+
+def wine_base(root):
+    """Select GE by immutable lock entries, even when no release tags exist."""
+    base = LOCK['ge_source']
+    if git(root, 'rev-parse', base + '^{commit}') != base:
+        raise ValueError('GE source must be a full locked commit ID')
+    git(root, 'merge-base', '--is-ancestor', base, 'HEAD')
+    item = next(item for item in LOCK['downloads'] if item['id'] == 'ge')
+    archive = item['url'].rsplit('/', 1)[1]
+    suffix = '-x86_64.tar.gz'
+    if not archive.startswith('GE-Proton') or not archive.endswith(suffix):
+        raise ValueError('unexpected locked GE archive name: ' + archive)
+    return base, archive[:-len(suffix)], archive
 
 
 def baseline_links(root):
@@ -189,13 +254,19 @@ def verify_manifest(root):
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'manifest', 'verify'])
+    parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'bridge-check', 'manifest', 'verify', 'wine-base', 'checkout-paths'])
     parser.add_argument('directory', type=Path)
     parser.add_argument('--part', choices=['all', 'zluda', 'bridges'], default='all')
     parser.add_argument('--group', choices=['all', 'zluda', 'bridges', 'ge'], default='all')
     args = parser.parse_args()
     if args.command == 'check':
         check_sources(args.directory, args.part)
+    elif args.command == 'bridge-check':
+        check_bridge_sources(args.directory)
+    elif args.command == 'wine-base':
+        print(*wine_base(args.directory))
+    elif args.command == 'checkout-paths':
+        print(*components_for_part(args.part))
     elif args.command == 'manifest':
         manifest(args.directory)
     elif args.command == 'verify':
@@ -206,7 +277,7 @@ def main():
             resolve(args.directory)
         else:
             for item in LOCK['downloads']:
-                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge'], 'ge': ['ge']}
+                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge', 'rust', 'rust-std-x86_64-pc-windows-gnu', 'rust-std-i686-pc-windows-gnu'], 'ge': ['ge']}
                 if (args.group == 'all' or item['id'] in ids[args.group]
                         or (args.group == 'zluda' and item.get('group') == 'rocm')):
                     print(item['id'], download(item, args.directory), flush=True)
