@@ -1,0 +1,40 @@
+name: B5 installer environment preflight
+on: workflow_dispatch
+permissions:
+  contents: read
+  actions: read
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: GE-Proton11-7-zluda
+          run-id: 41745832871
+          github-token: ${{ github.token }}
+          path: /home/runner/work/_temp/product
+      - name: Verify and run preflight in locked runtime
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/product"
+          echo '9878f12e96f4a02ef35ad36313f7aa8c3dfbe302e399252a8254e66d18728cdb  GE-Proton11-7-zluda.tar.gz' | sha256sum -c -
+          sha256sum -c SHA256SUMS
+          tar -xf GE-Proton11-7-zluda.tar.gz
+          mkdir -p "$RUNNER_TEMP/preflight"
+          image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
+          docker pull "$image"
+          docker run --rm --init --network=none --cpus=3 --memory=4g --pids-limit=256 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/product/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$RUNNER_TEMP/preflight:/work" "$image" python3 /src/installer-preflight.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: installer-preflight
+          path: /home/runner/work/_temp/preflight/*.json
+          retention-days: 14
