@@ -27,7 +27,7 @@ index 05795c0..bdacf80 100644
 @@ -287 +293,0 @@ TEST_CASE("Sysinfo methods succeed", "[.sysinfo]") {
 -        ::SetEnvironmentVariableA("DXVK_NVAPI_ALLOW_OTHER_DRIVERS", "1");
 diff --git a/tests/nvapi_vulkan.cpp b/tests/nvapi_vulkan.cpp
-index 3fea37c..fb0406d 100644
+index 3fea37c..458c6c2 100644
 --- a/tests/nvapi_vulkan.cpp
 +++ b/tests/nvapi_vulkan.cpp
 @@ -3,0 +4,3 @@
@@ -64,6 +64,12 @@ index 3fea37c..fb0406d 100644
 @@ -234 +245 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
 -            auto vkSemaphore = reinterpret_cast<VkSemaphore>(0x12345678);
 +            auto vkSemaphore = TestVulkanHandle<VkSemaphore>(0x12345678);
+@@ -254 +265 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            REQUIRE(signalSemaphoreHandle == vkSemaphore);
++            REQUIRE(signalSemaphoreHandle == reinterpret_cast<HANDLE>(vkSemaphore));
 @@ -381 +392 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
 -            auto vkSemaphore = reinterpret_cast<VkSemaphore>(0x12345678);
 +            auto vkSemaphore = TestVulkanHandle<VkSemaphore>(0x12345678);
+@@ -390 +401 @@ TEST_CASE("Vulkan methods succeed", "[.vulkan]") {
+-            REQUIRE(signalSemaphoreHandle == vkSemaphore);
++            REQUIRE(signalSemaphoreHandle == reinterpret_cast<HANDLE>(vkSemaphore));

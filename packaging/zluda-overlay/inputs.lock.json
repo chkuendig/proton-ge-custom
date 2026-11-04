@@ -343,7 +343,7 @@
   },
   "nvapi_qualification": {
     "path": "packaging/zluda-overlay/nvapi-policy-tests.patch",
-    "sha256": "f7a078205352ee283e2a29f2ed7d537e3bf5282b4ce91799d33851d34b3461c3",
+    "sha256": "f1ba6181c4d10e7b9f5f3efa7637afde8b7d04d114b70a881f7820d681dba001",
     "scope": "test-only six NVIDIA/RADV driver and flag combinations; all nested V1/V2 poisoned/null-output cases; runtime DLLs retain exactly the two pinned production patches"
   }
 }
