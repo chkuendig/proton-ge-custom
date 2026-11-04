@@ -53,6 +53,11 @@ def run(source, work):
     if git(bridge, 'rev-parse', 'HEAD') != pin or git(backend, 'rev-parse', 'HEAD') != LOCK['components']['zluda']:
         raise ValueError('extraction source pins differ from lock')
     env = source_archive.extracted_environment(work / 'b5-source', os.environ)
+    # The shipping capsule deliberately excludes Wine headers: the production
+    # bridge reads only the attested binary provider/tools. The legacy builder
+    # still checks these SDK layout directories, without consuming their files.
+    for name in ['include', 'include-generated']:
+        (Path(env['WINE_SDK_ROOT']) / name).mkdir(exist_ok=True)
     env.update(ZLUDA_WINE_SOURCE_ID=pin, ZLUDA_WINE_BACKEND_SOURCE=str(backend),
                SOURCE_DATE_EPOCH=LOCK['wine_bridge']['source_date_epoch'],
                ZLUDA_WINE_BUILD_ROOT='/work/build/zluda-wine', JOBS='3')

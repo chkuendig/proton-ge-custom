@@ -34,7 +34,7 @@
     "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
     "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
     "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd",
-    "zluda-wine": "b454ac4ce136eb2a732fa13a2d84954b8f94d9c1"
+    "zluda-wine": "200a591923ee5f683d1b8ed528da3ad8163e3743"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -256,7 +256,7 @@
   },
   "wine_bridge": {
     "path": "wine/zluda_wine",
-    "tree": "984fbb5da8927dcd40518498ca43421b7838664c",
+    "tree": "5d21570f3f5e75c2b51b8c88525f4cbe8178fc20",
     "contract": "zluda-wine-packaging-1",
     "cargo_lock_sha256": "062ae3754c5f80be2fce3a516a26c1772d5abedbf1b0487150ac0155ca3e3927",
     "qualification": "W1 candidate: full SDK triad, extracted archive rebuild and hosted CPU gates required; Deck W1/W2 pending",

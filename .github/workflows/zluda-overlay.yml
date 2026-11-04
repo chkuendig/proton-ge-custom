@@ -220,7 +220,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: b454ac4ce136eb2a732fa13a2d84954b8f94d9c1
+          ref: 200a591923ee5f683d1b8ed528da3ad8163e3743
           path: scope-source
           persist-credentials: false
       - name: Checkout the admitted backend declaration source
@@ -262,7 +262,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: b454ac4ce136eb2a732fa13a2d84954b8f94d9c1
+          ref: 200a591923ee5f683d1b8ed528da3ad8163e3743
           path: luid-source
           persist-credentials: false
       - name: Checkout the admitted backend declaration source
@@ -312,7 +312,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: chkuendig/ZLUDA
-          ref: b454ac4ce136eb2a732fa13a2d84954b8f94d9c1
+          ref: 200a591923ee5f683d1b8ed528da3ad8163e3743
           path: w1-source
           sparse-checkout: wine/w1-fixtures
           persist-credentials: false
