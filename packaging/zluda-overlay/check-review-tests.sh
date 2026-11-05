@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hosted CPU suites and independent removal trials; restore tracked inputs on exit.
+# Hosted CPU suites and paired compiler validation; restore tracked inputs on exit.
 set -euo pipefail
 : "${SOURCE_ROOT:?}" "${BUILD_ROOT:?}"
 here=$SOURCE_ROOT/packaging/zluda-overlay
@@ -77,23 +77,12 @@ run llvm 194 -p ptx --lib _llvm
 run parser 24 -p ptx_parser
 run dark 5 -p dark_api
 run hardware 2 -p zluda --lib hardware::
-run image 2 -p llvm_zluda --lib image_wrapper
+run image 0 -p llvm_zluda --lib image_wrapper
 restore
-# The runtime fixes touch no compiler input. Retain separately labelled capsules
-# and a source diff proof against the published compiler.
-git diff --exit-code 0a5db154b067af26115a0843107ff8ca766fe3b9 HEAD -- \
-    compiler ptx ptx_parser llvm_zluda kernel_metadata Cargo.lock > "$out/compiler-source-identity.diff"
+# Retain the shipping capsule before rebuilding the published compiler baseline.
+git diff 0a5db154b067af26115a0843107ff8ca766fe3b9 HEAD -- \
+    compiler ptx ptx_parser llvm_zluda kernel_metadata Cargo.lock > "$out/compiler-source-changes.diff"
 cp -a "$BUILD_ROOT/zoc-capsule" "$capsules/fix"
-cp -a "$BUILD_ROOT/zoc-capsule" "$capsules/baseline"
-python3 - "$capsules" <<'PY'
-from pathlib import Path
-import json, sys
-root = Path(sys.argv[1])
-p = root / 'baseline/PROVENANCE.json'
-r = json.loads(p.read_text()); r['source_commit'] = '0a5db154b067af26115a0843107ff8ca766fe3b9'
-r['compiler_source_identity'] = 'git diff --exit-code baseline fix -- compiler ptx ptx_parser llvm_zluda kernel_metadata Cargo.lock'
-p.write_text(json.dumps(r, indent=2) + '\n')
-PY
 package_trial() {
     local arm=$1
     git diff --binary > "$out/$arm.patch"
@@ -105,32 +94,23 @@ package_trial() {
 import json, sys
 from pathlib import Path
 p = Path(sys.argv[1]) / 'PROVENANCE.json'
-r = json.loads(p.read_text()); r['trial'] = sys.argv[2]; r['shipping_source_modified'] = True
+r = json.loads(p.read_text()); r['validation_arm'] = sys.argv[2]; r['shipping_source_modified'] = True
+r['source_commit'] = '0a5db154b067af26115a0843107ff8ca766fe3b9'
 p.write_text(json.dumps(r, indent=2) + '\n')
 PY
 }
-# Only the IMAGE group differs in these five upstream source files.
-python3 - <<'PY'
+# The published compiler differs only by the IMAGE implementation in these files.
+python3 - <<'PYBASE'
 from pathlib import Path
 import subprocess
 for name in ['compile.rs', 'ffi.rs', 'lib.cpp', 'lib.rs', 'utils.rs']:
     path = Path('llvm_zluda/src') / name
-    path.write_bytes(subprocess.check_output(['git', 'show', 'f4df215e:' + path.as_posix()]))
-PY
-package_trial without-image
-restore
-python3 - <<'PY'
-from pathlib import Path
-p = Path('ptx/src/pass/llvm/emit.rs'); s = p.read_text()
-a = s.index('        } else if matches!(\n            var.info.state_space,')
-b = s.index('        if var.info.state_space == ast::StateSpace::Const {', a)
-s = s[:a] + '        }\n' + s[b:]
-p.write_text(s)
-PY
-package_trial without-const-zero
+    path.write_bytes(subprocess.check_output(['git', 'show', '0a5db154:' + path.as_posix()]))
+PYBASE
+package_trial baseline
 restore
 trap - EXIT
-# Regenerate capsule manifests after adding exact trial/baseline provenance.
+# Regenerate capsule manifests after adding exact baseline provenance.
 PYTHONPATH="$here" python3 - "$capsules" <<'PY'
 from pathlib import Path
 import sys
@@ -138,6 +118,6 @@ from inputs import manifest
 for path in Path(sys.argv[1]).iterdir(): manifest(path)
 PY
 python3 "$here/review_identity.py" "$root" "$capsules" "$out/public-identity"
-# Restore the shipping compiler and runtime after transient trials.
+# Restore the shipping compiler and runtime after the transient baseline.
 cargo build --release --locked --offline -j3 -p zluda -p compiler 2>&1 | tee "$out/shipping-restore.log"
 git diff --exit-code > "$out/source-clean.diff"

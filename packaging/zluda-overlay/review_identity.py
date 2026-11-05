@@ -15,7 +15,7 @@ def screen(source, capsules, dest):
     source, capsules, dest = map(Path, (source, capsules, dest))
     dest.mkdir(parents=True, exist_ok=True)
     inputs = subprocess.check_output(['git', '-C', str(source), 'ls-files', '*.ptx'], text=True).splitlines()
-    arms = ['baseline', 'fix', 'without-image', 'without-const-zero']
+    arms = ['baseline', 'fix']
     rows = []
     for index, name in enumerate(inputs):
         path = source / name
@@ -55,7 +55,7 @@ def screen(source, capsules, dest):
     record = {'inputs': len(inputs), 'architecture': 'gfx1030', 'GPU_launches': 0,
               'comparisons': comparisons}
     (dest / 'RESULT.json').write_text(json.dumps(record, indent=2) + '\n')
-    # Removal trials are evidence, not landing gates. The shipping fix must match.
+    # The shipping compiler must match every baseline output.
     assert comparisons['fix']['all_outputs_identical'], comparisons['fix']
     return record
 

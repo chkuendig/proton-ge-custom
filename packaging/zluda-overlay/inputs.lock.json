@@ -12,7 +12,7 @@
     "sha256": "ca9ce1e681e736592a8dc8a7309a2ef5e0a71b7152da450de4dc672a3ce62e6e"
   },
   "components": {
-    "zluda": "75603c2cd4d87c6012ad7310e1fb0b3dee6ba81e",
+    "zluda": "617e7ecc6cd75568b61493fae2a79f2409786e99",
     "dxvk": "601930949d111edbbcf9dd463948426d9f8f6ddd",
     "dxvk-nvapi": "fd105c0d07f4531169eba4d1d1eaa25f78a416a2",
     "protonfixes": "39943545657dffdfb34aacea59c96be9f5f3e00c",
@@ -34,7 +34,7 @@
     "xz": "4b73f2ec19a99ef465282fbce633e8deb33691b3",
     "Vulkan-Headers": "36872f9062b17b1a30b8ed1d81ca5ea6bb608a72",
     "SPIRV-Headers": "6cae8216a6ea19ff3f237af01e54378c1ff81fcd",
-    "zluda-wine": "f06d6344b8b29aab7e8fb666b1d46eca9fd1e48e"
+    "zluda-wine": "48696a7d2b9f77c79990da2fba640fd6692e2649"
   },
   "lfs": {
     "llvm_zluda/src/device-libs/ockl.bc": {
@@ -273,7 +273,7 @@
     "backend_source": {
       "contract": "zluda-wine-backend-source-1",
       "repository": "https://github.com/chkuendig/ZLUDA",
-      "commit": "75603c2cd4d87c6012ad7310e1fb0b3dee6ba81e",
+      "commit": "617e7ecc6cd75568b61493fae2a79f2409786e99",
       "source_inputs": {
         "cuda_macros/src/cuda.rs": "fe4c9326ccb34c894793f99e8f3d403e7f6acd440d6468ab3796003b8db2648a",
         "cuda_types/src/cuda.rs": "b6adddfb2635d66003d6a282cb96a1dbc86cdf9b20d2fed19378c9fc1466a7b6",
@@ -284,7 +284,7 @@
       },
       "source_origin": "8a8e3b76c5fdc8f049f86fcf7089ce79c0140c3b"
     },
-    "backend_contract_sha256": "c91a6fa27a864f9ed6920564cee8d2263edb26ee57257545646ec2bbfca06bfc",
+    "backend_contract_sha256": "f2fc6bb67022564cecdddfeefbaebfc0acc508e3511d270e94b716d1f4fc8eb4",
     "fixtures_tree": "e069e3eb5ebc96ebf9687239168cf8247ff7d9c5",
     "source_date_epoch": "1793751497"
   },
