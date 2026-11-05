@@ -62,7 +62,7 @@ class LaunchPolicy(unittest.TestCase):
                 SimpleNamespace(vendorID=0x1002, deviceName="RADV VANGOGH")]
         self.assertEqual(self.hardware(gpus)["HSA_OVERRIDE_GFX_VERSION"], "10.3.0")
 
-    def test_ge_helper_failure_discards_partial_devices_and_caches(self):
+    def test_upstream_ge_helper_retains_enumerated_devices_and_caches(self):
         from functools import cache
         tree = ast.parse((Path(__import__("os").environ["PROTON_SOURCE_ROOT"]) / "utilities.py").read_text())
         helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
@@ -84,8 +84,9 @@ class LaunchPolicy(unittest.TestCase):
         exec(compile(ast.fix_missing_locations(ast.Module(body=[helper], type_ignores=[])),
                      "utilities.py", "exec"), namespace)
         function = namespace["get_vulkan_gpus"]
-        self.assertEqual(function(), [])
-        self.assertEqual(function(), [])
+        devices = function()
+        self.assertEqual([(gpu.vendorID, gpu.deviceName) for gpu in devices], [(0x1002, "VANGOGH")])
+        self.assertIs(function(), devices)
         self.assertEqual(Instance.creates, 1)
 
 

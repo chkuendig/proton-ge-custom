@@ -61,7 +61,7 @@ class Isolation(unittest.TestCase):
         t = tempfile.TemporaryDirectory()
         self.addCleanup(t.cleanup)
         self.root = Path(t.name)
-        self.tool = self.root / 'ours'
+        self.tool = self.root / 'compatibilitytools.d/ours'
         self.other = self.root / 'other/files/lib/wine/x86_64-windows/control.dll'
         self.other.parent.mkdir(parents=True)
         self.other.write_bytes(builtin('other bytes'))
@@ -159,16 +159,95 @@ class Isolation(unittest.TestCase):
         self.assertFalse(path.is_symlink())
         self.assertEqual(path.read_bytes(), target.read_bytes())
 
-    def test_linked_parent_requires_refusal_not_leaf_copy(self):
+    def test_linked_nested_parent_is_logged_and_skipped(self):
         self.dst.parent.rmdir()
         self.dst.parent.symlink_to(self.other.parent)
-        # Without refusal the writer reaches another tree even with private leaf policy.
+        # The nested directory target remains outside the isolation walk.
         inplace(self.dst, builtin('unfixed parent write'))
         self.assertEqual(self.other.read_bytes(), builtin('unfixed parent write'))
         before = self.other.read_bytes()
-        with self.assertRaisesRegex(RuntimeError, 'linked Windows directory'):
-            self.isolate()
+        self.ns['log'] = mock.Mock()
+        self.isolate()
+        self.assertTrue(self.dst.parent.is_symlink())
         self.assertEqual(self.other.read_bytes(), before)
+        self.assertIn('Skipping linked Windows directory', self.ns['log'].call_args[0][0])
+
+    def test_unreadable_nested_directory_is_logged_and_skipped(self):
+        self.ns['log'] = mock.Mock()
+        def unreadable(root, followlinks, onerror):
+            onerror(PermissionError('unreadable nested directory'))
+            return iter(())
+        with mock.patch.object(os, 'walk', side_effect=unreadable):
+            self.isolate()
+        self.assertIn('Skipping unreadable Windows directory', self.ns['log'].call_args[0][0])
+
+    def test_resolved_prefix_in_tool_collection_refuses_before_wine(self):
+        source = self.source
+        tree = ast.parse(source)
+        main = next(n for n in tree.body if isinstance(n, ast.If) and '__main__' in ast.unparse(n.test))
+        guard = next(n for n in main.body if isinstance(n, ast.With) and 'isolate_module_links' in ast.unparse(n))
+        for tool in (self.tool, self.tool.parent / 'other'):
+            for component in ('pfx', 'drive_c', 'windows'):
+                with self.subTest(tool=tool.name, component=component), tempfile.TemporaryDirectory(dir=self.root) as temporary:
+                    prefix = Path(temporary) / 'pfx'
+                    windows = prefix / 'drive_c/windows'
+                    windows.mkdir(parents=True)
+                    original = {'pfx': prefix, 'drive_c': windows.parent, 'windows': windows}[component]
+                    target = tool / component
+                    target.mkdir(parents=True, exist_ok=True)
+                    shutil.rmtree(original)
+                    original.symlink_to(target, target_is_directory=True)
+                    actual = windows.resolve() / 'system32'
+                    actual.mkdir(parents=True, exist_ok=True)
+                    leaf = actual / 'control.dll'
+                    leaf.symlink_to(self.other)
+                    inode = leaf.lstat().st_ino
+                    self.ns['log'] = mock.Mock()
+                    compat = SimpleNamespace(prefix_dir=str(prefix), prefix_lock=nullcontext())
+                    compat.isolate_module_links = lambda root: self.ns['isolate_module_links'](compat, root)
+                    with self.assertRaises(SystemExit) as stopped:
+                        exec(compile(ast.Module(body=[guard], type_ignores=[]), 'proton', 'exec'),
+                             dict(g_compatdata=compat, g_proton=SimpleNamespace(base_dir=self.tool), sys=__import__('sys')))
+                    self.assertEqual(stopped.exception.code, 1)
+                    self.assertTrue(leaf.is_symlink())
+                    self.assertEqual(leaf.lstat().st_ino, inode)
+                    self.assertIn('Refusing prefix inside compatibility tool directory', self.ns['log'].call_args[0][0])
+                    leaf.unlink()
+
+    def test_tool_manifest_outside_collection_refuses_isolation(self):
+        other = self.root / 'unregistered-tool'
+        other.mkdir()
+        (other / 'toolmanifest.vdf').write_text('tool manifest')
+        prefix = other / 'files/share/default_pfx'
+        leaf = prefix / 'drive_c/windows/system32/control.dll'
+        leaf.parent.mkdir(parents=True)
+        leaf.symlink_to(self.other)
+        self.ns['log'] = mock.Mock()
+        result = self.ns['isolate_module_links'](SimpleNamespace(prefix_dir=str(prefix)), self.tool)
+        self.assertIs(result, False)
+        self.assertTrue(leaf.is_symlink())
+        self.assertIn('Refusing prefix inside compatibility tool directory', self.ns['log'].call_args[0][0])
+
+    def test_module_directory_links_into_tools_refuse_isolation(self):
+        for tool in (self.tool, self.tool.parent / 'other'):
+            for directory in ('system32', 'syswow64'):
+                with self.subTest(tool=tool.name, directory=directory), tempfile.TemporaryDirectory(dir=self.root) as temporary:
+                    target = tool / 'files/share/default_pfx/drive_c/windows' / directory
+                    target.mkdir(parents=True, exist_ok=True)
+                    leaf = target / 'nvcuda.dll'
+                    leaf.write_bytes(builtin('tool bytes'))
+                    before = (leaf.read_bytes(), leaf.stat().st_ino, leaf.stat().st_mtime_ns)
+                    prefix = Path(temporary) / 'pfx'
+                    windows = prefix / 'drive_c/windows'
+                    windows.mkdir(parents=True)
+                    link = windows / directory
+                    link.symlink_to(target, target_is_directory=True)
+                    self.ns['log'] = mock.Mock()
+                    result = self.ns['isolate_module_links'](SimpleNamespace(prefix_dir=str(prefix)), self.tool)
+                    self.assertIs(result, False)
+                    self.assertTrue(link.is_symlink())
+                    self.assertEqual((leaf.read_bytes(), leaf.stat().st_ino, leaf.stat().st_mtime_ns), before)
+                    self.assertIn('Refusing prefix inside compatibility tool directory', self.ns['log'].call_args[0][0])
 
     def test_copy_failure_preserves_alias_and_tool_bytes(self):
         self.dst.symlink_to(self.other)
