@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "base": "ge",
-  "source_commit": "6d075ec1c0a7a93f23ddbe7b8278929d14c8a829",
+  "source_commit": "e3ad3d5968b54296f421c5c46cc065f86f1861be",
   "source_date_epoch": "1793802357",
   "stub_artifact": {
     "archive_sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0",

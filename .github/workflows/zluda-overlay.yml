@@ -366,6 +366,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
+      - name: Export the complete public packaging sources and fetched-object inventory
+        run: bash make/source-offer.sh "$RUNNER_TEMP/packaging-source-offer"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: packaging-source-offer
+          path: ${{ runner.temp }}/packaging-source-offer
+          if-no-files-found: error
+          retention-days: 90
       - uses: ./.github/actions/proton-source
       - name: Make room for archive assembly and SDK checks
         run: |
