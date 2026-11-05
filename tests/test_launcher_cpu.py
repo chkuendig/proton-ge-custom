@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -18,6 +19,94 @@ import proton_zluda
 
 
 class LauncherCpu(unittest.TestCase):
+    def test_valve_helper_requires_exact_stock_disabled_result_and_no_override(self):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.dict(gate.PROFILE, base='valve'):
+            root = Path(temporary)
+            tool, prefix = root / 'tool', root / 'prefix'
+            prefix.mkdir()
+            registry = prefix / 'user.reg'
+            registry.write_text('WINE REGISTRY Version 2\n\n[Software\\\\Wine\\\\DllOverrides] 1\n"nvcuda"="disabled"\n')
+            env = {'WINEDLLPATH': str(tool / 'files/lib/wine-cuda/stub')}
+            capture = root / 'launch-env.json'
+            capture.write_text(json.dumps(env))
+            (root / 'launcher.log').write_text('')
+            for directory, arch in proton_zluda.ARCHES.items():
+                for path in [tool / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll',
+                             prefix / 'drive_c/windows' / directory / 'nvcuda.dll']:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b'stock stub')
+            runner = SimpleNamespace()
+            for arch, appid, failure in [('win64', '999999', 'fixture failure at line 75: module!=NULL'),
+                                         ('wow64', '35140', 'PE32 fixture failure at line 65: module')]:
+                output = root / ('steam-' + appid + '.log')
+                output.write_text(failure + ' (last error 126)\n')
+                result = gate.admit_case(root, 'helper', arch, tool, runner, 1)
+                self.assertEqual(result['load_library']['last_error'], 126)
+                with self.assertRaisesRegex(ValueError, 'exactly error 126'):
+                    gate.admit_case(root, 'helper', arch, tool, runner, 0)
+                output.write_text(failure + ' (last error 127)\n')
+                with self.assertRaisesRegex(ValueError, 'exactly error 126'):
+                    gate.admit_case(root, 'helper', arch, tool, runner, 1)
+                with mock.patch.dict(gate.PROFILE, base='ge'), self.assertRaisesRegex(ValueError, 'probe failed'):
+                    gate.admit_case(root, 'helper', arch, tool, runner, 1)
+            self.assertEqual(gate.admit_policy(root, 'helper', tool, prefix, [])['registry_nvcuda'], 'disabled')
+            capture.write_text(json.dumps(dict(env, WINEDLLOVERRIDES='nvcuda=b')))
+            with self.assertRaisesRegex(ValueError, 'stock registry load order'):
+                gate.admit_policy(root, 'helper', tool, prefix, [])
+            capture.write_text(json.dumps(env))
+            registry.write_text(registry.read_text().replace('"disabled"', '"builtin"'))
+            with self.assertRaisesRegex(ValueError, 'registry must disable'):
+                gate.admit_policy(root, 'helper', tool, prefix, [])
+
+    def test_valve_replay_retains_captured_environment_cwd_and_target_arguments(self):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.dict(gate.PROFILE, base='valve'):
+            root = Path(temporary)
+            tool = root / 'tool'
+            for name in ['files/bin/wine', 'files/lib/wine/x86_64-unix/wine-preloader']:
+                path = tool / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('#!/usr/bin/python3\nimport json,os,sys\nopen(os.environ["FORWARDED"],"w").write(json.dumps({"argv":sys.argv[1:],"env":dict(os.environ),"cwd":os.getcwd()}))\n')
+                path.chmod(0o755)
+            gate.install_capture(tool)
+            preloader = str(tool) + '/files/lib//wine/x86_64-unix/wine-preloader'
+            arguments = [str(tool) + '/files/lib//wine/x86_64-unix/wine', r'c:\windows\system32\steam.exe', r'Z:\game\probe.exe', '--expect-stub']
+            env = dict(os.environ, PROTON_LOG_DIR=str(root), PROTON_ENABLE_ZLUDA='0',
+                       WINELOADERNOEXEC='1', FORWARDED=str(root / 'forwarded.json'))
+            cwd = root / 'cwd'
+            cwd.mkdir()
+            subprocess.run([preloader, *arguments], env=env, cwd=cwd, check=True)
+            self.assertEqual(json.loads((root / 'launch-command.json').read_text()), [preloader, *arguments])
+            forwarded = json.loads((root / 'forwarded.json').read_text())
+            self.assertEqual(forwarded['argv'], [arguments[0], *arguments[2:]])
+            self.assertEqual(forwarded['env'], json.loads((root / 'launch-env.json').read_text()))
+            receipt = gate.admit_capture(root, tool, arguments[2:])
+            self.assertEqual(receipt['cwd'], forwarded['cwd'])
+            self.assertEqual(receipt['cwd'], str(cwd))
+            self.assertEqual(receipt['steam_client_handshake'], 'pending Deck qualification')
+            self.assertEqual(json.loads((root / 'launch-env.json').read_text())['PROTON_ENABLE_ZLUDA'], '0')
+            with self.assertRaisesRegex(ValueError, 'stock preloader/Steam dispatch'):
+                gate.admit_capture(root, tool, [r'Z:\wrong.exe'])
+            original = (root / 'launch-replay.json').read_bytes()
+            receipt['replay_argv'][-1] = '--wrong-argument'
+            (root / 'launch-replay.json').write_text(json.dumps(receipt))
+            with self.assertRaisesRegex(ValueError, 'replay differs'):
+                gate.admit_capture(root, tool, arguments[2:])
+            (root / 'launch-replay.json').write_bytes(original)
+            captured_env = (root / 'launch-env.json').read_bytes()
+            (root / 'launch-env.json').write_bytes(captured_env + b'\n')
+            with self.assertRaisesRegex(ValueError, 'replay differs'):
+                gate.admit_capture(root, tool, arguments[2:])
+            (root / 'launch-env.json').write_bytes(captured_env)
+            (root / 'launch-command.json').write_text(json.dumps(['bypassed-steam.exe']))
+            with self.assertRaisesRegex(ValueError, 'stock preloader/Steam dispatch'):
+                gate.admit_policy(root, 'off-before', tool, root / 'prefix', arguments[2:])
+            subprocess.run([str(tool / 'files/bin/wine'), *arguments[2:]], env=env, cwd=cwd, check=True)
+            self.assertEqual(json.loads((root / 'forwarded.json').read_text())['argv'], arguments[2:])
+            with mock.patch.dict(os.environ, {'DISPLAY': ':77'}, clear=True):
+                self.assertNotIn('DISPLAY', gate.environment(tool, root, 'win64', 'off-before'))
+            with mock.patch.dict(os.environ, {'DISPLAY': ':77', 'CI_HEADLESS_DISPLAY': '1'}, clear=True):
+                self.assertEqual(gate.environment(tool, root, 'win64', 'off-before')['DISPLAY'], ':77')
+
     def test_environment_lets_proton_own_namespace_and_real_protonfix_own_wow64(self):
         with mock.patch.dict(os.environ, {'WINEDLLPATH': '/leaked', 'WINEDLLOVERRIDES': 'nvcuda=n',
                               'WINEARCH': 'win32', 'PROTON_FORCE_NVAPI': '1',

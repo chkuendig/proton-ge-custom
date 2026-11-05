@@ -51,7 +51,8 @@ def run(tool, ge_tool, work, a1_tool=None):
     wine_cpu.admit_cpu_devices()
     work.mkdir(parents=True, exist_ok=False)
     report = {'status': 'running', 'scope': 'private CPU prefixes and tools; no installed tool or games',
-              'sequences': [], 'tool_changes': {}}
+              'sequences': [], 'tool_changes': {},
+              'steam_client_handshake': 'pending Deck qualification; Valve target capture-and-replay only'}
     tools = {}
     for name, original in [('Valve', tool), ('GE', ge_tool), ('A1', a1_tool)]:
         if original is None: continue
@@ -59,6 +60,7 @@ def run(tool, ge_tool, work, a1_tool=None):
         wine_cpu.command(['cp', '--reflink=auto', '-a', original, destination], dict(os.environ),
                          work / ('copy-' + name + '.log'), 600)
         tools[name] = destination
+    report['Valve_capture_instrumentation'] = launcher_cpu.install_capture(tools['Valve'])
     before = {name: snapshot(path) for name, path in tools.items()}
     try:
         for baseline in ['GE','A1']:
@@ -87,8 +89,12 @@ def run(tool, ge_tool, work, a1_tool=None):
                     result = {'tool': name, 'status': 'running'}
                     sequence['launches'].append(result)
                     try:
-                        wine_cpu.command([selected / 'proton', 'run', r'C:\windows\system32\cmd.exe',
-                                          '/c', 'exit', '0'], env, phase / 'launcher.log', 240)
+                        arguments = [r'C:\windows\system32\cmd.exe', '/c', 'exit', '0']
+                        verb = 'waitforexitandrun' if name == 'Valve' else 'run'
+                        wine_cpu.command([selected / 'proton', verb, *arguments],
+                                         env, phase / 'launcher.log', 240)
+                        if name == 'Valve':
+                            result['dispatch'] = launcher_cpu.admit_capture(phase, selected, arguments)
                     finally:
                         result['cleanup'] = wine_cpu.cleanup_server(selected / 'files/bin/wineserver',
                                                                    cleanup_env, phase / 'cleanup')

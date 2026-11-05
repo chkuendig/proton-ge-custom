@@ -44,7 +44,7 @@ The complete Git bundle includes migration/d32/baseline.sh; the smaller shipped
 recipe capsules require that helper from this bundle. Component sources, licenses
 and notices are also included in the tool's sources/ and licenses/ directories.
 The manifest records the actual public executor commit; hub subtree equality is
-attested locally. No private hub checkout or hub credential is used by CI.
+checked separately during hub promotion. No private hub checkout or hub credential is used by CI.
 The migration release-audit control expires on 2026-11-18; build and CPU jobs
 perform the rebuild. Retire that migration gate before relying on a later audit.
 REBUILD

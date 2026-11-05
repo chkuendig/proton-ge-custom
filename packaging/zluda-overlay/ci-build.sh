@@ -8,7 +8,12 @@ here=$(cd -- "$(dirname -- "$0")" && pwd)
 mkdir -p "$BUILD_ROOT" "$DOWNLOAD_ROOT"
 df -h /work
 # Fail before the compiler if the hosted runner cannot hold the LLVM/Wine trees.
-[[ $(df -B1 --output=avail /work | tail -1) -ge 30000000000 ]]
+minimum=$(PYTHONPATH="$here" python3 -c 'import os; from inputs import PROFILE; print(PROFILE.get("minimum_build_bytes", {}).get(os.environ["BUILD_PART"], 30000000000))')
+available=$(df -B1 --output=avail /work | tail -1)
+if (( available < minimum )); then
+    printf 'Insufficient build space: %s bytes free; need %s\n' "$available" "$minimum" >&2
+    exit 2
+fi
 export PATH="/usr/lib/ccache:/opt/rust/bin:$PATH"
 # A GitHub checkout is owned by the runner, while SDK commands run as root.
 git config --global --add safe.directory '*'

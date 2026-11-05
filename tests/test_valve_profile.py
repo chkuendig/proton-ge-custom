@@ -15,7 +15,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packaging/zluda-overlay"))
 import proton_zluda as policy
-from inputs import PROFILE, LOCK, PROTON_ROOT, check_profile_source
+from inputs import PROFILE, LOCK, PROTON_ROOT, check_profile_source, native_control
 import test_prefix_isolation as isolation
 import test_cuda_roots as roots
 from test_prefix_isolation import functions, builtin, inplace
@@ -185,6 +185,46 @@ class ValveRoots(unittest.TestCase):
 
 @unittest.skipUnless(PROFILE['base'] == 'valve', 'Valve profile')
 class ValveSelection(unittest.TestCase):
+    def test_stock_waitforexitandrun_dispatches_preloader_wine_and_steam(self):
+        tree = ast.parse((PROTON / 'proton').read_text())
+        session = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Session')
+        run = next(n for n in session.body if isinstance(n, ast.FunctionDef) and n.name == 'run')
+        main = next(n for n in tree.body if isinstance(n, ast.If) and '__main__' in ast.unparse(n.test))
+        branch = next(n for n in ast.walk(main) if isinstance(n, ast.If) and
+                      ast.unparse(n.test) == "sys.argv[1] == 'waitforexitandrun'")
+        self.assertEqual([ast.unparse(n) for n in branch.body],
+                         ["g_session.run_proc([g_proton.wineserver_bin, '-w'])", 'rc = g_session.run()'])
+        arguments = [r'Z:\game\probe.exe', '--expect-stub']
+        ns = {'os': SimpleNamespace(environ={'SteamGameId': '999999'}),
+              'sys': SimpleNamespace(argv=['proton', 'waitforexitandrun', *arguments]),
+              'shutil': SimpleNamespace(which=lambda name: None),
+              'g_proton': SimpleNamespace(host_pe_arch='x86_64-windows', lib_dir='/tool/files/lib/')}
+        exec(compile(ast.Module(body=[run], type_ignores=[]), '<shipping Session.run>', 'exec'), ns)
+        commands = []
+        instance = SimpleNamespace(env={}, remote_debug_cmd=None, cmdlineappend=[],
+                                   run_proc=lambda argv: commands.append(argv) or 17)
+        self.assertEqual(ns['run'](instance), 17)
+        self.assertEqual([Path(arg) for arg in commands[0][:2]],
+                         [Path('/tool/files/lib/wine/x86_64-unix') / name for name in ['wine-preloader', 'wine']])
+        self.assertEqual(commands[0][2:], [r'c:\windows\system32\steam.exe', *arguments])
+        self.assertEqual(instance.env['WINELOADERNOEXEC'], '1')
+
+    def test_native_control_requires_seed_provenance_and_exact_source_and_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            binary = Path(temporary) / 'libcuda.so.1'
+            binary.write_bytes(b'final backend fixture')
+            control = {'backend': LOCK['components']['zluda'], 'sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+                       'run': 123, 'artifact': 456, 'executor': 'a' * 40, 'zip_sha256': 'b' * 64,
+                       **{key: LOCK[key] for key in ('sdk_image', 'llvm', 'rust_version')}}
+            with mock.patch.dict(LOCK, native_control=control):
+                self.assertEqual(native_control(binary), control)
+            for key, value in [('backend', '0' * 40), ('sha256', None), ('sha256', 'c' * 64),
+                               ('run', None), ('artifact', 0), ('executor', ''), ('zip_sha256', ''),
+                               ('sdk_image', 'wrong-sdk'), ('llvm', '0' * 40), ('rust_version', '0.0.0')]:
+                with self.subTest(field=key, value=value), mock.patch.dict(LOCK, native_control=dict(control, **{key: value})):
+                    with self.assertRaises(ValueError):
+                        native_control(binary)
+
     def test_five_titles_settings_and_pci_precedence(self):
         hardware = [([(0x030000,0x1002)],'1'), ([(0x030200,0x10de)],'0'),
                     ([(0x038000,0x8086)],'0'), ([], '0'),

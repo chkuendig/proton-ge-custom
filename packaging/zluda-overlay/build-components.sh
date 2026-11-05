@@ -60,6 +60,7 @@ if [[ $part == zluda || $part == all ]]; then
     )
     mkdir -p "$DESTDIR/sources"
     cp "$DOWNLOAD_ROOT/numactl-2.0.18.tar.gz" "$DESTDIR/sources/"
+    if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then LD_LIBRARY_PATH="$lib64:$LD_LIBRARY_PATH" python3 "$here/native_cpu.py"; fi
 
 fi
 

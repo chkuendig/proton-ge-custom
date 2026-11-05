@@ -8,7 +8,7 @@ import re
 import tarfile
 import urllib.request
 
-from inputs import LOCK, PROFILE
+from inputs import LOCK, PROFILE, native_control
 
 
 def digest(path):
@@ -102,13 +102,18 @@ def valve_audit(candidate_path, stock_path, control_path, output, a1_path=None):
             raise ValueError('unexpected Valve builtin delta: '+path)
     if any('/nvidia-libs/' in path for path in candidate):
         raise ValueError('GE optional NVIDIA stack was imported')
-    report['identical_native_runtime']={}
-    for path in ['files/lib64/libcuda.so.1', *['files/lib64/'+name for name in LOCK['rocm_runtime']]]:
+    report['identical_ge_rocm']={}
+    for path in ['files/lib64/'+name for name in LOCK['rocm_runtime']]:
         if candidate[path]['sha256'] != control[path]['sha256']:
-            raise ValueError('native backend/ROCm differs from published GE: '+path)
-        report['identical_native_runtime'][path]=candidate[path]['sha256']
-    if candidate['files/lib64/libcuda.so.1']['sha256'] != LOCK['comparison_control']['native_sha256']:
-        raise ValueError('native control hash differs from lock')
+            raise ValueError('ROCm differs from published GE: '+path)
+        report['identical_ge_rocm'][path]=candidate[path]['sha256']
+    native = native_control()
+    if candidate['files/lib64/libcuda.so.1']['sha256'] != native['sha256']:
+        raise ValueError('final-fix native control hash differs from lock')
+    if control['files/lib64/libcuda.so.1']['sha256'] != LOCK['comparison_control']['native_sha256']:
+        raise ValueError('published GE native control hash differs from lock')
+    report['native_control'] = dict(native, published_ge_sha256=control['files/lib64/libcuda.so.1']['sha256'],
+                                    qualification='final-fix native bytes; not published GE')
     notice=lambda path: ('licenses' in [part.lower() for part in PurePosixPath(path).parts] or path.endswith('.license') or
         re.match(r'^(licen[sc]e|copying|copyright|notice|patents)([._-]|$)',PurePosixPath(path).name,re.I))
     report['notices']={name:{p:r for p,r in tree.items() if notice(p)} for name,tree in trees.items()}
@@ -124,7 +129,7 @@ def valve_audit(candidate_path, stock_path, control_path, output, a1_path=None):
             raise ValueError('required source/notice missing: '+path)
     report['status']='passed'
     (output/'RELEASE-AUDIT.json').write_text(json.dumps(report,indent=2)+'\n')
-    print('PASS: all Valve builtins, timestamps, notices/sources and eight exact GE native libraries')
+    print('PASS: Valve builtins, timestamps, notices/sources, seven exact GE ROCm libraries and the separate final-fix native control')
 
 
 def main():

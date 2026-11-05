@@ -9,7 +9,7 @@ from pathlib import Path
 import stat
 
 PROFILES = ('win64', 'wow64')
-PHASES = ('off-before', 'off-a1', 'on-a1', 'off-nvidia', 'on', 'on-local', 'on-prefix', 'on-nvidia', 'off-after')
+PHASES = ('off-before', 'off-a1', 'on-a1', 'off-nvidia', 'on', 'on-local', 'on-prefix', 'on-nvidia', 'off-after', 'helper')
 EXCLUDED = {'dosdevices', 'drive_c', 'pfx', 'prefix', 'compatdata', 'tool', 'tool-A', 'tool-B', 'templates'}
 DIRECTORIES = ['wine-cpu/run', 'wine-cpu/run/launcher', 'wine-cpu/run/lifecycle']
 DIRECTORIES += [f'wine-cpu/run/{arch}' for arch in PROFILES]

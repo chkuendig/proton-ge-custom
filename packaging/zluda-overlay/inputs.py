@@ -39,6 +39,20 @@ def base_artifact():
     return {'base': PROFILE['base'], 'profile_sha256': sha256(PROFILE_FILE), **PROFILE['stub_artifact']}
 
 
+def native_control(path=None):
+    control = LOCK.get('native_control', {})
+    if (control.get('backend') != LOCK['components']['zluda'] or
+            any(control.get(key) != LOCK[key] for key in ('sdk_image', 'llvm', 'rust_version')) or
+            not re.fullmatch('[0-9a-f]{64}', control.get('sha256') or '') or
+            not re.fullmatch('[0-9a-f]{64}', control.get('zip_sha256') or '') or
+            not re.fullmatch('[0-9a-f]{40}', control.get('executor') or '') or
+            any(type(control.get(key)) is not int or control[key] <= 0 for key in ('run', 'artifact'))):
+        raise ValueError('final native control requires a separate admitted SDK seed build')
+    if path is not None and sha256(path) != control['sha256']:
+        raise ValueError('native backend differs from the pinned final-fix SDK bytes')
+    return control
+
+
 def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args]).decode().strip()
 

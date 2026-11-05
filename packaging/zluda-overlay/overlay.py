@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tarfile
 
-from inputs import PROFILE, LOCK_FILE, bridge_root, HERE, LOCK, components_for_part, git, manifest, packaging_identity, sha256, verify_manifest
+from inputs import PROFILE, LOCK_FILE, bridge_root, HERE, LOCK, components_for_part, git, manifest, native_control, packaging_identity, sha256, verify_manifest
 import wine_scope
 import cuda_package
 import component_patches
@@ -250,8 +250,8 @@ def assemble(overlays):
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
-    if PROFILE['base'] == 'valve' and sha256(dest / 'files/lib64/libcuda.so.1') != LOCK['comparison_control']['native_sha256']:
-        raise ValueError('native backend differs from frozen published GE bytes')
+    if PROFILE['base'] == 'valve':
+        native_control(dest / 'files/lib64/libcuda.so.1')
     scope = dest / 'provenance/WINE-SCOPE.json'
     wine_scope.verify(dest, json.loads(scope.read_text()))
     for name in (['proton', 'proton_zluda.py'] if PROFILE['base'] == 'valve' else ['proton', 'proton_zluda.py', 'utilities.py']):
@@ -305,6 +305,7 @@ def assemble(overlays):
                   'wine_bridge': LOCK['wine_bridge'],
                   'protonfixes_prepared_tree': patches_record['prepared_tree'] if patches_record else None,
                   'bridge_comparison': LOCK.get('comparison_control', {}).get('bridge_comparison'),
+                  'native_control': LOCK.get('native_control'),
                   'input_lock_sha256': sha256(LOCK_FILE),
                   'qualification': 'CI assembly is not target-runtime or GPU qualification'}
     (dest / 'provenance/PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')

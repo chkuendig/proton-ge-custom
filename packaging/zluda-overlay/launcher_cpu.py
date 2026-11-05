@@ -35,6 +35,10 @@ def environment(tool, directory, winearch, phase):
                UMU_ID=appid, PROTON_LOG='1', PROTON_LOG_DIR=str(directory / phase),
                PROTON_NO_ESYNC='1', PROTON_NO_FSYNC='1', PROTON_USE_WINED3D='1',
                WINEDEBUG='-all', ZLUDA_WINE_FIXTURE_AUDIT=str(directory / phase / 'backend.log'))
+    if PROFILE['base'] == 'valve':
+        env['WINEDEBUG'] = '-all,err+all'
+        if os.environ.get('CI_HEADLESS_DISPLAY') == '1':
+            env['DISPLAY'] = os.environ['DISPLAY']
     if winearch == 'wow64':
         env.update(ZLUDA_WINE_FIXTURE_WITNESS=str(directory / phase / 'backend.json'),
                    ZLUDA_WINE_FIXTURE_UNIXLIB=str(tool / 'files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so'))
@@ -67,7 +71,14 @@ def stub_hashes(tool, prefix):
 
 def admit_case(directory, phase, winearch, tool, runner, returncode):
     output = (directory / ('steam-' + ('35140' if winearch == 'wow64' else '999999') + '.log')).read_text()
-    if returncode != 0 or 'PASS:' not in output:
+    helper = PROFILE['base'] == 'valve' and phase == 'helper'
+    if helper:
+        expected = {'win64': 'fixture failure at line 75: module!=NULL (last error 126)',
+                    'wow64': 'PE32 fixture failure at line 65: module (last error 126)'}[winearch]
+        failures = [line for line in output.splitlines() if 'fixture failure at line ' in line]
+        if returncode != 1 or failures != [expected] or 'PASS:' in output:
+            raise ValueError('Valve helper must refuse nvcuda with exactly error 126')
+    elif returncode != 0 or 'PASS:' not in output:
         raise ValueError('real Proton probe failed: ' + str(directory))
     event_file = directory / 'backend.log'
     events = event_file.read_text().splitlines() if event_file.exists() else []
@@ -75,7 +86,9 @@ def admit_case(directory, phase, winearch, tool, runner, returncode):
     if Counter(events) != Counter(wanted):
         raise ValueError('real Proton backend events differ: ' + str(directory))
     record = {'status': 'passed', 'events': events, 'probe_log_sha256': sha256(directory / ('steam-' + ('35140' if winearch == 'wow64' else '999999') + '.log'))}
-    if winearch == 'wow64':
+    if helper:
+        record['load_library'] = {'module': 'nvcuda.dll', 'handle': 'NULL', 'last_error': 126, 'probe_exit': returncode}
+    if winearch == 'wow64' and not helper:
         record['architecture'] = runner.wow64_receipt(output, 'on' if phase.startswith('on') else 'off-zero')
         if phase.startswith('on'):
             record['wow64_witness'] = runner.wow64_witness(directory / 'backend.json',
@@ -91,27 +104,70 @@ PHASES = ['off-before', 'off-a1', 'on-a1', 'off-nvidia', 'on', 'on-local', 'on-p
 
 
 def install_capture(tool):
-    """Observe the final real launcher environment at Wine's process boundary.
-
-    The native-NVIDIA off case exits before loading the relay: only its prefix
-    files/overrides are under test on this CPU-only runner.
-    """
-    wine = tool / 'files/bin/wine'
-    wine.rename(wine.with_name('wine-uncaptured'))
-    wine.write_text('''#!/usr/bin/python3
-import json, os, pathlib, sys
-if any(arg.startswith('Z:') for arg in sys.argv[1:]):
+    """Capture final game setup; replay Valve targets without the Steam handshake."""
+    paths = [tool / 'files/bin/wine']
+    if PROFILE['base'] == 'valve':
+        paths.append(tool / 'files/lib/wine/x86_64-unix/wine-preloader')
+    instrumentation = {}
+    for wine in paths:
+        original = sha256(wine)
+        wine.rename(wine.with_name(wine.name + '-uncaptured'))
+        wine.write_text('#!/usr/bin/python3\nVALVE = ' + repr(PROFILE['base'] == 'valve') +
+                        '\nTOOL = ' + repr(str(tool)) + '\n' + r'''
+import hashlib, json, os, pathlib, sys
+path = pathlib.Path(__file__)
+argv = list(sys.argv)
+game = VALVE and len(argv) >= 4 and argv[2] == r'c:\windows\system32\steam.exe'
+if game or any(arg.startswith('Z:') for arg in argv[1:]):
     out = pathlib.Path(os.environ['PROTON_LOG_DIR']) / 'launch-env.json'
     out.write_text(json.dumps(dict(os.environ), indent=2))
-    if os.environ.get('PROTON_ENABLE_ZLUDA') != '1' and os.environ.get('PROTON_NVIDIA_NVCUDA') == '1':
+    out.with_name('launch-command.json').write_text(json.dumps(argv, indent=2))
+    skip = os.environ.get('PROTON_ENABLE_ZLUDA') != '1' and os.environ.get('PROTON_NVIDIA_NVCUDA') == '1'
+    if game:
+        root = pathlib.Path(TOOL) / 'files/lib/wine/x86_64-unix'
+        if ([pathlib.Path(arg) for arg in argv[:2]] != [root / 'wine-preloader', root / 'wine'] or
+                os.environ.get('WINELOADERNOEXEC') != '1'):
+            raise ValueError('Valve fixture did not retain stock preloader/Steam dispatch')
+        # Promote Steam's recorded target, retaining its arguments, env and cwd.
+        replay = argv[:2] + argv[3:]
+        receipt = {'original_argv': argv, 'replay_argv': replay, 'cwd': os.getcwd(),
+                   'environment_sha256': hashlib.sha256(out.read_bytes()).hexdigest(),
+                   'replacement': {'removed': argv[2], 'target': argv[3]},
+                   'replayed': not skip, 'steam_client_handshake': 'pending Deck qualification'}
+        out.with_name('launch-replay.json').write_text(json.dumps(receipt, indent=2))
+        argv = replay
+    if skip:
         sys.exit(0)
-os.execv(str(pathlib.Path(__file__).with_name('wine-uncaptured')), sys.argv)
+os.execv(str(path.with_name(path.name + '-uncaptured')), argv)
 ''')
-    wine.chmod(0o755)
+        wine.chmod(0o755)
+        instrumentation[wine.relative_to(tool).as_posix()] = {
+            'original_sha256': original, 'capture_sha256': sha256(wine)}
+    return instrumentation
 
 
-def admit_policy(directory, phase, tool, prefix):
+def admit_capture(directory, tool, arguments, skip=False):
+    command = json.loads((directory / 'launch-command.json').read_text())
     env = json.loads((directory / 'launch-env.json').read_text())
+    root = tool / 'files/lib/wine/x86_64-unix'
+    if (len(command) < 4 or [Path(arg) for arg in command[:2]] != [root / 'wine-preloader', root / 'wine'] or
+            command[2] != r'c:\windows\system32\steam.exe' or command[3:] != arguments or
+            env.get('WINELOADERNOEXEC') != '1'):
+        raise ValueError('Valve fixture did not retain stock preloader/Steam dispatch')
+    receipt = json.loads((directory / 'launch-replay.json').read_text())
+    if (receipt['original_argv'] != command or receipt['replay_argv'] != command[:2] + command[3:] or
+            receipt['replacement'] != {'removed': command[2], 'target': command[3]} or
+            receipt['environment_sha256'] != sha256(directory / 'launch-env.json') or
+            not Path(receipt['cwd']).is_absolute() or receipt['replayed'] != (not skip) or
+            receipt['steam_client_handshake'] != 'pending Deck qualification'):
+        raise ValueError('Valve replay differs from the captured command/environment')
+    return receipt
+
+
+def admit_policy(directory, phase, tool, prefix, arguments):
+    env = json.loads((directory / 'launch-env.json').read_text())
+    dispatch = (admit_capture(directory, tool, arguments, skip=phase == 'off-nvidia')
+                if PROFILE['base'] == 'valve' and phase != 'helper' else None)
     on = phase.startswith('on')
     selected = tool / 'files/lib/wine-cuda' / ('zluda' if on else 'stub')
     paths = env['WINEDLLPATH'].split(':')
@@ -122,6 +178,18 @@ def admit_policy(directory, phase, tool, prefix):
         names, _, value = clause.partition('=')
         for name in names.split(','):
             overrides[name] = value
+    helper = PROFILE['base'] == 'valve' and phase == 'helper'
+    if helper:
+        if any(name.strip().lower().lstrip('*').removesuffix('.dll') == 'nvcuda' for name in overrides):
+            raise ValueError('Valve helper must retain the stock registry load order')
+        section, value = None, None
+        for line in (prefix / 'user.reg').read_text().splitlines():
+            if line.startswith('['):
+                section = line.split(']', 1)[0] + ']'
+            if section == r'[Software\\Wine\\DllOverrides]' and line.startswith('"nvcuda"='):
+                value = line
+        if value != '"nvcuda"="disabled"':
+            raise ValueError('Valve helper registry must disable nvcuda')
     expected_override = ('n,b' if phase == 'off-nvidia' else 'b') if PROFILE['base'] == 'ge' else ('b' if on else None)
     if (overrides.get('nvcuda') != expected_override and
             not (PROFILE['base'] == 'valve' and not on and overrides.get('nvcuda') == 'b')):
@@ -144,7 +212,9 @@ def admit_policy(directory, phase, tool, prefix):
     if (prefix.parent / 'zluda-cuda-roots-v1.json').exists():
         raise ValueError('launcher wrote obsolete migration marker')
     return {'root': str(selected), 'nvcuda_override': overrides.get('nvcuda'), 'prefix_files': files,
-            'warning_count': log.count(warning), 'file_override_only': phase == 'off-nvidia'}
+            'warning_count': log.count(warning), 'file_override_only': phase == 'off-nvidia',
+            **({'registry_nvcuda': 'disabled'} if helper else {}),
+            **({'dispatch': dispatch} if dispatch else {})}
 
 
 
@@ -155,6 +225,8 @@ def run(source, tool, fixtures, work):
     work.mkdir(parents=True)
     phases = PHASES + (['helper'] if PROFILE['base'] == 'valve' else [])
     record = {'status': 'running', 'qualification': 'real Proton launcher CPU gate; runtime pending', 'profiles': {}}
+    if PROFILE['base'] == 'valve':
+        record['steam_client_handshake'] = 'pending Deck qualification; game target capture-and-replay only'
     failure = None
     try:
         wine_cpu.admit_cpu_devices()
@@ -229,21 +301,27 @@ def run(source, tool, fixtures, work):
                     cleanup_env = wine_cpu.environment(disposable, directory, disposable / 'files/bin/wine',
                                                        disposable / 'files/bin/wineserver', winearch)
                     cleanup_env['WINEPREFIX'] = str(prefix)
-                    verb = 'runinprefix' if phase == 'helper' else 'waitforexitandrun' if winearch == 'wow64' and phase.startswith('on') else 'run'
-                    # A Windows path takes Proton's normal non-Steam Wine entry,
-                    # avoiding umu.exe / Steam itself, with the shipping script.
+                    verb = ('runinprefix' if phase == 'helper' else 'waitforexitandrun'
+                            if PROFILE['base'] == 'valve' or winearch == 'wow64' and phase.startswith('on') else 'run')
+                    # Windows paths avoid GE's umu.exe; Valve retains steam.exe.
                     target = 'Z:' + str(directory / 'game' / profile['probe']).replace('/', '\\')
                     argv = [disposable / 'proton', verb, target]
                     if not phase.startswith('on'):
                         argv.append('--expect-stub')
-                    code = wine_cpu.command(argv, env, directory / phase / 'launcher.log', 240)
+                    helper = PROFILE['base'] == 'valve' and phase == 'helper'
+                    if helper:
+                        from cross_tool_cpu import snapshot
+                        tool_before = snapshot(disposable)
+                    code = wine_cpu.command(argv, env, directory / phase / 'launcher.log', 240,
+                                            accepted=(1,) if helper else (0,))
                     if phase == 'off-nvidia':
                         if code != 0:
                             raise ValueError('native NVIDIA file/override launch failed')
                         result = {'status': 'passed', 'probe_execution': 'skipped: native NVIDIA file/override assertions only'}
                     else:
                         result = admit_case(directory / phase, phase, winearch, disposable, runner, code)
-                    result['policy'] = admit_policy(directory / phase, phase, disposable, prefix)
+                    result['policy'] = admit_policy(directory / phase, phase, disposable, prefix,
+                                                    [str(arg) for arg in argv[2:]])
                     result['seeded_files'] = seeded
                     if phase in ('off-a1', 'on-a1'):
                         result['upgrade_fixture'] = 'A1-layout (stand-in modules)'
@@ -260,6 +338,10 @@ def run(source, tool, fixtures, work):
                     result['cleanup'] = cleanup
                     if cleanup['status'] != 'passed':
                         raise ValueError('real launcher left a server: ' + phase)
+                    if helper:
+                        if snapshot(disposable) != tool_before:
+                            raise ValueError('Valve helper mutated the tool payload')
+                        result['tool_unchanged'] = True
             except BaseException as caught:
                 error = caught
                 report['error'] = str(caught)

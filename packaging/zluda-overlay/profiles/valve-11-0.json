@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "base": "valve",
-  "source_commit": "744d067251281495b68c944644b09c1b3364e201",
+  "source_commit": "b8861a562a061ca4ccba84bfc9a33e53e1ea6b4e",
   "source_date_epoch": "1793802357",
   "stock_source_date_epoch": "1791559305",
   "stub_artifact": {
@@ -12,6 +12,9 @@
     }
   },
   "recipe_lock": "inputs.valve-11-0.lock.json",
+  "minimum_build_bytes": {
+    "bridges": 64424509440
+  },
   "stub_manifest": {
     "archive_key": "reference_archive_sha256",
     "prefix_policy": "stock Valve off; regular placeholders with builtin override on"
