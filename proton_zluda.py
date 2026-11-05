@@ -14,6 +14,26 @@ STUB_SHA256 = {
 ARCHES = {"system32": "x86_64-windows", "syswow64": "i386-windows"}
 
 
+def game_setting():
+    """Explicit settings take precedence over the AMD game default."""
+    value = os.environ.get("PROTON_ENABLE_ZLUDA")
+    if value is None:
+        try:
+            import user_settings
+            value = user_settings.user_settings.get("PROTON_ENABLE_ZLUDA")
+        except Exception:
+            pass
+    if value is not None:
+        return str(value)
+    try:
+        vendors = {int((device / "vendor").read_text(), 16)
+                   for device in Path("/sys/bus/pci/devices").iterdir()
+                   if int((device / "class").read_text(), 16) >> 16 == 0x03}
+        return "1" if 0x1002 in vendors and 0x10de not in vendors else "0"
+    except (OSError, ValueError):
+        return "0"
+
+
 def stub_assets(tool):
     root = Path(tool) / "files/lib/wine-cuda"
     record = json.loads((root / "stubs.json").read_text())
@@ -123,13 +143,7 @@ def bootstrap(session, proton, ld_path_var):
 
 
 def prepare_cuda_prefix(session, proton, compatdata, log=None):
-    """One guard around GE's unchanged nvcuda block, under prefix_lock.
-
-    The four title fixes opt in during early(), before init_wine/setup_prefix.
-    Verify availability now so a missing backend falls through to stock GE.
-    Reset GE's previous native copies for an enabled launch; the builtin marker
-    makes Wine resolve these placeholders through the selected immutable root.
-    """
+    """Select CUDA under prefix_lock and reset native copies for enabled launches."""
     env = dict(session.env)
     select_root(env, proton.base_dir, log=log)
     session.env['PROTON_ENABLE_ZLUDA'] = env.get('PROTON_ENABLE_ZLUDA', '0')
@@ -171,7 +185,7 @@ def materialize_default_prefix(tool, prefix):
 
 
 def configure_launch(session, proton, arguments, ld_path_var, log):
-    """Final selection after protonfixes; preserve the published late NVAPI writes."""
+    """Select final CUDA and NVAPI settings after protonfixes."""
     if proton.host_pe_arch == "aarch64-windows":
         return
     env = session.env

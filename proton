@@ -1048,18 +1048,25 @@ class CompatData:
     def isolate_module_links(self, tool_root):
         # A prior tool may have left builtins linked into its installation.
         windows = Path(self.prefix_dir) / "drive_c/windows"
-        for directory in (Path(self.prefix_dir), windows.parent, windows):
-            if directory.is_symlink():
-                raise RuntimeError("Refusing linked prefix directory: " + str(directory))
+        own_root = Path(tool_root).resolve()
+        roots = [directory.resolve() for directory in (Path(self.prefix_dir), windows.parent, windows,
+                                                       windows / "system32", windows / "syswow64")]
+        if any(directory.is_relative_to(own_root) or
+               (own_root.parent.name == "compatibilitytools.d" and directory.is_relative_to(own_root.parent)) or
+               any((parent / "toolmanifest.vdf").is_file() for parent in (directory, *directory.parents))
+               for directory in roots):
+            log("Refusing prefix inside compatibility tool directory: " + str(windows))
+            return False
+        windows = roots[2]
         if not windows.exists():
             return
         def walk_error(error):
-            raise error
-        own_root = Path(tool_root).resolve()
+            log("Skipping unreadable Windows directory: " + str(error))
         for root, directories, files in os.walk(windows, followlinks=False, onerror=walk_error):
-            for name in directories:
+            for name in directories[:]:
                 if (Path(root) / name).is_symlink():
-                    raise RuntimeError("Refusing linked Windows directory: " + str(Path(root) / name))
+                    log("Skipping linked Windows directory: " + str(Path(root) / name))
+                    directories.remove(name)
             for name in files:
                 path = Path(root) / name
                 symlink = path.is_symlink()
@@ -2960,7 +2967,8 @@ if __name__ == "__main__":
     g_session.init_wine()
 
     with g_compatdata.prefix_lock:
-        g_compatdata.isolate_module_links(g_proton.base_dir)
+        if g_compatdata.isolate_module_links(g_proton.base_dir) is False:
+            sys.exit(1)
 
     proton_zluda.bootstrap(g_session, g_proton, ld_path_var)
 

@@ -7,11 +7,12 @@ diff --git a/gamefixes-steam/17410.py b/gamefixes-steam/17410.py
 index 4e8e951..fca6c88 100644
 --- a/gamefixes-steam/17410.py
 +++ b/gamefixes-steam/17410.py
-@@ -3,6 +3,8 @@
+@@ -3,6 +3,9 @@
  import shutil
  from pathlib import Path
  
 +import os
++import proton_zluda
 +
  from protonfixes import util
  from protonfixes.logger import log
@@ -20,7 +21,7 @@ index 4e8e951..fca6c88 100644
  
  
  def early() -> None:
-+    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
++    util.set_environment('PROTON_ENABLE_ZLUDA', proton_zluda.game_setting())
      # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
      # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
 -    util.set_environment('PROTON_USE_WOW64', '1')
@@ -40,13 +41,13 @@ index 2d78f28..25199a9 100755
 @@ -1,15 +1,20 @@
  """Game fix for Batman Arkham Knight"""
  
-+import os
++import proton_zluda
 +
  from protonfixes import util
  
  
 +def early() -> None:
-+    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
++    util.set_environment('PROTON_ENABLE_ZLUDA', proton_zluda.game_setting())
 +
 +
  def main() -> None:
@@ -63,16 +64,17 @@ diff --git a/gamefixes-steam/35140.py b/gamefixes-steam/35140.py
 index ced39b2..2db1277 100644
 --- a/gamefixes-steam/35140.py
 +++ b/gamefixes-steam/35140.py
-@@ -1,16 +1,19 @@
+@@ -1,16 +1,20 @@
  """Game fix for Batman: Arkham Asylum GOTY: GPU PhysX through ZLUDA"""
  
 +import os
++import proton_zluda
 +
  from protonfixes import util
  
  
  def early() -> None:
-+    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
++    util.set_environment('PROTON_ENABLE_ZLUDA', proton_zluda.game_setting())
      # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
      # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
 -    util.set_environment('PROTON_USE_WOW64', '1')
@@ -89,16 +91,17 @@ diff --git a/gamefixes-steam/50130.py b/gamefixes-steam/50130.py
 index 01d5ef0..ac47588 100644
 --- a/gamefixes-steam/50130.py
 +++ b/gamefixes-steam/50130.py
-@@ -1,18 +1,21 @@
+@@ -1,18 +1,22 @@
  """Game fix for Mafia II (Classic): GPU PhysX through ZLUDA"""
  
 +import os
++import proton_zluda
 +
  from protonfixes import util
  
  
  def early() -> None:
-+    util.set_environment('PROTON_ENABLE_ZLUDA', os.environ.get('PROTON_ENABLE_ZLUDA', '1'))
++    util.set_environment('PROTON_ENABLE_ZLUDA', proton_zluda.game_setting())
      # 32-bit: CUDA reaches ZLUDA through nvcuda's WoW64 bridge, which needs
      # Wine's new WoW64 mode. Proton reads this before the prefix is set up.
      # Wine's own WINESTEAMNOEXEC=1 for this CEG title stays: with 0, Wine
