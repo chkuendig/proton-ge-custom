@@ -21,6 +21,13 @@ def archive(files, mode=0o644):
     return output.getvalue()
 
 
+def production_inventories():
+    before = (Path(__file__).parent / 'PRODUCTION-INPUTS.before.json').read_bytes()
+    document = json.loads(before)
+    del document['source_inputs']['wine/zluda_wine/build-pilot.sh']
+    return before, (json.dumps(document, indent=2) + '\n').encode()
+
+
 class ProductIdentity(unittest.TestCase):
     def test_archive_parser_rejects_duplicate_and_parent_paths(self):
         with self.assertRaisesRegex(ValueError, 'unsafe'):
@@ -147,13 +154,12 @@ class ProductIdentity(unittest.TestCase):
         self.assertIsNone(gate.prepared_identity(encode(abi), encode(dict(abi, prepared_commit='0'*40)), 'b'*40))
 
     def test_inventory_row_removal_preserves_all_other_provenance(self):
-        encode = lambda x: json.dumps(x).encode()
-        old = {'contract': 'fixed', 'source_inputs': {'wine/zluda_wine/build-pilot.sh': 'retired', 'src/bridge.rs': 'fixed'}}
-        new = {'contract': 'fixed', 'source_inputs': {'src/bridge.rs': 'fixed'}}
-        self.assertIsNotNone(gate.production_inventory(encode(old), encode(new)))
-        for forged in [dict(new, contract='changed'), dict(new, source_inputs={}),
-                       dict(new, source_inputs={'src/bridge.rs': 'forged'})]:
-            self.assertIsNone(gate.production_inventory(encode(old), encode(forged)))
+        before, after = production_inventories()
+        self.assertIsNotNone(gate.production_inventory(before, after))
+        document = json.loads(after)
+        for forged in [dict(document, contract='changed'), dict(document, source_inputs={}),
+                       dict(document, source_inputs=dict(document['source_inputs'], extra='forged'))]:
+            self.assertIsNone(gate.production_inventory(before, json.dumps(forged).encode()))
 
     def test_product_comparison_rejects_runtime_mutation_deletion_and_mode(self):
         import tempfile
@@ -218,17 +224,17 @@ class ProductIdentity(unittest.TestCase):
             self.assertEqual(rejected['unclassified'], [name])
 
     def test_build_output_count_change_and_backend_digest_are_exactly_bound(self):
-        inventory = {'source_inputs': {'wine/zluda_wine/build-pilot.sh':'retired', **{'input'+str(i):'fixed' for i in range(59)}}}
-        retired = {'source_inputs': {k:v for k,v in inventory['source_inputs'].items() if not k.endswith('build-pilot.sh')}}
-        old_inventory, new_inventory = json.dumps(inventory).encode(), json.dumps(retired).encode()
+        old_inventory, new_inventory = production_inventories()
+        old_count = len(json.loads(old_inventory)['source_inputs'])
+        new_count = len(json.loads(new_inventory)['source_inputs'])
         line = lambda count: json.dumps({'production_input_closure':'passed', 'files':count,
                                         'adapter_headers':['stdint.h','stddef.h']})+'\n'
-        old_text = 'cargo:rerun-if-changed=/src/fixed\n'+line(60)+'cargo:rustc-cfg=fixed\n'
-        new_text = old_text.replace(line(60), line(59))
+        old_text = 'cargo:rerun-if-changed=/src/fixed\n'+line(old_count)+'cargo:rustc-cfg=fixed\n'
+        new_text = old_text.replace(line(old_count), line(new_count))
         old = [{'dep_info':'release/build/bridge/output', 'sha256':gate.sha(old_text.encode()), 'source_inputs':['fixed']}]
         new = [dict(old[0], sha256=gate.sha(new_text.encode()), build_output=new_text)]
         self.assertTrue(gate.cargo_observations(old,new,old_inventory,new_inventory))
-        for bad in [new_text+line(59), new_text.replace(line(59),line(58)),
+        for bad in [new_text+line(new_count), new_text.replace(line(new_count),line(new_count-1)),
                     new_text.replace('cargo:rustc-cfg=fixed','cargo:rustc-cfg=forged')]:
             forged = [dict(new[0], sha256=gate.sha(bad.encode()), build_output=bad)]
             self.assertFalse(gate.cargo_observations(old,forged,old_inventory,new_inventory))
@@ -376,3 +382,46 @@ class ProductIdentity(unittest.TestCase):
                 path.write_bytes(b'Subject: new\n'+body)
                 self.assertIsNotNone(gate.patch_message_change(relative,b'Subject: old\n'+body,path.read_bytes()))
                 self.assertIsNone(gate.patch_message_change(relative,b'Subject: old\n'+body+b'changed',path.read_bytes()))
+
+
+    def test_actual_license_path_and_nested_inventory_content_are_bound(self):
+        before, after = production_inventories()
+        real=['licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json',
+              'licenses/zluda-wine/wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json']
+        for name in real:
+            self.assertIsNotNone(gate.support_change(name,before,after,{}))
+            self.assertIsNone(gate.support_change(name,before,after+b'forged',{}))
+        self.assertIsNone(gate.support_change('licenses/zluda-wine/unknown/LICENSES/PRODUCTION-INPUTS.json',before,after,{}))
+        name='wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json'
+        entries,content=gate.inventory(io.BytesIO(archive({name:before})),False)
+        self.assertEqual(content[name],before)
+        result=gate.nested_changes('sources/zluda-wine.tar.gz',archive({name:before}),archive({name:after}))
+        self.assertEqual(result['unclassified'],[])
+
+    def test_removed_directory_requires_every_leaf_on_removal_list(self):
+        directory='wine/w1-fixtures/tools/cuda-count'
+        reviewed=directory+'/count.c'
+        def packed(extra=False):
+            output=io.BytesIO()
+            with tarfile.open(fileobj=output,mode='w') as stream:
+                info=tarfile.TarInfo(directory);info.type=tarfile.DIRTYPE;stream.addfile(info)
+                stream.addfile(tarfile.TarInfo(reviewed))
+                if extra:stream.addfile(tarfile.TarInfo(directory+'/unlisted.c'))
+            return output.getvalue()
+        result=gate.nested_changes('sources/zluda-wine.tar.gz',packed(),archive({}))
+        self.assertEqual(result['unclassified'],[])
+        result=gate.nested_changes('sources/zluda-wine.tar.gz',packed(True),archive({}))
+        self.assertIn(directory,result['unclassified'])
+        self.assertIn(directory+'/unlisted.c',result['unclassified'])
+
+    def test_wine_overlay_inputs_bind_exact_selected_derivation(self):
+        name='provenance/WINE-OVERLAY'
+        recipe=b'admitted recipe'
+        before=b'rev=old\ninputs=old-inputs\nbase_inputs=unchanged\nconfigure_recipe_sha256=old\n'
+        after=('rev='+gate.PROFILE['source_commit']+'\ninputs=selected-inputs\nbase_inputs=unchanged\nconfigure_recipe_sha256='+gate.sha(recipe)+'\n').encode()
+        contents={'provenance/WINE-BUILD-RECIPE.mk':recipe}
+        for candidate in [after,after.replace(b'selected-inputs',b'forged'),
+                          after+b'inputs=selected-inputs\n',after.replace(b'unchanged',b'forged')]:
+            with mock.patch.object(gate,'wine_inputs',side_effect=['old-inputs','selected-inputs']):
+                result=gate.support_change(name,before,candidate,contents)
+            self.assertEqual(result is not None,candidate==after)

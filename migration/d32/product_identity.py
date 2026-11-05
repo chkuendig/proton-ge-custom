@@ -30,10 +30,10 @@ JSON_FIELDS = {
     'provenance/WINE-CALLBACK-ATTESTATION.json': {'prepared_commit'},
     'provenance/WINE-SCOPE.json': {'baseline', 'head'},
 }
-SUPPORT = {'provenance/protonfixes-PATCHES.json', 'provenance/dxvk-nvapi-PATCHES.json', 'provenance/WINE-BUILD-RECIPE.mk', 'provenance/WINE-OVERLAY',
+SUPPORT = {'licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json', 'provenance/protonfixes-PATCHES.json', 'provenance/dxvk-nvapi-PATCHES.json', 'provenance/WINE-BUILD-RECIPE.mk', 'provenance/WINE-OVERLAY',
            'sources/zluda-wine.tar.gz.json', 'sources/zluda-wine.tar.gz.check.log',
            'external/prepared-wine-abi.json',
-           'licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json', 'provenance/WINE-BASELINE-COMMIT'}
+           'licenses/zluda-wine/wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json', 'provenance/WINE-BASELINE-COMMIT'}
 
 
 def sha(data):
@@ -73,7 +73,7 @@ def inventory(archive, product):
                       'gid': member.gid, 'type': member.type.decode('ascii')}
             if member.isfile():
                 h, saved = hashlib.sha256(), []
-                retain = name.startswith(('sources/', 'external/proton-build-recipes/')) or name in JSON_FIELDS or name in SUPPORT or name in ('MANIFEST', 'SYMLINKS.json', 'external/BRIDGE-BUILD.json')
+                retain = name.startswith(('sources/', 'external/proton-build-recipes/')) or name == 'wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json' or name in JSON_FIELDS or name in SUPPORT or name in ('MANIFEST', 'SYMLINKS.json', 'external/BRIDGE-BUILD.json')
                 with stream.extractfile(member) as source:
                     while block := source.read(1024 * 1024):
                         h.update(block)
@@ -220,6 +220,11 @@ def baseline_commit(contents):
 
 def production_inventory(before, after):
     try:
+        if (sha(before) != 'f3ec09e8adfa010aa0f5afb945c86c71ac1493160945ff6ab2f668c299cc5930' or
+                sha(after) != '088113f8846e0a6d5a037c8571a26424b821c354025d16eceef256b9096c2d5d' or
+                LOCK['components'][bridge_component()] != 'ecf18df0e1d6cb55acb6ca1ec79a7f11889c386d' or
+                json.loads((Path(__file__).parent / 'BRIDGE-ORIGIN.json').read_text())['commit'] != '7463a450bbcbc1e931bfafa40f5313a5109959fc'):
+            return None
         old, new = json.loads(before), json.loads(after)
         expected = dict(old)
         expected['source_inputs'] = dict(old['source_inputs'])
@@ -317,11 +322,19 @@ def prepared_identity(before, after, expected=None):
     return None
 
 
+def wine_inputs(commit):
+    text = (RECIPE_ROOT / 'packaging/zluda-overlay/build-wine.sh').read_text()
+    functions = text[text.index('prepsh()'):text.index('url() {')]
+    return subprocess.check_output(['bash', '-euo', 'pipefail', '-c',
+        'repo=$1\n' + functions + '\nwine_inputs "$2"', '_', str(PROTON_ROOT), commit], text=True).strip()
+
+
 def support_change(name, before, after, contents, control_contents=None):
     if name == 'provenance/WINE-BASELINE-COMMIT':
         commit = baseline_commit(contents)
         return {'classification': 'verified-prepared-baseline-commit', 'commit': commit} if commit else None
-    if name == 'licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json':
+    if name in {'licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json',
+                'licenses/zluda-wine/wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json'}:
         return production_inventory(before, after)
     if name == 'provenance/WINE-BUILD-RECIPE.mk':
         import wine_deps
@@ -341,6 +354,11 @@ def support_change(name, before, after, contents, control_contents=None):
             return None
         if re.search(rb'^configure_recipe_sha256=' + expected + rb'$', new, re.M) is None:
             return None
+        for data, commit in [(old, CONTROL_COMMIT), (new, PROFILE['source_commit'])]:
+            if re.findall(rb'^inputs=([^\n]+)$', data, re.M) != [wine_inputs(commit).encode()]:
+                return None
+        old = re.sub(rb'^inputs=\S+$', b'inputs=<selected-source-inputs>', old, flags=re.M)
+        new = re.sub(rb'^inputs=\S+$', b'inputs=<selected-source-inputs>', new, flags=re.M)
         old = re.sub(rb'^(rev|configure_recipe_sha256)=\S+', rb'\1=<identity>', old, flags=re.M)
         new = re.sub(rb'^(rev|configure_recipe_sha256)=\S+', rb'\1=<identity>', new, flags=re.M)
         if old == new:
@@ -365,7 +383,7 @@ def support_change(name, before, after, contents, control_contents=None):
                 new.get('source_commit') != LOCK['components'][bridge_component()] or
                 new.get('source_tree') != git(bridge_root(PROTON_ROOT), 'rev-parse', LOCK['components'][bridge_component()] + '^{tree}')):
             return None
-        inventory_path = 'licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json'
+        inventory_path = 'licenses/zluda-wine/wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json'
         if not cargo_observations(old.get('cargo_inputs', []), new.get('cargo_inputs', []),
                                   (control_contents or {}).get(inventory_path), contents.get(inventory_path)):
             return None
@@ -386,6 +404,15 @@ def support_change(name, before, after, contents, control_contents=None):
 
 
 WINE_SOURCE = None
+
+
+def removed_directory(path, before, after, reviewed):
+    children = [name for name in before if name.startswith(path + '/')]
+    if not children or path in after or before[path]['type'] != '5':
+        return False
+    return all(name not in after and (
+        removed_directory(name, before, after, reviewed) if before[name]['type'] == '5' else
+        reviewed.get(name, {}).get('action') in {'DROP', 'MOVE-PRIVATE'}) for name in children)
 
 
 def nested_changes(name, before, after, control_contents=None, candidate_contents=None):
@@ -437,7 +464,7 @@ def nested_changes(name, before, after, control_contents=None, candidate_content
                 if 'backend_cargo_inputs' in changed:
                     previous = json.loads((control_contents or {}).get('sources/zluda-wine.tar.gz.json', b'{}'))
                     current = json.loads((candidate_contents or {}).get('sources/zluda-wine.tar.gz.json', b'{}'))
-                    inventory_path = 'licenses/zluda-wine/LICENSES/PRODUCTION-INPUTS.json'
+                    inventory_path = 'licenses/zluda-wine/wine/zluda_wine/LICENSES/PRODUCTION-INPUTS.json'
                     if not backend_observations(x['backend_cargo_inputs'], y['backend_cargo_inputs'],
                             previous.get('cargo_inputs', []), current.get('cargo_inputs', []),
                             (control_contents or {}).get(inventory_path), (candidate_contents or {}).get(inventory_path)):
@@ -447,6 +474,8 @@ def nested_changes(name, before, after, control_contents=None, candidate_content
         elif bridge:
             scope = json.loads((Path(__file__).parent / 'BRIDGE-ORIGIN.json').read_text())
             admitted = scope['files'].get(path, {})
+            if a and a['type'] == '5' and b is None and removed_directory(path, old, new, scope['files']):
+                classification = {'classification': 'removed-reviewed-test-tool-directory'}
             if admitted.get('action') in {'SHRINK', 'MOVE-PRIVATE', 'DROP'}:
                 if b is None and admitted['action'] in {'MOVE-PRIVATE', 'DROP'}:
                     classification = {'classification': 'removed-private-test-fixture-tool'}
