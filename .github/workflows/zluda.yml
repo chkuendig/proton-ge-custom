@@ -1,0 +1,113 @@
+name: Build Proton with ZLUDA
+on:
+  push:
+    branches: ['valve/selfcontained-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zluda-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      SDK: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9
+      GIT_LFS_SKIP_SMUDGE: '1'
+      CARGO_HOME: /work/cargo
+      CCACHE_DIR: /work/ccache
+    steps:
+      - name: Make room before checkout and SDK pull
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune --all --force
+          sudo mkdir -p /work
+          sudo chown "$USER:$USER" /work
+          df -h / /work
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout pinned public components
+        run: |
+          git submodule update --init --recursive --depth=1 --filter=blob:none --jobs=3
+          git -C zluda lfs pull --include='llvm_zluda/src/device-libs/ockl.bc,ptx/lib/*.bc'
+          python3 -m compileall -q make/zluda.py make/zluda-wine-sdk.py tests/zluda
+          bash -n make/zluda-build.sh
+          python3 tests/zluda/test_policy.py
+          python3 tests/zluda/test_patches.py
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: cache
+        with:
+          path: |
+            /work/ccache
+            /work/cargo/registry/cache
+            /work/cargo/registry/index
+          key: zluda-make-v1-${{ hashFiles('make/zluda-deps.json') }}-${{ github.run_id }}
+          restore-keys: |
+            zluda-make-v1-${{ hashFiles('make/zluda-deps.json') }}-
+            zluda-make-v1-
+      - name: Pull SDK and check capacity
+        run: |
+          docker pull "$SDK"
+          df -h / /work
+          test "$(df --output=avail -B1 /work | tail -1)" -ge 51539607552
+      - name: Build complete redistributable with Proton make
+        run: |
+          set -euo pipefail
+          mkdir -p /work/build /work/cargo /work/ccache
+          docker run --rm --memory=10g --cpus=3 \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v /work:/work \
+            -w /work/build -e CARGO_HOME -e CCACHE_DIR \
+            "$SDK" bash -euo pipefail -c '
+              git config --global --add safe.directory "*"
+              ccache --max-size=4G
+              # Valve base commit time; component epochs are pinned in rules-zluda.mk.
+              args=(-f "$1/Makefile.in" SRCDIR="$1" CONTAINER=1 BUILD_NAME=Proton-ZLUDA INTERNAL_TOOL_NAME=Proton-ZLUDA SOURCE_DATE_EPOCH=1791559305 BASE_SOURCE_DATE_EPOCH=1791559305 -j3)
+              make "${args[@]}" zluda
+              sha256sum dist/files/lib64/libcuda.so.1
+              rm -rf obj-zluda/target
+              df -h .
+              make "${args[@]}" wine
+              make "${args[@]}" zluda-wine
+              make "${args[@]}" redist
+              xvfb-run -a make "${args[@]}" zluda-smoke
+            ' bash "$GITHUB_WORKSPACE" 2>&1 | tee /work/build.log
+      - name: Smoke installed Proton Session and launcher
+        run: |
+          set -euo pipefail
+          docker run --rm --memory=6g --cpus=3 \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v /work:/work -w /work/build \
+            "$SDK" bash -euo pipefail -c '
+              xvfb-run -a make -f "$1/Makefile.in" SRCDIR="$1" CONTAINER=1 SOURCE_DATE_EPOCH=1791559305 BASE_SOURCE_DATE_EPOCH=1791559305 -j3 zluda-launcher-smoke
+              tar -czf /work/Proton-ZLUDA.tar.gz -C redist .
+            ' bash "$GITHUB_WORKSPACE" 2>&1 | tee /work/launcher-smoke.log
+      - name: Save compiler and Cargo download cache
+        if: always() && steps.cache.outputs.cache-primary-key != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            /work/ccache
+            /work/cargo/registry/cache
+            /work/cargo/registry/index
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - name: Upload complete tool
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Proton-ZLUDA
+          path: /work/Proton-ZLUDA.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-log
+          path: |
+            /work/build.log
+            /work/launcher-smoke.log
+            /work/build/launcher-smoke.json
+          retention-days: 14

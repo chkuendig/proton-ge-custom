@@ -348,5 +348,27 @@ the Wine prefix. Removing the option will revert to the previous behavior.
 
 <!-- Target:  GitHub Flavor Markdown.  To test locally:  pandoc -f markdown_github -t html README.md  -->
 
-ZLUDA complete builds and source offers use the [shared packaging executor](https://github.com/chkuendig/proton-ge-custom/tree/valve/executor-11.0-20261105) with the `valve-11-0` profile and `make/full-source.sh`; plain Proton make is an intermediate.
+This branch builds the complete ZLUDA tool with Proton's own build system.
+After `git submodule update --init --recursive`, hydrate only the Linux bitcode:
+`git -C zluda lfs pull --include='llvm_zluda/src/device-libs/ockl.bc,ptx/lib/*.bc'`.
+Run `make -j3 build_name=Proton-ZLUDA zluda`, followed by
+`make -j3 build_name=Proton-ZLUDA redist`; the output includes the native backend,
+ROCm runtime and the matching Wine bridge. Downloads are pinned in
+`make/zluda-deps.json`; no separate packaging checkout is needed. An out-of-tree
+`configure.sh --build-name=Proton-ZLUDA` followed by `make -j3 zluda` and then
+`make -j3 redist` also works. Build the native component first to keep its
+three compiler jobs separate from Proton's other parallel targets.
+Budget 3–5 hours for a cold build and about 50 GiB of free space after the SDK pull.
+The feature workflow builds with three jobs, runs `make zluda-smoke`, and
+executes the installed launcher through `make zluda-launcher-smoke`.
+Off-mode CUDA stubs come from the same Wine build, with their complete module
+sources checked against pinned Valve hashes. Installation verifies Wine's own
+output after Proton's normal strip step. The manifest binds both architectures
+and private prefix copies to those build hashes.
+
+`PROTON_ENABLE_ZLUDA=1` enables CUDA translation, and `0` disables it. The existing
+title defaults use AMD-display detection and preserve explicit settings.
+Steam supplies its usual external media libraries; CPU CI uses the FFmpeg libraries
+already built by Proton as a private test dependency. GPU operation and the real
+Steam handshake require a Steam Deck check.
 The launcher defaults to private builtin copies (`PROTON_DLL_COPY=*`), which consume additional prefix disk space.

@@ -1,0 +1,116 @@
+{
+  "rocm_version": "7.2.4",
+  "rust_version": "1.99.0",
+  "downloads": [
+    {
+      "id": "comgr",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/c/comgr/comgr_3.0.0.70204-93~24.04_amd64.deb",
+      "sha256": "02951341120d23ebf34b066a84ab172e4813cba4a601f910545c6658989bee87",
+      "runtime_files": [
+        "libamd_comgr.so.3.0.0"
+      ]
+    },
+    {
+      "id": "hip-dev",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-dev/hip-dev_7.2.53211.70204-93~24.04_amd64.deb",
+      "sha256": "1fd68b7e90c17d201563f9cd4eae536bd2cf089fad026181770be2750d552376",
+      "runtime_files": []
+    },
+    {
+      "id": "hip-runtime-amd",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hip-runtime-amd/hip-runtime-amd_7.2.53211.70204-93~24.04_amd64.deb",
+      "sha256": "70961d0f79708148a54f23bdde2ebab5c389d5ab4373170d8df94f3e54d87a0b",
+      "runtime_files": [
+        "libamdhip64.so.7.2.70204",
+        "libhiprtc-builtins.so.7.2.70204",
+        "libhiprtc.so.7.2.70204"
+      ]
+    },
+    {
+      "id": "hsa-rocr",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr/hsa-rocr_1.18.0.70204-93~24.04_amd64.deb",
+      "sha256": "6af02a99d15efbf21ba0e20a333aac32e2d712aa4b325dd0617842f4cde64ab4",
+      "runtime_files": [
+        "libhsa-runtime64.so.1.18.70204"
+      ]
+    },
+    {
+      "id": "hsa-rocr-dev",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/h/hsa-rocr-dev/hsa-rocr-dev_1.18.0.70204-93~24.04_amd64.deb",
+      "sha256": "dec6c34a06b888fe2f1717647817a00bc7d09e00089f5b97358697032362a7db",
+      "runtime_files": []
+    },
+    {
+      "id": "rocm-core",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocm-core/rocm-core_7.2.4.70204-93~24.04_amd64.deb",
+      "sha256": "dfe0d173da998a669921faf08351a01add377cd4d1b471865f921a03484974b6",
+      "runtime_files": [
+        "librocm-core.so.1.0.70204"
+      ]
+    },
+    {
+      "id": "rocprofiler-register",
+      "url": "https://repo.radeon.com/rocm/apt/7.2.4/pool/main/r/rocprofiler-register/rocprofiler-register_0.6.0.70204-93~24.04_amd64.deb",
+      "sha256": "3b13874e567fa40b6eaf9f8d572d5c9a4ac780eb37496b31565755463a378295",
+      "runtime_files": [
+        "librocprofiler-register.so.0.6.0"
+      ]
+    },
+    {
+      "id": "numactl",
+      "url": "https://github.com/numactl/numactl/releases/download/v2.0.18/numactl-2.0.18.tar.gz",
+      "sha256": "b4fc0956317680579992d7815bc43d0538960dc73aa1dd8ca7e3806e30bc1274",
+      "filename": "numactl-2.0.18.tar.gz"
+    },
+    {
+      "id": "rust",
+      "url": "https://static.rust-lang.org/dist/rust-1.99.0-x86_64-unknown-linux-gnu.tar.xz",
+      "sha256": "891c6366d7100feda0bca4c03ce63f3c9ac827cbebbc283e7433061d42c6a376"
+    },
+    {
+      "id": "rust-std-x86_64-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-x86_64-pc-windows-gnu.tar.xz",
+      "sha256": "a2382bf189d5621e09db647da419a8e1d4c604d60941cb116da00ce34042b1dd"
+    },
+    {
+      "id": "rust-std-i686-pc-windows-gnu",
+      "url": "https://static.rust-lang.org/dist/rust-std-1.99.0-i686-pc-windows-gnu.tar.xz",
+      "sha256": "8c3f4dd0743b8f092651fac16d00a64c6f06ea9420355099e0f52954cc1a61c2"
+    },
+    {
+      "id": "winetricks",
+      "url": "https://raw.githubusercontent.com/Winetricks/winetricks/f3890f670867b5ffbc3938726db45c0f7d16c8ba/src/winetricks",
+      "sha256": "672a1ff4442e8691a3ffc0e6860137e201a1d1227e9b3044245f1731e9e9837e"
+    }
+  ],
+  "runtime": {
+    "libamd_comgr.so.3.0.0": [
+      "libamd_comgr.so.3",
+      "libamd_comgr.so"
+    ],
+    "libamdhip64.so.7.2.70204": [
+      "libamdhip64.so.7",
+      "libamdhip64.so"
+    ],
+    "libhiprtc-builtins.so.7.2.70204": [
+      "libhiprtc-builtins.so.7",
+      "libhiprtc-builtins.so"
+    ],
+    "libhiprtc.so.7.2.70204": [
+      "libhiprtc.so.7",
+      "libhiprtc.so"
+    ],
+    "libhsa-runtime64.so.1.18.70204": [
+      "libhsa-runtime64.so.1",
+      "libhsa-runtime64.so"
+    ],
+    "librocm-core.so.1.0.70204": [
+      "librocm-core.so.1",
+      "librocm-core.so"
+    ],
+    "librocprofiler-register.so.0.6.0": [
+      "librocprofiler-register.so.0",
+      "librocprofiler-register.so"
+    ]
+  }
+}

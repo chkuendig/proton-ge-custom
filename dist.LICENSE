@@ -26,7 +26,22 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Browse the source code for more information
+ZLUDA additions, build instructions and component patches are available at
+
+    https://github.com/chkuendig/proton-ge-custom
+
+The exact Proton and component commit URLs for this build are appended below.
+The Proton commit's patches/ directory contains our Wine and dxvk-nvapi changes;
+the submodules identify all other upstream sources. ZLUDA statically links the
+LLVM fork. Component notices are under licenses/; licenses/zluda/dependencies.json
+records the pinned ROCm package and numactl 2.0.18 source archive URLs and hashes.
+Our pinned component repositories are
+
+    https://github.com/chkuendig/ZLUDA
+    https://github.com/chkuendig/zluda-wine
+    https://github.com/chkuendig/llvm-project
+
+Browse Valve's upstream source code for more information
 
     https://github.com/ValveSoftware/Proton
 

@@ -127,17 +127,26 @@ def configure_device(env):
 
 
 VALVE_PROTON_PIN = "bc896217ffcd67f892f952b010f898fe7bd0f0a1"
+VALVE_WINE_PIN = "e60892cc2398b0a83c332a2078c7b85e47bdb42b"
+VALVE_STUB_SOURCES = {
+    'dlls/nvcuda/Makefile.in': 'db27ef0db05a37f60694f41a9958959e776b6c54ca67b3449cca17f9e97f46ae',
+    'dlls/nvcuda/nvcuda.spec': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+}
 ARCHES = {"system32": "x86_64-windows", "syswow64": "i386-windows"}
 
 
 def stub_assets(tool):
     root = Path(tool) / "files/lib/wine-cuda"
     record = json.loads((root / "stubs.json").read_text())
-    stock = json.loads((Path(tool) / "provenance/VALVE-STOCK.json").read_text())
-    if stock.get('proton_pin') != VALVE_PROTON_PIN or record.get('proton_pin') != VALVE_PROTON_PIN:
+    if record.get('proton_pin') != VALVE_PROTON_PIN or record.get('wine_pin') != VALVE_WINE_PIN:
         raise ValueError('CUDA stubs do not identify the pinned Valve build')
-    if record.get('sha256') != stock.get('nvcuda_sha256') or set(record.get('sha256', {})) != set(ARCHES.values()):
-        raise ValueError('CUDA stubs differ from the full Valve stock build')
+    if record.get('source_sha256') != VALVE_STUB_SOURCES:
+        raise ValueError('CUDA stubs do not identify the unmodified Valve sources')
+    hashes = record.get('sha256', {})
+    if not isinstance(hashes, dict) or set(hashes) != set(ARCHES.values()) or any(
+            not isinstance(value, str) or len(value) != 64 or set(value) - set('0123456789abcdef')
+            for value in hashes.values()):
+        raise ValueError('CUDA stub build hashes are incomplete')
     for arch in ARCHES.values():
         path = root / "stub" / arch / "nvcuda.dll"
         if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"][arch]:

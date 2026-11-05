@@ -1,0 +1,17 @@
+{
+  "wine_pin": "e60892cc2398b0a83c332a2078c7b85e47bdb42b",
+  "prepared_files": {
+    "dlls/ntdll/loader.c": "1d21cbdb0a86e57ce349c9bc2b8a69668d2eb9b18a33bb5810a74b0333740a74",
+    "dlls/ntdll/signal_x86_64.c": "1c7c5912fb446f05aa4bc9af09bad7c0158a534d2d727bb4657d9dfa189605f5",
+    "dlls/ntdll/unix/signal_x86_64.c": "c88254b92630113b78a8ef90c16ca068d8246f0386ee1c0f40f67b63f5bea942",
+    "dlls/ntdll/unix/thread.c": "4346e0c41deede71e67a621e556c42db25bf976c90c5b7f9c14f67ac52ad7770",
+    "dlls/ntdll/unix/unix_private.h": "b2924e24887b7af630af93a09224fef250f3c0525ae7bd596b6021d2cc1916e7",
+    "dlls/ntdll/unix/virtual.c": "0e5c2bccdee393d628f0a22dfe9739020435af09027ed2eafeb2a243180a5849",
+    "dlls/user32/user_main.c": "f3a95b85f446397826bb181ad0fb1086178d432a204519271180ae52e1a9ff6e",
+    "include/d3d10.idl": "db36a91474062488622e8b815966866a58b0c27e3d5da69726f4e73fd3c1b9e1",
+    "include/d3d11.idl": "140870c7a6067d3378619a49b8d54775b0d7b8f55d16455becc532c9715c2354",
+    "include/ntuser.h": "9110717e53c634229421d8b89dd2570ffc8a12780c836fc939f34e8fc3e6dc2e",
+    "include/winnt.h": "86883f056cc21989cb42926f3003445e7972d45244f802ee965d8158dc46874f",
+    "include/winternl.h": "17129f4dfff9a32dfcaa02aa9cd48c8e289d884d2d1ca8805a0029ecf6f6fe5a"
+  }
+}

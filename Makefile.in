@@ -27,7 +27,7 @@ SHELL := /bin/bash
 TARGET_ARCH ?= x86_64
 
 ifeq ($(TARGET_ARCH),x86_64)
-	STEAMRT_IMAGE ?= registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64:4.0.20260331.220802-0
+	STEAMRT_IMAGE ?= registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9
 else ifeq ($(TARGET_ARCH),arm64)
 	STEAMRT_IMAGE ?= registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64-llvm:4.0.20260331.220802-2
 else
@@ -138,6 +138,7 @@ include $(SRC)/make/rules-winemaker.mk
 include $(SRC)/make/rules-wine-requests.mk
 include $(SRC)/make/rules-wine-tools.mk
 include $(SRC)/make/rules-cargo.mk
+include $(SRC)/make/rules-zluda.mk
 
 
 ##
@@ -1386,8 +1387,16 @@ all-dist: $(DIST_COMPAT_MANIFEST)
 
 LICENSE := $(SRCDIR)/dist.LICENSE
 DIST_LICENSE := $(DST_BASE)/LICENSE
-$(DIST_LICENSE): $(LICENSE)
+# Refresh the URLs even when only Git commit or submodule identities change.
+.PHONY: zluda-license-force
+zluda-license-force:
+$(DIST_LICENSE): $(LICENSE) zluda-license-force
 	cp -a $< $@
+	printf '\nCorresponding source commits for this ZLUDA build:\n' >> $@
+	printf 'https://github.com/chkuendig/proton-ge-custom/tree/%s (including patches/)\n' "$$(git -C "$(SRC)" rev-parse HEAD)" >> $@
+	printf 'https://github.com/chkuendig/ZLUDA/tree/%s\n' "$$(git -C "$(SRC)/zluda" rev-parse HEAD)" >> $@
+	printf 'https://github.com/chkuendig/zluda-wine/tree/%s\n' "$$(git -C "$(SRC)/zluda-wine" rev-parse HEAD)" >> $@
+	printf 'https://github.com/chkuendig/llvm-project/tree/%s\n' "$$(git -C "$(SRC)/zluda/ext/llvm-project" rev-parse HEAD)" >> $@
 
 OFL_LICENSE := $(SRCDIR)/fonts/liberation-fonts/LICENSE
 DIST_OFL_LICENSE := $(DST_BASE)/LICENSE.OFL
@@ -1430,7 +1439,7 @@ $(DIST_COPY_TARGETS): | $(DST_DIR)
 all-dist: $(DIST_COPY_TARGETS)
 
 all-dist:
-	echo `date '+%s'` `GIT_DIR=$(abspath $(SRCDIR)/.git) git describe --tags` > $(DIST_VERSION)
+	echo `date '+%s'` `git -C "$(SRC)" describe --tags --always` > $(DIST_VERSION)
 
 
 ##
