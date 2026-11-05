@@ -15,5 +15,6 @@
     "archive_key": "ge_archive_sha256",
     "prefix_policy": "stock GE off; GE placeholders with builtin override on"
   },
-  "source_repository": "chkuendig/proton-ge-custom"
+  "source_repository": "chkuendig/proton-ge-custom",
+  "source_path": "proton-source"
 }

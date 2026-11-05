@@ -11,13 +11,14 @@ import struct
 import sys
 import tarfile
 
-from inputs import PROFILE, PROTON_ROOT
+from inputs import PROFILE, PROTON_ROOT, LOCK
 sys.path.insert(0, str(PROTON_ROOT))
 import proton_zluda as policy
 
 STUB_HASHES = PROFILE['stub_artifact']['sha256']
 BASE_ARCHIVE_SHA256 = PROFILE['stub_artifact']['archive_sha256']
-if STUB_HASHES != policy.STUB_SHA256 or BASE_ARCHIVE_SHA256 != policy.GE_ARCHIVE_SHA256:
+if (PROFILE['base'] == 'ge' and (STUB_HASHES != policy.STUB_SHA256 or BASE_ARCHIVE_SHA256 != policy.GE_ARCHIVE_SHA256) or
+        PROFILE['base'] == 'valve' and policy.VALVE_PROTON_PIN != LOCK['proton_base']):
     raise ValueError('base profile and launcher stub identities differ')
 
 MODULES = ['x86_64-windows/nvcuda.dll', 'i386-windows/nvcuda.dll', 'x86_64-unix/nvcuda.so']
@@ -188,7 +189,8 @@ def write_stubs(tool, originals):
             raise ValueError('base stub is not an empty builtin PE: ' + arch)
     (cuda / 'stubs.json').write_text(json.dumps(
         {PROFILE['stub_manifest']['archive_key']: BASE_ARCHIVE_SHA256, 'sha256': STUB_HASHES,
-         'prefix_policy': PROFILE['stub_manifest']['prefix_policy']}, indent=2) + '\n')
+         'prefix_policy': PROFILE['stub_manifest']['prefix_policy'],
+         **({'proton_pin': LOCK['proton_base']} if PROFILE['base'] == 'valve' else {})}, indent=2) + '\n')
 
 
 def prepare_stubs(tool):

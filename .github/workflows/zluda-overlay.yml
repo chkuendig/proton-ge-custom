@@ -7,7 +7,7 @@ on:
         description: Explicit admitted Proton base profile
         type: choice
         default: ge-11-7
-        options: [ge-11-7]
+        options: [ge-11-7, valve-11-0]
 
 permissions:
   contents: read
@@ -19,8 +19,6 @@ concurrency:
 
 env:
   ZLUDA_PACKAGING_PROFILE: ${{ inputs.base || 'ge-11-7' }}
-  PROTON_SOURCE_ROOT: ${{ github.workspace }}/proton-source
-  PYTHONPATH: ${{ github.workspace }}/proton-source
 
 jobs:
   static:
@@ -33,8 +31,12 @@ jobs:
       - uses: ./.github/actions/proton-source
       - name: Static tests and shell syntax before component fetch/build
         run: |
-          git -C "$PROTON_SOURCE_ROOT" submodule update --init --filter=blob:none -- dxvk-nvapi protonfixes
-          python3 -m unittest discover -s tests
+          git submodule update --init --filter=blob:none -- proton-source
+          git -C proton-source submodule update --init --filter=blob:none -- dxvk-nvapi protonfixes
+          ZLUDA_PACKAGING_PROFILE=ge-11-7 PROTON_SOURCE_ROOT="$GITHUB_WORKSPACE/proton-source" PYTHONPATH="$GITHUB_WORKSPACE/proton-source" python3 -m unittest discover -s tests
+          if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then
+            python3 -m unittest discover -s tests -p test_valve_profile.py
+          fi
           test -f migration/d32/product_identity.py
           python3 -m unittest discover -s migration/d32
           for script in packaging/zluda-overlay/*.sh make/*.sh; do bash -n "$script"; done
@@ -85,9 +87,9 @@ jobs:
           path: /work/ccache
           # Cache entries are immutable. A unique suffix lets a failed partial
           # build grow on the next run instead of freezing the first snapshot.
-          key: llvm-v3-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'proton-source/zluda/llvm_zluda/build.rs', 'proton-source/zluda/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: llvm-v3-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs*.lock.json', 'packaging/zluda-overlay/profiles/*.json', '.github/workflows/zluda-overlay.yml', format('{0}/zluda/llvm_zluda/build.rs', env.PROTON_SOURCE_PATH), format('{0}/zluda/Cargo.lock', env.PROTON_SOURCE_PATH)) }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            llvm-v3-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'proton-source/zluda/llvm_zluda/build.rs', 'proton-source/zluda/Cargo.lock') }}-
+            llvm-v3-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs*.lock.json', 'packaging/zluda-overlay/profiles/*.json', '.github/workflows/zluda-overlay.yml', format('{0}/zluda/llvm_zluda/build.rs', env.PROTON_SOURCE_PATH), format('{0}/zluda/Cargo.lock', env.PROTON_SOURCE_PATH)) }}-
             llvm-v3-23fa01218aa55e179a94837df155005f72e9bb3c44ae3d74f93fe19f13697ded-
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: cargo-cache
@@ -95,8 +97,8 @@ jobs:
           path: |
             /work/cargo/registry/cache
             /work/cargo/registry/index
-          key: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'proton-source/zluda/Cargo.lock', 'proton-source/zluda-wine/wine/zluda_wine/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs.lock.json', '.github/workflows/zluda-overlay.yml', 'proton-source/zluda/Cargo.lock', 'proton-source/zluda-wine/wine/zluda_wine/Cargo.lock') }}-
+          key: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs*.lock.json', 'packaging/zluda-overlay/profiles/*.json', '.github/workflows/zluda-overlay.yml', format('{0}/zluda/Cargo.lock', env.PROTON_SOURCE_PATH), format('{0}/zluda-wine/wine/zluda_wine/Cargo.lock', env.PROTON_SOURCE_PATH)) }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: cargo-archives-v2-${{ matrix.part }}-${{ hashFiles('packaging/zluda-overlay/*.py', 'packaging/zluda-overlay/*.sh', 'packaging/zluda-overlay/inputs*.lock.json', 'packaging/zluda-overlay/profiles/*.json', '.github/workflows/zluda-overlay.yml', format('{0}/zluda/Cargo.lock', env.PROTON_SOURCE_PATH), format('{0}/zluda-wine/wine/zluda_wine/Cargo.lock', env.PROTON_SOURCE_PATH)) }}-
       - name: Build in the locked Steam Runtime SDK
         env:
           PART: ${{ matrix.part }}
@@ -106,7 +108,7 @@ jobs:
           docker pull "$SDK_IMAGE" 2>&1 | tee /work/logs/image.log
           docker run --rm --init --cpus=3 --memory=10g \
             -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src" -v /work:/work \
-            -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build \
+            -e CI=true -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build \
             -e SDK_ROOT=/work/sdk/opt/rocm-7.2.4 -e DOWNLOAD_ROOT=/work/downloads \
             -e WINE_SDK_ROOT=/work/wine-sdk -e DESTDIR=/work/overlay \
             -e BUILD_PART="$PART" -e JOBS=3 -e CARGO_HOME=/work/cargo \
@@ -150,6 +152,8 @@ jobs:
           path: |
             /work/${{ matrix.part }}.tar.gz
             /work/${{ matrix.part }}.MANIFEST
+            /work/valve-stock.tar.gz
+            /work/VALVE-STOCK.json
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
@@ -231,7 +235,7 @@ jobs:
       - name: Verify source pin and run native scope tests including 18 PCI parity cases
         run: |
           set -euo pipefail
-          expected=$(python3 -c 'import json; print(json.load(open("packaging/zluda-overlay/inputs.lock.json"))["components"]["zluda-wine"])')
+          expected=$BRIDGE_PIN
           test "$(git -C scope-source rev-parse HEAD)" = "$expected"
           rustup toolchain install 1.99.0 --profile minimal
           python3 scope-source/wine/zluda_wine/tests/run_native_tests.py
@@ -272,7 +276,7 @@ jobs:
             zluda/src
       - name: Verify source admission and install the pinned PE32 toolchain
         run: |
-          $expected = (Get-Content packaging/zluda-overlay/inputs.lock.json -Raw | ConvertFrom-Json).components.'zluda-wine'
+          $expected = $env:BRIDGE_PIN
           $actual = git -C luid-source rev-parse HEAD
           if ($actual -ne $expected) { throw "LUID fixture source pin mismatch" }
           rustup toolchain install 1.99.0 --profile minimal
@@ -319,8 +323,13 @@ jobs:
       - name: Download this run's fully rebuilt candidate
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: GE-Proton11-7-zluda
+          name: ${{ env.TOOL_NAME }}
           path: ${{ runner.temp }}/candidate-download
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: inputs.base == 'valve-11-0'
+        with:
+          name: ci-steam-video
+          path: ${{ runner.temp }}/steam-video
       - name: Prepare candidate
         run: |
           set -euo pipefail
@@ -328,8 +337,9 @@ jobs:
           cd "$RUNNER_TEMP/candidate-download"
           sha256sum -c SHA256SUMS
           mkdir -p "$RUNNER_TEMP/tool" "$RUNNER_TEMP/w1-work"
-          tar -xf GE-Proton11-7-zluda.tar.gz --strip-components=1 -C "$RUNNER_TEMP/tool"
+          tar -xf ${{ env.TOOL_NAME }}.tar.gz --strip-components=1 -C "$RUNNER_TEMP/tool"
           cp SHA256SUMS "$RUNNER_TEMP/w1-work/TOOL-SHA256SUMS"
+          mkdir -p "$RUNNER_TEMP/steam-video"
       - name: Run W1 fixtures without network or GPU
         timeout-minutes: 40
         run: |
@@ -340,6 +350,7 @@ jobs:
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
             -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/tool:/tool:ro" \
             -v "$RUNNER_TEMP/w1-fixtures:/fixtures:ro" -v "$RUNNER_TEMP/w1-work:/work" \
+            -v "$RUNNER_TEMP/steam-video:/steam:ro" -e CI_STEAM_ROOT=/steam \
             -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE "$SDK_IMAGE" python3 /recipes/packaging/zluda-overlay/w1_cpu.py --source /src \
             --fixture-source /recipes/w1-source/wine/w1-fixtures --tool /tool --fixtures /fixtures --work /work/run \
             2>&1 | tee "$RUNNER_TEMP/w1-work/run.log"
@@ -381,6 +392,7 @@ jobs:
           df -h /
           [[ $(df -B1 --output=avail "$RUNNER_TEMP" | tail -1) -ge 20000000000 ]]
       - name: Checkout pinned protonfixes
+        if: inputs.base != 'valve-11-0'
         run: git -C "$PROTON_SOURCE_ROOT" submodule update --init --recursive -- protonfixes
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -391,22 +403,47 @@ jobs:
           path: ${{ runner.temp }}/overlays
       - name: Assemble GE plus verified overlays
         env:
-          SOURCE_ROOT: ${{ github.workspace }}/proton-source
+          SOURCE_ROOT: ${{ env.PROTON_SOURCE_ROOT }}
           BUILD_ROOT: ${{ runner.temp }}/assembly
           DOWNLOAD_ROOT: ${{ runner.temp }}/downloads
-          DESTDIR: ${{ runner.temp }}/GE-Proton11-7-zluda
+          DESTDIR: ${{ runner.temp }}/${{ env.TOOL_NAME }}
           OVERLAYS_ROOT: ${{ runner.temp }}/overlays
           OUTPUT_ROOT: ${{ runner.temp }}/release
         run: |
           set -euo pipefail
           mkdir -p "$BUILD_ROOT"
           bash packaging/zluda-overlay/assemble.sh 2>&1 | tee "$RUNNER_TEMP/assembly.log"
+      - name: Build CI-only Steam video providers
+        if: inputs.base == 'valve-11-0'
+        run: |
+          set -euo pipefail
+          git -C "$PROTON_SOURCE_ROOT" submodule update --init --depth=1 -- ffmpeg
+          mkdir -p "$RUNNER_TEMP/video-build"
+          docker pull "$SDK_IMAGE"
+          docker run --rm --init --network=none --cpus=3 --memory=6g \
+            --user "$(id -u):$(id -g)" \
+            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/video-build:/work" \
+            -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE -e CI=true -e JOBS=3 -e SDK_IMAGE \
+            -e SOURCE_ROOT=/src -e BUILD_ROOT=/work/build -e FIXTURE_ROOT=/work/steam \
+            "$SDK_IMAGE" bash /recipes/packaging/zluda-overlay/ci-steam-video.sh \
+            2>&1 | tee "$RUNNER_TEMP/video-build/build.log"
+          mv "$RUNNER_TEMP/video-build/steam" "$RUNNER_TEMP/steam-video"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: inputs.base == 'valve-11-0'
+        with:
+          name: ci-steam-video
+          path: ${{ runner.temp }}/steam-video
+          if-no-files-found: error
+          retention-days: 14
+      - name: Prepare external provider mount
+        run: mkdir -p "$RUNNER_TEMP/steam-video"
       - name: Check ELF dependency closure in the pinned SDK
         run: |
           set -euo pipefail
           docker pull "$SDK_IMAGE"
           docker run --rm --init --cpus=3 --memory=6g \
-            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/${{ env.TOOL_NAME }}:/tool:ro" \
+            -v "$RUNNER_TEMP/steam-video:/steam:ro" -e CI_STEAM_ROOT=/steam \
             -e DESTDIR=/tool -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE "$SDK_IMAGE" bash /recipes/packaging/zluda-overlay/check-loader.sh \
             2>&1 | tee "$RUNNER_TEMP/loader.log"
       - name: Checkout pinned CPU fixture sources
@@ -418,6 +455,19 @@ jobs:
           run-id: ${{ github.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/cpu-fixtures
+      - name: Admit the published GE control
+        if: inputs.base == 'valve-11-0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash migration/d32/control.sh
+          mkdir -p "$RUNNER_TEMP/ge-control"
+          tar -xf "$RUNNER_TEMP/d32-control/GE-Proton11-7-zluda.tar.gz" --strip-components=1 -C "$RUNNER_TEMP/ge-control"
+      - name: Admit the historical CI-built A1 control
+        if: inputs.base == 'valve-11-0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash packaging/zluda-overlay/historical-a1.sh
       - name: Run headless Wine CPU gate without network or GPU
         timeout-minutes: 40
         run: |
@@ -428,12 +478,52 @@ jobs:
           docker run --rm --init --pull=never --network=none --cpus=3 --memory=6g --pids-limit=256 \
             --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
-            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/GE-Proton11-7-zluda:/tool:ro" \
+            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" -v "$RUNNER_TEMP/${{ env.TOOL_NAME }}:/tool:ro" \
             -v "$RUNNER_TEMP/wine-cpu:/work" -v "$RUNNER_TEMP/cpu-fixtures:/fixtures:ro" \
+            -v "$RUNNER_TEMP/steam-video:/steam:ro" -e CI_STEAM_ROOT=/steam \
             -e JOBS=3 \
             -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE "$SDK_IMAGE" python3 /recipes/packaging/zluda-overlay/wine_cpu.py \
             --source /src --tool /tool --work /work/run --prepared-fixtures /fixtures \
             2>&1 | tee "$RUNNER_TEMP/wine-cpu.log"
+      - name: Cross GE to Valve and back, then exercise both NVAPI architectures
+        if: inputs.base == 'valve-11-0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cross-tool"
+          docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=512 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
+            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" \
+            -v "$RUNNER_TEMP/${{ env.TOOL_NAME }}:/tool:ro" -v "$RUNNER_TEMP/ge-control:/control:ro" -v "$RUNNER_TEMP/a1-tool:/a1:ro" \
+            -v "$RUNNER_TEMP/cross-tool:/work" -v "$RUNNER_TEMP/steam-video:/steam:ro" \
+            -e CI_STEAM_ROOT=/steam -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE \
+            "$SDK_IMAGE" python3 /recipes/packaging/zluda-overlay/cross_tool_cpu.py \
+            --tool /tool --ge-tool /control --a1-tool /a1 --work /work/run \
+            2>&1 | tee "$RUNNER_TEMP/cross-tool.log"
+          docker run --rm --init --network=none --cpus=3 --memory=6g --pids-limit=512 \
+            --user "$(id -u):$(id -g)" --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777 \
+            -v "$GITHUB_WORKSPACE:/recipes:ro" -v "$PROTON_SOURCE_ROOT:/src:ro" \
+            -v "$RUNNER_TEMP/${{ env.TOOL_NAME }}:/tool:ro" -v "$RUNNER_TEMP/wine-cpu:/work" \
+            -v "$RUNNER_TEMP/steam-video:/steam:ro" -e CI_STEAM_ROOT=/steam \
+            -e PROTON_SOURCE_ROOT=/src -e ZLUDA_PACKAGING_PROFILE \
+            "$SDK_IMAGE" python3 /recipes/packaging/zluda-overlay/nvapi_cpu.py \
+            --tool /tool --fixtures /work/run/build --work /work/nvapi \
+            2>&1 | tee "$RUNNER_TEMP/nvapi-cpu.log"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && inputs.base == 'valve-11-0'
+        with:
+          name: cross-and-nvapi-cpu
+          path: |
+            ${{ runner.temp }}/cross-tool.log
+            ${{ runner.temp }}/cross-tool/run/RESULT.json
+            ${{ runner.temp }}/cross-tool/run/GE-*/*/launcher.log
+            ${{ runner.temp }}/cross-tool/run/A1-*/*/launcher.log
+            ${{ runner.temp }}/nvapi-cpu.log
+            ${{ runner.temp }}/wine-cpu/nvapi/*.json
+            ${{ runner.temp }}/wine-cpu/nvapi/*.log
+          if-no-files-found: warn
+          retention-days: 90
       - name: Stage bounded CPU evidence without prefix traversal
         if: always()
         run: |
@@ -449,7 +539,7 @@ jobs:
           retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: GE-Proton11-7-zluda
+          name: ${{ env.TOOL_NAME }}
           path: ${{ runner.temp }}/release
           if-no-files-found: error
           compression-level: 0
@@ -461,6 +551,7 @@ jobs:
           path: |
             ${{ runner.temp }}/assembly.log
             ${{ runner.temp }}/loader.log
+            ${{ runner.temp }}/steam-video/CI-STEAM-VIDEO.json
           retention-days: 14
 
   release-audit:
@@ -475,7 +566,7 @@ jobs:
       - name: Download this run's candidate
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: GE-Proton11-7-zluda
+          name: ${{ env.TOOL_NAME }}
           path: ${{ runner.temp }}/B
       - name: Admit the published d32 product control
         env:
@@ -483,31 +574,44 @@ jobs:
         run: |
           bash migration/d32/control.sh
       - name: Compare every actual shipping member and both manifests
+        if: inputs.base != 'valve-11-0'
         run: |
           set -euo pipefail
           GIT_LFS_SKIP_SMUDGE=1 git -C "$PROTON_SOURCE_ROOT" submodule update --init --filter=blob:none -- zluda-wine
           python3 migration/d32/product_identity.py \
             --control "$RUNNER_TEMP/d32-control/GE-Proton11-7-zluda.tar.gz" \
-            --candidate "$RUNNER_TEMP/B/GE-Proton11-7-zluda.tar.gz" \
+            --candidate "$RUNNER_TEMP/B/${{ env.TOOL_NAME }}.tar.gz" \
             --control-manifest "$RUNNER_TEMP/d32-control/MANIFEST" \
             --candidate-manifest "$RUNNER_TEMP/B/MANIFEST" \
             --output "$RUNNER_TEMP/PRODUCT-IDENTITY.json"
       - name: Retain the complete identity proof even on failure
-        if: always()
+        if: always() && inputs.base != 'valve-11-0'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: product-identity
           path: ${{ runner.temp }}/PRODUCT-IDENTITY.json
           if-no-files-found: error
           retention-days: 90
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: inputs.base == 'valve-11-0'
+        with:
+          name: overlay-bridges
+          path: ${{ runner.temp }}/stock
+      - name: Admit historical A1 for the builtin inventory
+        if: inputs.base == 'valve-11-0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash packaging/zluda-overlay/historical-a1.sh
       - name: Compare every Wine builtin against the published control and stock base
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/B"
           sha256sum -c SHA256SUMS
           cd "$GITHUB_WORKSPACE"
-          python3 packaging/zluda-overlay/release_audit.py \
-            --candidate "$RUNNER_TEMP/B/GE-Proton11-7-zluda.tar.gz" \
+          extra=()
+          if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then extra=(--stock "$RUNNER_TEMP/stock/valve-stock.tar.gz" --a1 "$RUNNER_TEMP/a1-download/GE-Proton11-7-zluda.tar.gz"); fi
+          python3 packaging/zluda-overlay/release_audit.py "${extra[@]}" \
+            --candidate "$RUNNER_TEMP/B/${{ env.TOOL_NAME }}.tar.gz" \
             --control "$RUNNER_TEMP/d32-control/GE-Proton11-7-zluda.tar.gz" \
             --output "$RUNNER_TEMP/release-audit"
       - name: Retain the complete builtin and timestamp inventory

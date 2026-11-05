@@ -70,6 +70,7 @@ if [[ $part == bridges || $part == all ]]; then
     python3 "$here/component_patches.py" prepare "$SOURCE_ROOT" \
         "$BUILD_ROOT/patched/dxvk-nvapi" dxvk-nvapi > "$BUILD_ROOT/log/dxvk-nvapi-patches.json"
     python3 "$here/inputs.py" fetch "$DOWNLOAD_ROOT" --group bridges
+    if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then bash "$here/build-nvapi-tests.sh"; fi
     BUILD_PART=bridges bash "$here/install-rust.sh"
     export PATH="$BUILD_ROOT/rust/bin:$PATH"
     export CARGO_HOME=${CARGO_HOME:-$BUILD_ROOT/cargo}
@@ -100,6 +101,7 @@ PYW1
         "$triplet-w64-mingw32-gcc" -O2 -Wall -Wextra -Werror -shared -static-libgcc \
             "$here/nvcuda-decoy.c" -o "$BUILD_ROOT/wine-cpu-fixtures/nvcuda-decoy$bits.dll"
     done
+    if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then cp "$BUILD_ROOT/nvapi-fixtures/"*.exe "$BUILD_ROOT/wine-cpu-fixtures/"; fi
     python3 "$here/cpu_fixtures.py" --source "$SOURCE_ROOT" --build "$BUILD_ROOT/wine-cpu-fixtures" \
         --sdk-receipt "$BUILD_ROOT/wine/log/wine-sdk.json" --dest "$BUILD_ROOT/cpu-fixtures-package"
     for spec in '64 x86_64-windows' '32 i386-windows'; do
@@ -128,12 +130,18 @@ PYW1
     (cd "$BUILD_ROOT/wine/overlay" && sha256sum -c FILES.sha256)
     cp -a "$BUILD_ROOT/wine/overlay/files/." "$DESTDIR/files/"
     mkdir -p "$DESTDIR/provenance" "$DESTDIR/sources"
-    cp "$BUILD_ROOT/wine/overlay/OVERLAY" "$DESTDIR/provenance/WINE-OVERLAY"
-    cp "$BUILD_ROOT/wine/overlay/ELF-DEPENDENCIES" "$DESTDIR/provenance/WINE-ELF-DEPENDENCIES"
-    cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
-    bash "$here/../../migration/d32/baseline.sh" "$BUILD_ROOT" "$DESTDIR"
-    cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
-    git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
+    if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then
+        cp "$BUILD_ROOT/wine/overlay/VALVE-STOCK.json" "$DESTDIR/provenance/VALVE-STOCK.json"
+        cp "$BUILD_ROOT/wine/overlay/WINE-SCOPE.json" "$DESTDIR/provenance/WINE-SCOPE.json"
+        cp "$BUILD_ROOT/wine/valve-proton-sources.tar.gz" "$DESTDIR/sources/"
+    else
+        cp "$BUILD_ROOT/wine/overlay/OVERLAY" "$DESTDIR/provenance/WINE-OVERLAY"
+        cp "$BUILD_ROOT/wine/overlay/ELF-DEPENDENCIES" "$DESTDIR/provenance/WINE-ELF-DEPENDENCIES"
+        cp "$BUILD_ROOT/wine/wine-scope.json" "$DESTDIR/provenance/WINE-SCOPE.json"
+        bash "$here/../../migration/d32/baseline.sh" "$BUILD_ROOT" "$DESTDIR"
+        cp "$BUILD_ROOT/wine/proton-wine.mk" "$DESTDIR/provenance/WINE-BUILD-RECIPE.mk"
+        git -C "$BUILD_ROOT/wine/src/wine" archive HEAD | gzip -n > "$DESTDIR/sources/wine-prepared.tar.gz"
+    fi
     python3 "$here/source_archive.py" --source "$SOURCE_ROOT/zluda-wine" \
         --build "$BUILD_ROOT/zluda-wine/target" --output "$DESTDIR/sources/zluda-wine.tar.gz"
     python3 "$here/component_patches.py" stage "$SOURCE_ROOT" \

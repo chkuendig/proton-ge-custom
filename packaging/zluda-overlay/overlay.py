@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tarfile
 
-from inputs import LOCK_FILE, bridge_root, HERE, LOCK, components_for_part, git, manifest, packaging_identity, sha256, verify_manifest
+from inputs import PROFILE, LOCK_FILE, bridge_root, HERE, LOCK, components_for_part, git, manifest, packaging_identity, sha256, verify_manifest
 import wine_scope
 import cuda_package
 import component_patches
@@ -199,22 +199,39 @@ def assemble(overlays):
     component_commit = git(source, 'rev-parse', 'HEAD')
     # Keep source submodules at their upstream gitlinks. Runtime Python files
     # come from the same locked GE-plus-ZLUDA patch series as a full GE build.
-    pf = build / 'patched/protonfixes'
-    component_patches.prepare(source, pf, 'protonfixes', LOCK)
-    ge = next(x for x in LOCK['downloads'] if x['id'] == 'ge')
-    archive = cache / ge['url'].rsplit('/', 1)[1]
-    if not (sha256(archive) == ge['sha256']):
-        raise ValueError("overlay.py integrity gate failed: sha256(archive) == ge['sha256']")
-    if dest.exists():
-        raise ValueError('DESTDIR already exists')
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    unpack = build / 'ge-unpacked'
-    extract(archive, unpack, ge_base=True)
-    children = list(unpack.iterdir())
-    if not (len(children) == 1 and children[0].is_dir()):
-        raise ValueError('unexpected GE archive layout')
-    shutil.move(str(children[0]), dest)
-    cuda_package.prepare_stubs(dest)
+    stock = ge = None
+    patches_record = None
+    if PROFILE['base'] == 'valve':
+        archive = overlays / 'valve-stock.tar.gz'
+        stock = json.loads((overlays / 'VALVE-STOCK.json').read_text())
+        if (stock['proton_pin'] != LOCK['proton_base'] or stock['wine_pin'] != LOCK['components']['wine'] or
+                stock['sdk_image'] != LOCK['sdk_image'] or sha256(archive) != stock['archive_sha256'] or
+                stock['nvcuda_sha256'] != PROFILE['stub_artifact']['sha256']):
+            raise ValueError('Valve stock source/SDK/archive/stub identity differs')
+        if dest.exists():
+            raise ValueError('DESTDIR already exists')
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        extract(archive, dest, ge_base=True)
+        (dest / 'provenance').mkdir(exist_ok=True)
+        (dest / 'provenance/VALVE-STOCK.json').write_text(json.dumps(stock, indent=2) + '\n')
+        cuda_package.prepare_stubs(dest)
+    else:
+        pf = build / 'patched/protonfixes'
+        component_patches.prepare(source, pf, 'protonfixes', LOCK)
+        ge = next(x for x in LOCK['downloads'] if x['id'] == 'ge')
+        archive = cache / ge['url'].rsplit('/', 1)[1]
+        if not (sha256(archive) == ge['sha256']):
+            raise ValueError("overlay.py integrity gate failed: sha256(archive) == ge['sha256']")
+        if dest.exists():
+            raise ValueError('DESTDIR already exists')
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        unpack = build / 'ge-unpacked'
+        extract(archive, unpack, ge_base=True)
+        children = list(unpack.iterdir())
+        if not (len(children) == 1 and children[0].is_dir()):
+            raise ValueError('unexpected GE archive layout')
+        shutil.move(str(children[0]), dest)
+        cuda_package.prepare_stubs(dest)
     template_links = {p.relative_to(dest).as_posix(): os.readlink(p)
                       for p in dest.rglob('*') if p.is_symlink() and
                       (not p.resolve().is_relative_to(dest) or not p.exists())}
@@ -233,33 +250,45 @@ def assemble(overlays):
         (overlay / 'MANIFEST').unlink()
         (overlay / 'SYMLINKS.json').unlink()
         shutil.copytree(overlay, dest, dirs_exist_ok=True, symlinks=True)
+    if PROFILE['base'] == 'valve' and sha256(dest / 'files/lib64/libcuda.so.1') != LOCK['comparison_control']['native_sha256']:
+        raise ValueError('native backend differs from frozen published GE bytes')
     scope = dest / 'provenance/WINE-SCOPE.json'
     wine_scope.verify(dest, json.loads(scope.read_text()))
-    for name in ['proton', 'proton_zluda.py', 'utilities.py']:
+    for name in (['proton', 'proton_zluda.py'] if PROFILE['base'] == 'valve' else ['proton', 'proton_zluda.py', 'utilities.py']):
         (dest / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
     (dest / 'proton').chmod(0o755)
-    base = git(source, 'rev-parse', LOCK['ge_source'] + ':protonfixes')
-    for line in git(pf, 'diff', '--cached', '--name-status', '--no-renames', base).splitlines():
-        status, name = line.split('\t', 1)
-        path = dest / 'protonfixes' / name
-        if not (path.resolve().is_relative_to((dest / 'protonfixes').resolve())):
-            raise ValueError("overlay.py integrity gate failed: path.resolve().is_relative_to((dest / 'protonfixes').resolve())")
-        if status == 'D':
-            path.unlink(missing_ok=True)
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'show', ':' + name]))
-            mode = git(pf, 'ls-files', '--stage', '--', name).split()[0]
-            path.chmod(0o755 if mode == '100755' else 0o644)
-    patches_record = component_patches.stage_sources(source, pf, 'protonfixes', dest, LOCK)
-    for path in (dest / 'protonfixes').rglob('*.pyc'):
-        path.unlink()
+    if PROFILE['base'] == 'ge':
+        base = git(source, 'rev-parse', LOCK['ge_source'] + ':protonfixes')
+        for line in git(pf, 'diff', '--cached', '--name-status', '--no-renames', base).splitlines():
+            status, name = line.split('\t', 1)
+            path = dest / 'protonfixes' / name
+            if not (path.resolve().is_relative_to((dest / 'protonfixes').resolve())):
+                raise ValueError("overlay.py integrity gate failed: path.resolve().is_relative_to((dest / 'protonfixes').resolve())")
+            if status == 'D':
+                path.unlink(missing_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(subprocess.check_output(['git', '-C', str(pf), 'show', ':' + name]))
+                mode = git(pf, 'ls-files', '--stage', '--', name).split()[0]
+                path.chmod(0o755 if mode == '100755' else 0o644)
+        patches_record = component_patches.stage_sources(source, pf, 'protonfixes', dest, LOCK)
+        for path in (dest / 'protonfixes').rglob('*.pyc'):
+            path.unlink()
+    else:
+        script = cache / 'winetricks'
+        item = next(x for x in LOCK['downloads'] if x['id'] == 'winetricks')
+        if sha256(script) != item['sha256']:
+            raise ValueError('winetricks script differs from lock')
+        shutil.copyfile(script, dest / 'files/bin/winetricks')
+        (dest / 'files/bin/winetricks').chmod(0o755)
+        (dest / 'sources/winetricks').mkdir(parents=True)
+        shutil.copyfile(script, dest / 'sources/winetricks/winetricks')
     vdf = dest / 'compatibilitytool.vdf'
     text, n = re.subn(r'(\n\s*)"[^"]+"(\s*// Internal name)',
                       lambda m: m[1] + '"' + LOCK['tool_name'] + '"' + m[2], vdf.read_text(), count=1)
     if not (n == 1):
         raise ValueError('unknown compatibilitytool.vdf layout')
-    text, n = re.subn(r'("display_name"\s*)"[^"]*"', r'\1"GE-Proton11-7 ZLUDA"', text, count=1)
+    text, n = re.subn(r'("display_name"\s*)"[^"]*"', lambda m: m[1] + '"' + ('Valve Proton 11.0-2e ZLUDA' if PROFILE['base'] == 'valve' else 'GE-Proton11-7 ZLUDA') + '"', text, count=1)
     if not (n == 1):
         raise ValueError('overlay.py integrity gate failed: n == 1')
     vdf.write_text(text)
@@ -271,14 +300,15 @@ def assemble(overlays):
             raise ValueError(name)
     provenance = {'format': 'zluda-overlay-release-1', 'packaging': packaging_identity(), 'proton': git(source, 'rev-parse', 'HEAD'),
                   'component_build_proton': component_commit, 'component_reuse': None,
-                  'ge': ge, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
+                  'ge': ge, 'valve_stock': stock, 'components': LOCK['components'], 'llvm': LOCK['llvm'],
                   'component_patches': LOCK['component_patches'],
                   'wine_bridge': LOCK['wine_bridge'],
-                  'protonfixes_prepared_tree': patches_record['prepared_tree'],
+                  'protonfixes_prepared_tree': patches_record['prepared_tree'] if patches_record else None,
+                  'bridge_comparison': LOCK.get('comparison_control', {}).get('bridge_comparison'),
                   'input_lock_sha256': sha256(LOCK_FILE),
                   'qualification': 'CI assembly is not target-runtime or GPU qualification'}
     (dest / 'provenance/PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
-    sbom = {'format': 'zluda-overlay-sbom-1', 'base': ge,
+    sbom = {'format': 'zluda-overlay-sbom-1', 'base': stock or ge,
             'component_inventories': ['zluda-SBOM.json', 'bridges-SBOM.json'],
             'licenses': 'licenses/', 'sources': 'sources/'}
     (dest / 'provenance/SBOM.json').write_text(json.dumps(sbom, indent=2) + '\n')

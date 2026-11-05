@@ -76,6 +76,9 @@ def environment(tool, work, wine, server, winearch='win64'):
                WINELOADER=str(wine), WINESERVER=str(server), WINEESYNC='0', WINEFSYNC='0',
                PATH=str(tool / 'files/bin') + ':' + env.get('PATH', '/usr/bin:/bin'),
                LC_ALL='C', TMPDIR=str(work / 'tmp'), XDG_RUNTIME_DIR=str(work / 'runtime'))
+    if os.environ.get("CI_STEAM_ROOT"):
+        steam = Path(os.environ["CI_STEAM_ROOT"])
+        env["LD_LIBRARY_PATH"] += ":" + ":".join(str(steam / name / "video") for name in ("ubuntu12_64", "ubuntu12_32", "steamrtarm64"))
     return env
 
 

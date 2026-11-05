@@ -5,6 +5,10 @@ set -euo pipefail
 : "${DESTDIR:?}"
 export LC_ALL=C
 export LD_LIBRARY_PATH="$DESTDIR/files/lib64/wine/x86_64-unix:$DESTDIR/files/lib64:$DESTDIR/files/lib/x86_64-linux-gnu:$DESTDIR/files/lib/wine/x86_64-unix"
+if [[ ${ZLUDA_PACKAGING_PROFILE:?} == valve-11-0 ]]; then
+    : "${CI_STEAM_ROOT:?}"
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$CI_STEAM_ROOT/ubuntu12_64/video:$CI_STEAM_ROOT/ubuntu12_32/video:$CI_STEAM_ROOT/steamrtarm64/video"
+fi
 # Every newly supplied ELF, including all seven ROCm libraries and libnuma.
 mapfile -d '' -t files < <(find "$DESTDIR/files/lib64" "$DESTDIR/files/lib/wine/x86_64-unix" "$DESTDIR/files/lib/wine-cuda/zluda/x86_64-unix" -maxdepth 1 -type f -print0)
 for file in "${files[@]}"; do

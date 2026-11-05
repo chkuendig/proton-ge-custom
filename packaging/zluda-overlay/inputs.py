@@ -19,9 +19,11 @@ PROFILE_FILE = HERE / 'profiles' / (PROFILE_NAME + '.json')
 PROFILE = json.loads(PROFILE_FILE.read_text())
 LOCK_FILE = HERE / PROFILE['recipe_lock']
 LOCK = json.loads(LOCK_FILE.read_text())
-PROTON_ROOT = Path(os.environ.get('PROTON_SOURCE_ROOT', RECIPE_ROOT / 'proton-source')).resolve()
+PROTON_ROOT = Path(os.environ.get('PROTON_SOURCE_ROOT', RECIPE_ROOT / PROFILE['source_path'])).resolve()
 SOURCE_EPOCH = PROFILE['source_date_epoch']
-if set(PROFILE['stub_artifact']['sha256']) != {'x86_64-windows', 'i386-windows'}:
+if (PROFILE.get('schema') != 1 or PROFILE.get('base') not in ('ge', 'valve') or
+        set(PROFILE['stub_artifact']['sha256']) != {'x86_64-windows', 'i386-windows'} or
+        not all(re.fullmatch('[0-9a-f]{64}', digest) for digest in [PROFILE['stub_artifact']['archive_sha256'], *PROFILE['stub_artifact']['sha256'].values()])):
     raise ValueError('base profile must admit both exact stub architectures')
 
 
@@ -42,7 +44,9 @@ def git(root, *args):
 
 
 def check_profile_source():
-    if LOCK['proton_source'] != PROFILE['source_commit'] or git(RECIPE_ROOT, 'rev-parse', 'HEAD:proton-source') != PROFILE['source_commit']:
+    if PROFILE['source_path'] != {'ge': 'proton-source', 'valve': 'proton-valve-source'}[PROFILE['base']]:
+        raise ValueError('unsupported profile source path')
+    if LOCK['proton_source'] != PROFILE['source_commit'] or git(RECIPE_ROOT, 'rev-parse', 'HEAD:' + PROFILE['source_path']) != PROFILE['source_commit']:
         raise ValueError('Proton profile, lock and gitlink differ')
 
 
@@ -311,7 +315,7 @@ def main():
     parser.add_argument('command', choices=['fetch', 'resolve', 'check', 'bridge-check', 'manifest', 'verify', 'wine-base', 'checkout-paths'])
     parser.add_argument('directory', type=Path)
     parser.add_argument('--part', choices=['all', 'zluda', 'bridges'], default='all')
-    parser.add_argument('--group', choices=['all', 'zluda', 'bridges', 'ge'], default='all')
+    parser.add_argument('--group', choices=['all', 'zluda', 'bridges', 'ge', 'assembly', 'valve'], default='all')
     args = parser.parse_args()
     if args.command == 'check':
         check_sources(args.directory, args.part)
@@ -331,7 +335,7 @@ def main():
             resolve(args.directory)
         else:
             for item in LOCK['downloads']:
-                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge', 'rust', 'rust-std-x86_64-pc-windows-gnu', 'rust-std-i686-pc-windows-gnu'], 'ge': ['ge']}
+                ids = {'zluda': ['rust', 'numactl'], 'bridges': ['ge', 'rust', 'rust-std-x86_64-pc-windows-gnu', 'rust-std-i686-pc-windows-gnu'], 'ge': ['ge'], 'assembly': ['winetricks'], 'valve': ['wine-mono', 'xalia', 'wine-gecko-x86', 'wine-gecko-x86_64']}
                 if (args.group == 'all' or item['id'] in ids[args.group]
                         or (args.group == 'zluda' and item.get('group') == 'rocm')):
                     print(item['id'], download(item, args.directory), flush=True)

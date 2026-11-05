@@ -17,7 +17,7 @@ from inputs import PROFILE, check_profile_source, git, packaging_identity, sha25
 out = pathlib.Path(sys.argv[1])
 check_profile_source()
 receipt = {'packaging': packaging_identity(), 'tree': git('.', 'rev-parse', 'HEAD^{tree}'),
-           'proton': PROFILE['source_commit'],
+           'proton': PROFILE['source_commit'], 'profile': PROFILE['base'], 'source_path': PROFILE['source_path'],
            'files': {p.name: sha256(p) for p in out.iterdir() if p.is_file()}}
 (out / 'SOURCE-OFFER.json').write_text(json.dumps(receipt, indent=2) + '\n')
 PYRECEIPT
@@ -38,8 +38,8 @@ VERIFY
 
 Alternatively, clone https://github.com/chkuendig/proton-ge-custom directly and
 check out packaging.commit from SOURCE-OFFER.json; verify its tree as above.
-Initialize proton-source and its recursive public submodules with Git LFS. Select
-ZLUDA_PACKAGING_PROFILE=ge-11-7 and use .github/workflows/zluda-overlay.yml.
+Initialize SOURCE-OFFER.json source_path and its recursive public submodules with Git LFS.
+Select ZLUDA_PACKAGING_PROFILE=ge-11-7 or valve-11-0 for the recorded profile and use .github/workflows/zluda-overlay.yml.
 The complete Git bundle includes migration/d32/baseline.sh; the smaller shipped
 recipe capsules require that helper from this bundle. Component sources, licenses
 and notices are also included in the tool's sources/ and licenses/ directories.

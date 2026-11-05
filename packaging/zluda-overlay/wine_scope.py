@@ -68,6 +68,12 @@ def inventory(archive, names, sizes, scope):
 
 
 def verify(root, record):
+    if record['mode'] == 'valve-single-ntdll':
+        if set(record['replaced']) != {OUTPUT}:
+            raise ValueError('Valve Wine scope exceeds the one provider')
+        if hashlib.sha256((root / OUTPUT).read_bytes()).hexdigest() != record['replaced'][OUTPUT]:
+            raise ValueError('Valve Wine provider differs from scope receipt')
+        return
     if record['mode'] not in ('both', 'x86_64-unix-ntdll'):
         raise ValueError('unknown Wine scope mode')
     if record['mode'] != 'x86_64-unix-ntdll':

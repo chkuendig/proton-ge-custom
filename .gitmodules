@@ -1,3 +1,6 @@
 [submodule "proton-source"]
 	path = proton-source
 	url = https://github.com/chkuendig/proton-ge-custom
+[submodule "proton-valve-source"]
+	path = proton-valve-source
+	url = https://github.com/chkuendig/proton-ge-custom

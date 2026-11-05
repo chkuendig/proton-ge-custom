@@ -12,7 +12,11 @@ df -h /work
 export PATH="/usr/lib/ccache:/opt/rust/bin:$PATH"
 # A GitHub checkout is owned by the runner, while SDK commands run as root.
 git config --global --add safe.directory '*'
-bash "$here/build-components.sh"
+if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then
+    PROTON_SOURCE_ROOT=$SOURCE_ROOT PROTON_BUILD_ROOT=$BUILD_ROOT bash "$here/../../make/full-source.sh" --component "$BUILD_PART"
+else
+    bash "$here/build-components.sh"
+fi
 python3 "$here/inputs.py" verify "$DESTDIR"
 tar --sort=name --mtime="@$(PYTHONPATH="$here" python3 -c 'from inputs import SOURCE_EPOCH; print(SOURCE_EPOCH)')" \
     --owner=0 --group=0 --numeric-owner -C "$DESTDIR" -cf - . | gzip -n > "/work/$BUILD_PART.tar.gz"

@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "base": "valve",
+  "source_commit": "744d067251281495b68c944644b09c1b3364e201",
+  "source_date_epoch": "1793802357",
+  "stock_source_date_epoch": "1791559305",
+  "stub_artifact": {
+    "archive_sha256": "d1ee81cc86621ada20073418307e8a0abe113d9393bcb655f5c58713e19332b6",
+    "sha256": {
+      "x86_64-windows": "6c757639d2c0bf95d8aad1842e78982936690e7f9208c92fe708b3c2039c425d",
+      "i386-windows": "1d037ad9ef02125082b3727afacb1360785cf5f622b4b9e8cbf909095ab38a8a"
+    }
+  },
+  "recipe_lock": "inputs.valve-11-0.lock.json",
+  "stub_manifest": {
+    "archive_key": "reference_archive_sha256",
+    "prefix_policy": "stock Valve off; regular placeholders with builtin override on"
+  },
+  "source_repository": "chkuendig/proton-ge-custom",
+  "source_path": "proton-valve-source",
+  "stock_reference": {
+    "repository": "chkuendig/proton-ge-custom",
+    "run": 41851039781,
+    "artifact": 13350027288,
+    "zip_sha256": "a7d7b0591184c7e1af9cd672623e7befcb2522df49c9160857a2d5d5bcced7e5",
+    "receipt_sha256": "98128e5ce9a4de18f20c7739b48fe1ba1fce9466fac0f929a41b134b0a322779"
+  }
+}

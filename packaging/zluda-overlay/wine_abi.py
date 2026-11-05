@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from inputs import HERE, LOCK, git, sha256
+from inputs import HERE, LOCK, PROFILE, git, sha256
 import wine_provider
 
 REVIEW = HERE / 'reviewer/wine'
@@ -47,7 +47,8 @@ def produce(source, sdk, output):
     spec = importlib.util.spec_from_file_location('reviewer_wine_callback', REVIEW / 'prepared_source.py')
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
-    report, artifacts = checker.audit(source)
+    contract = REVIEW / ('valve-wine-callback-abi.json' if PROFILE['base'] == 'valve' else 'wine-callback-abi.json')
+    report, artifacts = checker.audit(source, json.loads(contract.read_text()))
     output.parent.mkdir(parents=True, exist_ok=True)
     checker.write_report(output.with_name('WINE-SOURCE-AUDIT.json'), report, artifacts)
     if not report['attested']:

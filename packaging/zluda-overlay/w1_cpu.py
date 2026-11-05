@@ -34,6 +34,9 @@ def environment(tool, work, arch, root, enabled, backend):
                LC_ALL='C', TMPDIR=str(work / 'tmp'), XDG_RUNTIME_DIR=str(work / 'runtime'))
     if enabled and backend:
         env['ZLUDA_WINE_BACKEND_PATH'] = backend
+    if os.environ.get('CI_STEAM_ROOT'):
+        steam=Path(os.environ['CI_STEAM_ROOT'])
+        env['LD_LIBRARY_PATH'] += ':' + ':'.join(str(steam/name/'video') for name in ('ubuntu12_64','ubuntu12_32','steamrtarm64'))
     return env
 
 

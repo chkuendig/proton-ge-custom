@@ -9,7 +9,7 @@ import shutil
 from types import SimpleNamespace
 
 import proton_zluda
-from inputs import sha256
+from inputs import sha256, PROFILE
 import wine_cpu
 
 
@@ -29,7 +29,7 @@ def environment(tool, directory, winearch, phase):
     appid = '35140' if winearch == 'wow64' else '999999'
     env.update(HOME=str(directory / 'home'), PWD=str(directory / 'game'),
                STEAM_COMPAT_DATA_PATH=str(directory / 'compatdata'),
-               STEAM_COMPAT_CLIENT_INSTALL_PATH=str(directory / 'steam'),
+               STEAM_COMPAT_CLIENT_INSTALL_PATH=(env.get('CI_STEAM_ROOT', str(directory / 'steam')) if PROFILE['base'] == 'valve' else str(directory / 'steam')),
                STEAM_COMPAT_INSTALL_PATH=str(directory / 'game'),
                STEAM_COMPAT_APP_ID=appid, SteamGameId=appid, SteamAppId=appid,
                UMU_ID=appid, PROTON_LOG='1', PROTON_LOG_DIR=str(directory / phase),
@@ -39,7 +39,7 @@ def environment(tool, directory, winearch, phase):
         env.update(ZLUDA_WINE_FIXTURE_WITNESS=str(directory / phase / 'backend.json'),
                    ZLUDA_WINE_FIXTURE_UNIXLIB=str(tool / 'files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so'))
     if phase.startswith('on'):
-        if winearch == 'win64':
+        if winearch == 'win64' or PROFILE['base'] == 'valve':
             env['PROTON_ENABLE_ZLUDA'] = '1'
         # WoW64 on deliberately has neither variable: the real 35140 early/main
         # protonfix must set both before Wine initialization / final selection.
@@ -47,6 +47,8 @@ def environment(tool, directory, winearch, phase):
         env['PROTON_ENABLE_ZLUDA'] = '0'
         if winearch == 'wow64':
             env['PROTON_USE_WOW64'] = '1'
+    if phase == 'helper':
+        env['PROTON_ENABLE_ZLUDA'] = '1'
     if phase in ('off-nvidia', 'on-nvidia'):
         env['PROTON_NVIDIA_NVCUDA'] = '1'
         env['PROTON_NVIDIA_LIBS'] = '1' if phase == 'on-nvidia' else '0'
@@ -57,7 +59,7 @@ def stub_hashes(tool, prefix):
     result = {}
     for directory, arch in proton_zluda.ARCHES.items():
         path = prefix / 'drive_c/windows' / directory / 'nvcuda.dll'
-        if not path.is_file() or sha256(path) != proton_zluda.STUB_SHA256[arch]:
+        if not path.is_file() or sha256(path) != (proton_zluda.STUB_SHA256 if PROFILE['base'] == 'ge' else PROFILE['stub_artifact']['sha256'])[arch]:
             raise ValueError('launcher prefix did not retain GE stub bytes: ' + str(path))
         result[directory] = sha256(path)
     return result
@@ -79,7 +81,7 @@ def admit_case(directory, phase, winearch, tool, runner, returncode):
             record['wow64_witness'] = runner.wow64_witness(directory / 'backend.json',
                 SimpleNamespace(on_root=tool / 'files/lib/wine-cuda/zluda'))
             log = (directory / 'launcher.log').read_text()
-            for expected in ['PROTON_USE_WOW64=1', 'PROTON_ENABLE_ZLUDA=1']:
+            for expected in (['PROTON_USE_WOW64=1', 'PROTON_ENABLE_ZLUDA=1'] if PROFILE['base'] == 'ge' else ['ZLUDA enabled: CUDA-on-HIP translation active']):
                 if expected not in log:
                     raise ValueError('real 35140 protonfix did not run: ' + expected)
     return record
@@ -120,26 +122,28 @@ def admit_policy(directory, phase, tool, prefix):
         names, _, value = clause.partition('=')
         for name in names.split(','):
             overrides[name] = value
-    if overrides.get('nvcuda') != ('n,b' if phase == 'off-nvidia' else 'b'):
+    expected_override = ('n,b' if phase == 'off-nvidia' else 'b') if PROFILE['base'] == 'ge' else ('b' if on else None)
+    if (overrides.get('nvcuda') != expected_override and
+            not (PROFILE['base'] == 'valve' and not on and overrides.get('nvcuda') == 'b')):
         raise ValueError('real launcher CUDA override differs from GE/on policy')
     if ('ZLUDA_WINE_BACKEND_PATH' in env) != on:
         raise ValueError('backend leaked across launcher mode transition')
     warning = 'ZLUDA is active; skipping GE nvidia-libs nvcuda'
     log = (directory / 'launcher.log').read_text()
-    if log.count(warning) != (1 if phase == 'on-nvidia' else 0):
+    if log.count(warning) != (1 if phase == 'on-nvidia' and PROFILE['base'] == 'ge' else 0):
         raise ValueError('NVIDIA conflict warning count differs')
     files = {}
     for directory_name, arch in proton_zluda.ARCHES.items():
         path = prefix / 'drive_c/windows' / directory_name / 'nvcuda.dll'
         expected = (tool / 'files/lib/wine/nvidia-libs/nvcuda' / arch / 'nvcuda.dll.so'
-                    if phase == 'off-nvidia' and (directory_name == 'system32' or env.get('WINEARCH') != 'wow64')
+                    if PROFILE['base'] == 'ge' and phase == 'off-nvidia' and (directory_name == 'system32' or env.get('WINEARCH') != 'wow64')
                     else tool / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll')
         if not path.is_file() or sha256(path) != sha256(expected):
             raise ValueError('real launcher prefix differs from stock GE/on policy: ' + str(path))
         files[directory_name] = sha256(path)
     if (prefix.parent / 'zluda-cuda-roots-v1.json').exists():
         raise ValueError('launcher wrote obsolete migration marker')
-    return {'root': str(selected), 'nvcuda_override': overrides['nvcuda'], 'prefix_files': files,
+    return {'root': str(selected), 'nvcuda_override': overrides.get('nvcuda'), 'prefix_files': files,
             'warning_count': log.count(warning), 'file_override_only': phase == 'off-nvidia'}
 
 
@@ -149,6 +153,7 @@ def run(source, tool, fixtures, work):
     if work.exists() or not all(p.is_absolute() for p in [source, tool, fixtures, work]):
         raise ValueError('launcher gate requires absolute paths and fresh outputs')
     work.mkdir(parents=True)
+    phases = PHASES + (['helper'] if PROFILE['base'] == 'valve' else [])
     record = {'status': 'running', 'qualification': 'real Proton launcher CPU gate; runtime pending', 'profiles': {}}
     failure = None
     try:
@@ -163,7 +168,7 @@ def run(source, tool, fixtures, work):
         install_capture(disposable)
         for winearch, profile in wine_cpu.PROFILES.items():
             directory = work / winearch
-            for name in ['tmp', 'runtime', 'home', 'game', 'steam', 'compatdata', *PHASES]:
+            for name in ['tmp', 'runtime', 'home', 'game', 'steam', 'compatdata', *phases]:
                 (directory / name).mkdir(parents=True, mode=0o700)
             report = {'status': 'running', 'cases': [], 'prefix': str(directory / 'compatdata/pfx')}
             record['profiles'][winearch] = report
@@ -176,13 +181,14 @@ def run(source, tool, fixtures, work):
                 raise ValueError('disposable fixture backend copy differs')
             report['disposable_backend_sha256'] = sha256(backend)
             prefix = directory / 'compatdata/pfx'
+            if PROFILE['base'] == 'valve': prefix.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(fixtures / profile['probe'], directory / 'game' / profile['probe'])
             cleanup_env = None
             error = None
             try:
-                for phase in [*PHASES]:
-                    if phase.startswith('on'):
-                        # Avoid downloads/installers in the actual Asylum fix.
+                for phase in [*phases]:
+                    if phase.startswith('on') or PROFILE['base'] == 'valve':
+                        # CPU fixtures preseed prerequisites; no installer bytes.
                         (prefix / 'winetricks.log').write_text('d3dx9\nd3dcompiler_43\nphysx\n')
                     seeded = {}
                     if phase in ('off-a1', 'on-a1'):
@@ -191,12 +197,14 @@ def run(source, tool, fixtures, work):
                             path = prefix / 'drive_c/windows' / directory_name / 'nvcuda.dll'
                             path.unlink(missing_ok=True)
                             legacy = disposable / ('files/lib/wine/nvidia-libs/nvcuda/x86_64-windows/nvcuda.dll.so'
-                                                    if directory_name == 'system32' else
+                                                    if directory_name == 'system32' and PROFILE['base'] == 'ge' else
                                                     'files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll')
+                            if PROFILE['base'] == 'valve' and directory_name == 'system32':
+                                legacy = fixtures / 'libcuda.so.1'  # ELF64 layout stand-in, never executed.
                             shutil.copyfile(legacy, path)
                             seeded[directory_name] = sha256(path)
                             expected = disposable / 'files/lib/wine-cuda/stub' / arch / 'nvcuda.dll'
-                            if (seeded[directory_name] == proton_zluda.STUB_SHA256[arch] or
+                            if (seeded[directory_name] == (proton_zluda.STUB_SHA256 if PROFILE['base'] == 'ge' else PROFILE['stub_artifact']['sha256'])[arch] or
                                     seeded[directory_name] == sha256(expected)):
                                 raise ValueError('A1 seed already matches transition output: ' + directory_name)
                     local_decoy = directory / 'game/nvcuda.dll'
@@ -221,7 +229,7 @@ def run(source, tool, fixtures, work):
                     cleanup_env = wine_cpu.environment(disposable, directory, disposable / 'files/bin/wine',
                                                        disposable / 'files/bin/wineserver', winearch)
                     cleanup_env['WINEPREFIX'] = str(prefix)
-                    verb = 'waitforexitandrun' if winearch == 'wow64' and phase.startswith('on') else 'run'
+                    verb = 'runinprefix' if phase == 'helper' else 'waitforexitandrun' if winearch == 'wow64' and phase.startswith('on') else 'run'
                     # A Windows path takes Proton's normal non-Steam Wine entry,
                     # avoiding umu.exe / Steam itself, with the shipping script.
                     target = 'Z:' + str(directory / 'game' / profile['probe']).replace('/', '\\')
@@ -263,7 +271,7 @@ def run(source, tool, fixtures, work):
                 report['status'] = 'failed' if error else 'passed'
             if error:
                 raise error
-        if set(record['profiles']) != set(wine_cpu.PROFILES) or any(len(p['cases']) != len(PHASES) for p in record['profiles'].values()):
+        if set(record['profiles']) != set(wine_cpu.PROFILES) or any(len(p['cases']) != len(phases) for p in record['profiles'].values()):
             raise ValueError('real launcher requires both off/on/off profiles')
         record['qualification'] = 'CPU-Proton-PE64-and-PE32-WoW64-off-on-off-pass; GPU-W1-W2-pending'
     except BaseException as caught:

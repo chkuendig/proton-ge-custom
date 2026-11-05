@@ -3,6 +3,9 @@
 # GE ELF dependency/version checks and source preparation are retained.
 # Execute in the locked Steam Runtime SDK, never on the installation host.
 set -euo pipefail
+if [[ $ZLUDA_PACKAGING_PROFILE == valve-11-0 ]]; then
+    exec bash "$(dirname -- "$0")/build-valve.sh"
+fi
 export GIT_AUTHOR_NAME='Christian Kündig' GIT_COMMITTER_NAME='Christian Kündig'
 export GIT_AUTHOR_EMAIL=christian@kuendig.info GIT_COMMITTER_EMAIL=christian@kuendig.info
 : "${SOURCE_ROOT:?}" "${BUILD_ROOT:?}" "${DOWNLOAD_ROOT:?}" "${WINE_SDK_ROOT:?}"

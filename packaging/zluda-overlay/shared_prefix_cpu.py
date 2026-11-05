@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
 from test_prefix_isolation import BASE, functions
-from inputs import git
+from inputs import git, PROFILE, LOCK
 from wine_cpu import environment, command, cleanup_server
 
 
@@ -29,7 +29,7 @@ def main():
     env=environment(args.tool,work,wine,server)
     env.update(WINEDLLPATH=str(args.tool/'files/lib/wine-cuda/stub'),WINEDLLOVERRIDES='mscoree,mshtml=')
     fixed=functions((args.source/'proton').read_text())
-    baseline=git(args.source,'show',BASE+':proton');old=functions(baseline)
+    baseline=git(args.source,'show',(LOCK['proton_base'] if PROFILE['base'] == 'valve' else BASE)+':proton');old=functions(baseline)
     compat=SimpleNamespace(prefix_dir=str(prefix)+'/')
     a=work/'tool-A';b=work/'tool-B'
     records=[]
@@ -85,9 +85,13 @@ def main():
             cleanup=boot(arch+'-parent-unfixed')
             assert (foreign/module).read_bytes()==original
             (foreign/module).write_bytes(donor)
-            try:fixed['isolate_module_links'](compat,b)
-            except RuntimeError as e:assert 'linked Windows directory' in str(e)
-            else:raise AssertionError('linked parent was followed')
+            if PROFILE['base'] == 'valve':
+                # An unrelated linked system directory is skipped, not written.
+                fixed['isolate_module_links'](compat,b)
+            else:
+                try:fixed['isolate_module_links'](compat,b)
+                except RuntimeError as e:assert 'linked Windows directory' in str(e)
+                else:raise AssertionError('linked parent was followed')
             assert (foreign/module).read_bytes()==donor
             records.append(dict(direction='linked-parent',arch=arch,unfixed_changed=True,
                                 fixed_refused=True,cleanup=cleanup))
