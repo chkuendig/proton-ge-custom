@@ -347,3 +347,6 @@ the Wine prefix. Removing the option will revert to the previous behavior.
 | `noesync`             | `PROTON_NO_ESYNC`                  | **Note: Obsoleted in Proton 11.0.** In older versions, do not use eventfd-based in-process synchronization primitives. |
 
 <!-- Target:  GitHub Flavor Markdown.  To test locally:  pandoc -f markdown_github -t html README.md  -->
+
+ZLUDA complete builds and source offers use the [shared packaging executor](https://github.com/chkuendig/proton-ge-custom/tree/valve/executor-11.0-20261105) with the `valve-11-0` profile and `make/full-source.sh`; plain Proton make is an intermediate.
+The launcher defaults to private builtin copies (`PROTON_DLL_COPY=*`), which consume additional prefix disk space.

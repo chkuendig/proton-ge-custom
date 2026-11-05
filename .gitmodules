@@ -1,6 +1,6 @@
 [submodule "wine"]
 	path = wine
-	url = ../wine
+	url = https://github.com/ValveSoftware/wine.git
 [submodule "dxvk"]
 	path = dxvk
 	url = https://github.com/doitsujin/dxvk.git
@@ -75,3 +75,9 @@
 [submodule "libsoup"]
 	path = libsoup
 	url = https://github.com/GNOME/libsoup.git
+[submodule "zluda"]
+	path = zluda
+	url = https://github.com/chkuendig/ZLUDA.git
+[submodule "zluda-wine"]
+	path = zluda-wine
+	url = https://github.com/chkuendig/zluda-wine.git
