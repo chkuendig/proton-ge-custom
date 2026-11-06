@@ -151,7 +151,6 @@ def merge_user_dir(src, dst):
         else:
             extant_dirs += dst_dir
 
-
 def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, optional=False,
              follow_symlinks=True, track_file=None, link_debug=False):
     try:
@@ -251,7 +250,6 @@ def copy_file_range_ctypes(fd_in, fd_out, count):
         raise OSError(get_errno(), errno.errorcode.get(get_errno(), 'unknown'))
 
     return ret
-
 
 def copyfile_reflink(srcname, dstname):
     "Copy srcname to dstname, making reflink if possible"
@@ -1644,7 +1642,6 @@ TITLE_DEPENDENCIES = {
 PE32_TITLES = {'17410', '35140', '50130', '49520'}
 
 
-
 def game_setting():
     """Explicit settings take precedence over the AMD game default."""
     value = os.environ.get("PROTON_ENABLE_ZLUDA")
@@ -1672,9 +1669,9 @@ def early_title_policy(env, verb):
     appid = env.get('SteamAppId', env.get('SteamGameId', ''))
     if appid in TITLE_DEPENDENCIES:
         env.setdefault('PROTON_ENABLE_ZLUDA', game_setting())
-        if (env.get("PROTON_ENABLE_ZLUDA") == "1") and appid in PE32_TITLES:
+        if env.get("PROTON_ENABLE_ZLUDA") == "1" and appid in PE32_TITLES:
             env['PROTON_USE_WOW64'] = '1'
-    if (env.get("PROTON_ENABLE_ZLUDA") == "1"):
+    if env.get("PROTON_ENABLE_ZLUDA") == "1":
         env['PROTON_FORCE_NVAPI'] = '1'
         env['DXVK_NVAPI_ALLOW_OTHER_DRIVERS'] = '1'
         env['DXVK_ENABLE_NVAPI'] = '1'
@@ -1971,7 +1968,7 @@ class Session:
             if self.log_file is not None:
                 self.log_file.write(message + "\n")
                 self.log_file.flush()
-        if (env.get("PROTON_ENABLE_ZLUDA") == "1") and env.get("WINEARCH") != "wow64" and arguments:
+        if env.get("PROTON_ENABLE_ZLUDA") == "1" and env.get("WINEARCH") != "wow64" and arguments:
             try:
                 with open(arguments[0], "rb") as stream:
                     header = stream.read(64)
@@ -1982,7 +1979,7 @@ class Session:
                             warn("WARNING: ZLUDA cannot service a classic 32-bit game; PROTON_USE_WOW64=1 is required")
             except OSError:
                 warn("ZLUDA: executable architecture unknown; 32-bit CUDA requires PROTON_USE_WOW64=1")
-        if (env.get("PROTON_ENABLE_ZLUDA") == "1") and not bootstrap:
+        if env.get("PROTON_ENABLE_ZLUDA") == "1" and not bootstrap:
             lib = str(Path(g_proton.base_dir) / 'files/lib64')
             env[ld_path_var] = lib + '/wine/x86_64-unix:' + lib + ':' + env.get(ld_path_var, '')
             env['PROTON_FORCE_NVAPI'] = '1'

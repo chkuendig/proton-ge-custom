@@ -21,7 +21,6 @@ VALVE_STUB_SOURCES = {
 ARCHES = {"system32": "x86_64-windows", "syswow64": "i386-windows"}
 
 
-
 def stub_assets(tool):
     root = Path(tool) / "files/lib/wine-cuda"
     record = json.loads((root / "stubs.json").read_text())
