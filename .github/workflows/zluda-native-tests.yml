@@ -1,0 +1,77 @@
+name: Qualify native ZLUDA harness
+on:
+  push:
+    branches: ['valve/native-tests-20261106']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      SDK: registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9
+      GIT_LFS_SKIP_SMUDGE: '1'
+      CARGO_HOME: /work/cargo
+      CCACHE_DIR: /work/ccache
+    steps:
+      - name: Make room before checkout and SDK pull
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune --all --force
+          sudo mkdir -p /work
+          sudo chown "$USER:$USER" /work
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout pinned public components
+        run: |
+          git submodule update --init --recursive --depth=1 --filter=blob:none --jobs=3
+          git -C zluda lfs pull --include='llvm_zluda/src/device-libs/ockl.bc,ptx/lib/*.bc'
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            /work/ccache
+            /work/cargo/registry/cache
+            /work/cargo/registry/index
+          key: zluda-native-tests-${{ github.run_id }}
+          restore-keys: |
+            zluda-make-v1-${{ hashFiles('make/zluda-deps.json') }}-
+      - name: Pull SDK and check capacity
+        run: |
+          docker pull "$SDK"
+          df -h / /work
+          test "$(df --output=avail -B1 /work | tail -1)" -ge 51539607552
+      - name: Build native harness and run three CPU cases
+        run: |
+          set -euo pipefail
+          mkdir -p /work/build /work/cargo /work/ccache
+          docker run --rm --memory=10g --cpus=3 \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v /work:/work \
+            -w /work/build -e CARGO_HOME -e CCACHE_DIR -e SDK \
+            "$SDK" bash -euo pipefail -c '
+              git config --global --add safe.directory "*"
+              ccache --max-size=4G
+              # The native target supplies the harness prerequisites.
+              make -f "$1/Makefile.in" SRCDIR="$1" CONTAINER=1 SOURCE_DATE_EPOCH=1791559305 BASE_SOURCE_DATE_EPOCH=1791559305 -j3 zluda
+              python3 "$1/tests/zluda/native.py" "$1" /work/build
+              tar -czf /work/native-tests.tar.gz -C /work/build/native-tests .
+            ' bash "$GITHUB_WORKSPACE" 2>&1 | tee /work/native-tests.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-tests
+          path: /work/native-tests.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: native-tests-log
+          path: |
+            /work/native-tests.log
+            /work/build/native-tests/CPU.log
+            /work/build/native-tests/LOADER.log
+          retention-days: 14

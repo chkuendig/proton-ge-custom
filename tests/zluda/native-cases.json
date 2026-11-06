@@ -1,0 +1,49 @@
+{
+  "backend": "5220554de03a471de81a895e7b0dce3d10cf6f1c",
+  "modules": {
+    "tex": [
+      "r#impl::tex::tests::texref_formats_channels_dimensions_zluda",
+      "r#impl::tex::tests::texref_s32coord_formats_channels_dimensions_zluda",
+      "r#impl::tex::tests::texobj_formats_channels_dimensions_zluda",
+      "r#impl::tex::tests::texobj_s32coord_formats_channels_dimensions_zluda",
+      "r#impl::tex::tests::surfref_formats_channels_dimensions_zluda",
+      "r#impl::tex::tests::surfobj_formats_channels_dimensions_zluda",
+      "r#impl::tex::tests::texref_half4_array_reads_across_rebinds_zluda",
+      "r#impl::tex::tests::legacy_linear_repeated_and_changed_state_zluda",
+      "r#impl::tex::tests::legacy_linear_recovers_after_failed_rebuild_zluda",
+      "r#impl::tex::tests::legacy_texref_rebind_and_array_flags_zluda",
+      "r#impl::tex::tests::legacy_texref_in_flight_null_stream_zluda",
+      "r#impl::tex::tests::legacy_texref_in_flight_legacy_stream_zluda",
+      "r#impl::tex::tests::legacy_texref_in_flight_per_thread_stream_zluda",
+      "r#impl::tex::tests::legacy_texref_in_flight_blocking_stream_zluda",
+      "r#impl::tex::tests::legacy_texref_in_flight_non_blocking_stream_zluda",
+      "r#impl::tex::tests::legacy_texref_cached_destroyed_stream_zluda",
+      "r#impl::tex::tests::legacy_texref_unload_with_cached_states_zluda",
+      "r#impl::tex::tests::legacy_texref_deferred_free_pending_zluda",
+      "r#impl::tex::tests::legacy_texref_reclaim_batches_launch_order_zluda",
+      "r#impl::tex::tests::legacy_texref_bound_array_survives_other_destroy_zluda"
+    ],
+    "driver": [
+      "r#impl::driver::tests::init_zluda",
+      "r#impl::driver::tests::primary_context_is_inactive_on_init_zluda",
+      "r#impl::driver::tests::cudart_interface_fn2_creates_inactive_primary_ctx_zluda",
+      "r#impl::driver::tests::primary_ctx_runtime_flags_and_ownership_zluda",
+      "r#impl::driver::tests::primary_ctx_runtime_reset_preserves_context_and_retain_zluda",
+      "r#impl::driver::tests::primary_ctx_set_flags_zluda"
+    ],
+    "context": [
+      "r#impl::context::tests::destroy_current_context_restores_previous_zluda",
+      "r#impl::context::tests::destroy_primary_context_is_invalid_zluda",
+      "r#impl::context::tests::empty_pop_fails_zluda",
+      "r#impl::context::tests::pop_into_null_succeeds_zluda",
+      "r#impl::context::tests::set_cache_config_accepts_known_values_zluda",
+      "r#impl::context::tests::set_cache_config_rejects_unknown_value_zluda",
+      "r#impl::context::tests::set_cache_config_requires_current_context_zluda"
+    ]
+  },
+  "total_gpu_cases": 33,
+  "known_gaps": [
+    "No native tex/driver test calls launch_graph or injects a failed graph launch.",
+    "No retained tex/driver case directly isolates cuCtxSynchronize with an empty registry."
+  ]
+}
