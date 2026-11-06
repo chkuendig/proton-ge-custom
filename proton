@@ -39,7 +39,6 @@ from ctypes import c_ssize_t
 from filelock import FileLock
 from random import randrange
 from pathlib import Path
-import proton_zluda
 
 #To enable debug logging, copy "user_settings.sample.py" to "user_settings.py"
 #and edit it if needed.
@@ -152,34 +151,6 @@ def merge_user_dir(src, dst):
         else:
             extant_dirs += dst_dir
 
-def atomic_copy(src, dst, follow_symlinks=True, copy_metadata=None, add_write_perm=False,
-                preserve_dst_mode=False):
-    # Create beside the destination so replace is atomic and never opens dst.
-    temporary = str(dst) + "." + uuid.uuid4().hex + ".tmp"
-    created = False
-    try:
-        dst_mode = stat.S_IMODE(os.stat(dst).st_mode) if preserve_dst_mode and os.path.exists(dst) else None
-        if not follow_symlinks and os.path.islink(src):
-            os.symlink(os.readlink(src), temporary)
-            created = True
-        else:
-            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o666)
-            created = True
-            with os.fdopen(fd, 'wb', buffering=0) as output, open(src, 'rb', buffering=0) as source:
-                if dst_mode is not None:
-                    os.fchmod(output.fileno(), dst_mode)
-                copyfile_fds(source, output)
-        if copy_metadata is True:
-            shutil.copystat(src, temporary, follow_symlinks=follow_symlinks)
-        elif copy_metadata is False:
-            shutil.copymode(src, temporary, follow_symlinks=follow_symlinks)
-        if add_write_perm:
-            new_mode = os.lstat(temporary).st_mode | stat.S_IWUSR | stat.S_IWGRP
-            os.chmod(temporary, new_mode)
-        os.replace(temporary, dst)
-    finally:
-        if created and os.path.lexists(temporary):
-            os.unlink(temporary)
 
 def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, optional=False,
              follow_symlinks=True, track_file=None, link_debug=False):
@@ -190,11 +161,24 @@ def try_copy(src, dst, prefix=None, add_write_perm=True, copy_metadata=False, op
         if os.path.isdir(dst):
             dst = os.path.join(dst, os.path.basename(src))
 
-        if not file_exists(dst, follow_symlinks=False) and track_file and prefix is not None:
+        if file_exists(dst, follow_symlinks=False):
+            os.remove(dst)
+        elif track_file and prefix is not None:
             track_file.write(os.path.relpath(dst, prefix) + '\n')
 
-        atomic_copy(src, dst, follow_symlinks=follow_symlinks,
-                    copy_metadata=copy_metadata, add_write_perm=add_write_perm)
+        if os.path.islink(src) and not follow_symlinks:
+            shutil.copyfile(src, dst, follow_symlinks=False)
+        else:
+            copyfile(src, dst)
+
+        if copy_metadata:
+            shutil.copystat(src, dst, follow_symlinks=follow_symlinks)
+        else:
+            shutil.copymode(src, dst, follow_symlinks=follow_symlinks)
+
+        if add_write_perm:
+            new_mode = os.lstat(dst).st_mode | stat.S_IWUSR | stat.S_IWGRP
+            os.chmod(dst, new_mode)
 
         if not file_exists(src + '.debug', follow_symlinks=True):
             link_debug = False
@@ -268,34 +252,6 @@ def copy_file_range_ctypes(fd_in, fd_out, count):
 
     return ret
 
-def copyfile_fds(src, dst):
-    # Keep the reflink fast path while writing only to the exclusive temp fd.
-    global copyfile
-    if copyfile is copyfile_reflink:
-        try:
-            remaining = os.fstat(src.fileno()).st_size
-            while remaining:
-                count = copy_file_range(src.fileno(), dst.fileno(), remaining)
-                if not count:
-                    raise OSError(errno.EINVAL, "short copy_file_range")
-                remaining -= count
-            return
-        except OSError as e:
-            if e.errno not in (errno.EXDEV, errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
-                raise
-            if e.errno in (errno.ENOSYS, errno.EOPNOTSUPP):
-                copyfile = shutil.copyfile
-            src.seek(0)
-            dst.seek(0)
-            dst.truncate()
-    # shutil.copyfile uses sendfile before falling back to copyfileobj on Linux.
-    if getattr(shutil, '_USE_CP_SENDFILE', False):
-        try:
-            shutil._fastcopy_sendfile(src, dst)
-            return
-        except shutil._GiveupOnFastCopy:
-            pass
-    shutil.copyfileobj(src, dst)
 
 def copyfile_reflink(srcname, dstname):
     "Copy srcname to dstname, making reflink if possible"
@@ -326,7 +282,9 @@ def try_copyfile(src, dst):
     try:
         if os.path.isdir(dst):
             dst = dst + "/" + os.path.basename(src)
-        atomic_copy(src, dst)
+        if file_exists(dst, follow_symlinks=False):
+            os.remove(dst)
+        copyfile(src, dst)
     except PermissionError as e:
         if e.errno == errno.EPERM:
             #be forgiving about permissions errors; if it's a real problem, things will explode later anyway
@@ -595,6 +553,80 @@ def get_replace_reg_value(file, key, name, new_value=None):
             pass
 
     return old_value
+
+ARCHES = {"system32": "x86_64-windows", "syswow64": "i386-windows"}
+
+
+def dll_override(value, module, mode):
+    clauses = []
+    for clause in value.split(";"):
+        names, separator, setting = clause.partition("=")
+        keep = [name for name in names.split(",")
+                if name.strip().lower().lstrip("*").removesuffix(".dll") != module]
+        if keep and clause:
+            clauses.append(",".join(keep) + separator + setting)
+    return ";".join([*clauses, module + "=" + mode])
+
+
+def select_root(env, tool, bootstrap=False, ld_path_var="LD_LIBRARY_PATH", log=None):
+    """Select one immutable module namespace for the next Wine process."""
+    tool = Path(tool).resolve()
+    root = tool / "files/lib/wine-cuda"
+    on = env.get("PROTON_ENABLE_ZLUDA") == "1" and not bootstrap
+    selected = root / ("zluda" if on else "stub")
+    if on:
+        for relative in ["x86_64-windows/nvcuda.dll", "i386-windows/nvcuda.dll", "x86_64-unix/nvcuda.so"]:
+            if not (selected / relative).is_file():
+                raise ValueError("incomplete ZLUDA Wine module root: " + str(selected / relative))
+        backend = tool / "files/lib64/libcuda.so.1"
+        if not backend.is_file():
+            if log is not None:
+                log("ZLUDA unavailable: missing bundled backend; continuing with ZLUDA off")
+            env["PROTON_ENABLE_ZLUDA"] = "0"
+            on = False
+            selected = root / "stub"
+        else:
+            env["ZLUDA_WINE_BACKEND_PATH"] = str(backend)
+    if not on:
+        env.pop("ZLUDA_WINE_BACKEND_PATH", None)
+    paths = []
+    for entry in env.get("WINEDLLPATH", "").split(":"):
+        if not entry:
+            continue
+        candidate = Path(entry)
+        if any(path.parts[-2:] in (("wine-cuda", "stub"), ("wine-cuda", "zluda"))
+               for path in (candidate, candidate.resolve())):
+            continue
+        paths.append(entry)
+    env["WINEDLLPATH"] = ":".join([str(selected), *paths])
+    if on:
+        env["WINEDLLOVERRIDES"] = dll_override(env.get("WINEDLLOVERRIDES", ""), "nvcuda", "b")
+    # Children can inherit an enabled parent's LD paths. Bootstrap and off must
+    # not retain them; the final enabled hook adds them in the established order.
+    owned = {tool / "files/lib64", tool / "files/lib64/wine/x86_64-unix",
+             tool / "files/lib/wine/x86_64-unix"}
+    owned = owned | {path.resolve() for path in owned}
+    if ld_path_var in env:
+        env[ld_path_var] = ":".join(entry for entry in env[ld_path_var].split(":")
+                                  if entry and Path(entry) not in owned and Path(entry).resolve() not in owned)
+    return selected
+
+
+def materialize_default_prefix(tool, prefix):
+    """Keep private template stubs without rewriting unchanged files."""
+    root = Path(tool) / 'files/lib/wine-cuda/stub'
+    prefix = Path(prefix).resolve()
+    for directory, arch in ARCHES.items():
+        path = prefix / 'drive_c/windows' / directory / 'nvcuda.dll'
+        source = root / arch / 'nvcuda.dll'
+        if not path.parent.resolve().is_relative_to(prefix):
+            raise ValueError('default prefix CUDA parent leaves template')
+        if (not path.is_symlink() and path.is_file() and path.stat().st_nlink == 1
+                and filecmp.cmp(source, path, shallow=False)):
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try_copy(str(source), str(path), add_write_perm=False)
+        path.chmod(0o644)
 
 class Proton:
     def __init__(self, base_dir):
@@ -946,7 +978,22 @@ class CompatData:
                 if not path.exists():
                     path.unlink()  # Only the broken prefix entry, never its target.
                     continue
-                atomic_copy(str(path), str(path))
+                # Keep hardlink sources open after removing the prefix entry.
+                with path.resolve().open('rb') as source:
+                    path.unlink()
+                    with path.open('wb') as destination:
+                        shutil.copyfileobj(source, destination)
+
+    def prepare_cuda_prefix(self):
+        env = dict(g_session.env)
+        select_root(env, g_proton.base_dir, log=log)
+        g_session.env['PROTON_ENABLE_ZLUDA'] = env.get('PROTON_ENABLE_ZLUDA', '0')
+        for directory in ARCHES:
+            path = Path(self.prefix_dir) / 'drive_c/windows' / directory / 'nvcuda.dll'
+            source = Path(g_proton.default_pfx_dir) / 'drive_c/windows' / directory / 'nvcuda.dll'
+            try_copy(str(source), str(path), add_write_perm=False)
+            path.chmod(0o644)
+            path.with_suffix('.dll.debug').unlink(missing_ok=True)
 
     def copy_pfx(self):
         with open(self.tracked_files_file, "w") as tracked_files:
@@ -1225,7 +1272,7 @@ class CompatData:
                         if not os.path.exists(srcvdf):
                             continue
                         os.makedirs(os.path.dirname(dstvdf), exist_ok=True)
-                        atomic_copy(srcvdf, dstvdf, preserve_dst_mode=True)
+                        shutil.copyfile(srcvdf, dstvdf)
 
                 #copy openvr files into place
                 makedirs(self.prefix_dir + "/drive_c/vrclient/bin")
@@ -1298,7 +1345,7 @@ class CompatData:
                     try_copy(g_proton.arch_pe_dir("wine/icu", True) + f + ".dll", "drive_c/windows/syswow64",
                             prefix=self.prefix_dir, track_file=tracked_files)
 
-                proton_zluda.prepare_cuda_prefix(g_session, g_proton, self, log=log)
+                self.prepare_cuda_prefix()
 
                 # If the user requested the NVAPI be available, copy it into place.
                 # If they didn't, clean up any stray nvapi DLLs.
@@ -1587,6 +1634,79 @@ fex_application_profiles = {
     }
 }
 
+TITLE_DEPENDENCIES = {
+    '17410': ('d3dx9', 'd3dcompiler_43', 'physx'),
+    '208650': ('physx',),
+    '35140': ('d3dx9', 'd3dcompiler_43', 'physx'),
+    '50130': ('d3dx9',),
+    '49520': ('physx',),
+}
+PE32_TITLES = {'17410', '35140', '50130', '49520'}
+
+
+
+def game_setting():
+    """Explicit settings take precedence over the AMD game default."""
+    value = os.environ.get("PROTON_ENABLE_ZLUDA")
+    if value is None:
+        try:
+            import user_settings
+            value = user_settings.user_settings.get("PROTON_ENABLE_ZLUDA")
+        except Exception:
+            pass
+    if value is not None:
+        return str(value)
+    try:
+        vendors = {int((device / "vendor").read_text(), 16)
+                   for device in Path("/sys/bus/pci/devices").iterdir()
+                   if int((device / "class").read_text(), 16) >> 16 == 0x03}
+        return "1" if 0x1002 in vendors and 0x10de not in vendors else "0"
+    except (OSError, ValueError):
+        return "0"
+
+
+def early_title_policy(env, verb):
+    """Apply settings before Session captures environment and selects WINEARCH."""
+    if verb not in ('run', 'waitforexitandrun'):
+        return
+    appid = env.get('SteamAppId', env.get('SteamGameId', ''))
+    if appid in TITLE_DEPENDENCIES:
+        env.setdefault('PROTON_ENABLE_ZLUDA', game_setting())
+        if (env.get("PROTON_ENABLE_ZLUDA") == "1") and appid in PE32_TITLES:
+            env['PROTON_USE_WOW64'] = '1'
+    if (env.get("PROTON_ENABLE_ZLUDA") == "1"):
+        env['PROTON_FORCE_NVAPI'] = '1'
+        env['DXVK_NVAPI_ALLOW_OTHER_DRIVERS'] = '1'
+        env['DXVK_ENABLE_NVAPI'] = '1'
+    if appid == '49520':
+        env['PROTON_NO_ESYNC'] = '1'
+
+
+def configure_device(env):
+    if env.get("PROTON_ENABLE_ZLUDA") != "1" or 'HSA_OVERRIDE_GFX_VERSION' in env:
+        return
+    try:
+        dmi = Path('/sys/class/dmi/id')
+        vendor, product, board = [(dmi / name).read_text().strip()
+                                  for name in ('sys_vendor', 'product_name', 'board_name')]
+        if vendor != 'Valve' or not any(model in ('Jupiter', 'Galileo') for model in (product, board)):
+            return
+        targets = []
+        for node in Path('/sys/class/kfd/kfd/topology/nodes').iterdir():
+            values = [line.split() for line in (node / 'properties').read_text().splitlines()
+                      if line.split() and line.split()[0] == 'gfx_target_version']
+            if len(values) != 1 or len(values[0]) != 2:
+                return
+            value = values[0][1]
+            if not value.isascii() or not value.removeprefix('+').isdecimal() or int(value) > 0xffffffff:
+                return
+            if int(value):
+                targets.append(int(value))
+        if targets == [100303]:
+            env['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'
+    except (OSError, ValueError, IndexError):
+        pass
+
 class Session:
     def __init__(self):
         self.log_file = None
@@ -1799,6 +1919,77 @@ class Session:
                 pass
 
         return app_config
+
+    def prepare_zluda_title(self, argv):
+        """Run local prerequisites with stock CUDA stubs after prefix setup."""
+        if argv[1] not in ('run', 'waitforexitandrun'):
+            return
+        appid = self.env.get('SteamAppId', self.env.get('SteamGameId', ''))
+        verbs = TITLE_DEPENDENCIES.get(appid, ())
+        if not verbs:
+            return
+        env = dict(self.env)
+        select_root(env, g_proton.base_dir, bootstrap=True, ld_path_var=ld_path_var)
+        env.update(WINEPREFIX=g_compatdata.prefix_dir, WINE=g_proton.wine_bin,
+                   WINELOADER=g_proton.wine_bin, WINESERVER=g_proton.wineserver_bin,
+                   WINETRICKS_LATEST_VERSION_CHECK='disabled', LD_PRELOAD='')
+        installed = Path(g_compatdata.prefix_dir) / 'winetricks.log'
+        with g_compatdata.prefix_lock:
+            for dependency in verbs:
+                if installed.is_file() and dependency in installed.read_text().splitlines():
+                    continue
+                subprocess.run([g_proton.wineserver_bin, '-w'], env=env, check=True)
+                script = str(Path(g_proton.base_dir) / 'files/bin/winetricks')
+                subprocess.run(['bash', script, '--unattended', dependency], env=env, check=True)
+                subprocess.run([g_proton.wineserver_bin, '-w'], env=env, check=True)
+                argv[1] = 'waitforexitandrun'
+        if appid == '17410':
+            binaries = Path(self.env['STEAM_COMPAT_INSTALL_PATH']) / 'Binaries'
+            for name in ('PhysXCore.dll', 'PhysXDevice.dll', 'PhysXLocal'):
+                bundled, moved = binaries / name, binaries / (name + '.bak')
+                if not bundled.exists():
+                    continue
+                if moved.is_dir():
+                    shutil.rmtree(moved)
+                elif moved.exists():
+                    moved.unlink()
+                bundled.rename(moved)
+                log('Moved bundled ' + name + ' aside for the system PhysX runtime')
+        if appid == '49520' and len(argv) > 2:
+            argv[2] = argv[2].replace('Launcher.exe', 'Borderlands2.exe')
+            if '-NoSplash' not in argv[3:]:
+                argv.append('-NoSplash')
+
+    def configure_zluda(self, arguments, bootstrap=False):
+        """Final game selection; helper launches retain the stock stub namespace."""
+        if g_proton.host_pe_arch == "aarch64-windows":
+            return
+        env = self.env
+        select_root(env, g_proton.base_dir, bootstrap=bootstrap, ld_path_var=ld_path_var, log=log)
+        def warn(message):
+            log(message)
+            if self.log_file is not None:
+                self.log_file.write(message + "\n")
+                self.log_file.flush()
+        if (env.get("PROTON_ENABLE_ZLUDA") == "1") and env.get("WINEARCH") != "wow64" and arguments:
+            try:
+                with open(arguments[0], "rb") as stream:
+                    header = stream.read(64)
+                    if header[:2] == b"MZ":
+                        stream.seek(int.from_bytes(header[60:64], "little"))
+                        pe = stream.read(6)
+                        if pe == b"PE\0\0\x4c\x01":
+                            warn("WARNING: ZLUDA cannot service a classic 32-bit game; PROTON_USE_WOW64=1 is required")
+            except OSError:
+                warn("ZLUDA: executable architecture unknown; 32-bit CUDA requires PROTON_USE_WOW64=1")
+        if (env.get("PROTON_ENABLE_ZLUDA") == "1") and not bootstrap:
+            lib = str(Path(g_proton.base_dir) / 'files/lib64')
+            env[ld_path_var] = lib + '/wine/x86_64-unix:' + lib + ':' + env.get(ld_path_var, '')
+            env['PROTON_FORCE_NVAPI'] = '1'
+            env['DXVK_NVAPI_ALLOW_OTHER_DRIVERS'] = '1'
+            env['DXVK_ENABLE_NVAPI'] = '1'
+            configure_device(env)
+            log('ZLUDA enabled: CUDA-on-HIP translation active')
 
     def init_session(self, update_prefix_files):
         self.env["WINEPREFIX"] = g_compatdata.prefix_dir
@@ -2220,7 +2411,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     os.environ.setdefault("PROTON_DLL_COPY", "*")
-    proton_zluda.early_title_policy(os.environ, sys.argv[1])
+    early_title_policy(os.environ, sys.argv[1])
 
     g_proton = Proton(os.path.dirname(sys.argv[0]))
 
@@ -2237,12 +2428,18 @@ if __name__ == "__main__":
         if g_compatdata.isolate_module_links(g_proton.base_dir) is False:
             sys.exit(1)
 
-    proton_zluda.bootstrap(g_session, g_proton, ld_path_var)
+    if g_proton.host_pe_arch != "aarch64-windows":
+        select_root(g_session.env, g_proton.base_dir, bootstrap=True, ld_path_var=ld_path_var)
+    if g_proton.missing_default_prefix():
+        g_proton.make_default_prefix()
+    if g_proton.host_pe_arch != "aarch64-windows":
+        with g_proton.dist_lock:
+            materialize_default_prefix(g_proton.base_dir, g_proton.default_pfx_dir)
 
     g_session.init_session(sys.argv[1] != "runinprefix")
 
-    proton_zluda.late_title_policy(g_session, g_proton, g_compatdata, sys.argv, ld_path_var, log)
-    proton_zluda.configure_launch(g_session, g_proton, sys.argv[2:], ld_path_var, log, bootstrap=sys.argv[1] not in ("run", "waitforexitandrun"))
+    g_session.prepare_zluda_title(sys.argv)
+    g_session.configure_zluda(sys.argv[2:], bootstrap=sys.argv[1] not in ("run", "waitforexitandrun"))
 
     #determine mode
     rc = 0

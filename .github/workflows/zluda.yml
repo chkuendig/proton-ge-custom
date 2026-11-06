@@ -34,7 +34,7 @@ jobs:
         run: |
           git submodule update --init --recursive --depth=1 --filter=blob:none --jobs=3
           git -C zluda lfs pull --include='llvm_zluda/src/device-libs/ockl.bc,ptx/lib/*.bc'
-          python3 -m compileall -q make/zluda.py make/zluda-wine-sdk.py tests/zluda
+          python3 -m compileall -q make/zluda.py make/zluda-wine-sdk.py tests/zluda proton default_pfx.py
           bash -n make/zluda-build.sh
           python3 tests/zluda/test_policy.py
           python3 tests/zluda/test_patches.py

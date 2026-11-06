@@ -12,6 +12,44 @@ HERE = Path(__file__).resolve().parent
 LOCK = json.loads((HERE / 'zluda-deps.json').read_text())
 
 
+VALVE_PROTON_PIN = "bc896217ffcd67f892f952b010f898fe7bd0f0a1"
+VALVE_WINE_PIN = "e60892cc2398b0a83c332a2078c7b85e47bdb42b"
+VALVE_STUB_SOURCES = {
+    'dlls/nvcuda/Makefile.in': 'db27ef0db05a37f60694f41a9958959e776b6c54ca67b3449cca17f9e97f46ae',
+    'dlls/nvcuda/nvcuda.spec': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+}
+ARCHES = {"system32": "x86_64-windows", "syswow64": "i386-windows"}
+
+
+
+def stub_assets(tool):
+    root = Path(tool) / "files/lib/wine-cuda"
+    record = json.loads((root / "stubs.json").read_text())
+    if record.get('proton_pin') != VALVE_PROTON_PIN or record.get('wine_pin') != VALVE_WINE_PIN:
+        raise ValueError('CUDA stubs do not identify the pinned Valve build')
+    if record.get('source_sha256') != VALVE_STUB_SOURCES:
+        raise ValueError('CUDA stubs do not identify the unmodified Valve sources')
+    hashes = record.get('sha256', {})
+    if not isinstance(hashes, dict) or set(hashes) != set(ARCHES.values()) or any(
+            not isinstance(value, str) or len(value) != 64 or set(value) - set('0123456789abcdef')
+            for value in hashes.values()):
+        raise ValueError('CUDA stub build hashes are incomplete')
+    for arch in ARCHES.values():
+        path = root / "stub" / arch / "nvcuda.dll"
+        if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"][arch]:
+            raise ValueError("CUDA stub hash/regular-file check failed: " + str(path))
+    return root, record
+
+
+def validate_default_prefix(tool, prefix):
+    """Canonical stubs cannot coexist with per-launch roots; template copies can."""
+    root, record = stub_assets(tool)
+    for directory, arch in ARCHES.items():
+        path = Path(prefix) / "drive_c/windows" / directory / "nvcuda.dll"
+        if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != record["sha256"][arch]:
+            raise ValueError("default_pfx must contain regular Valve CUDA stubs: " + str(path))
+
+
 def sha(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -95,13 +133,12 @@ def stub_sources(source, expected):
 
 
 def bridge(build, tool, source, wine_source, wine_build):
-    sys.path.insert(0, str(HERE.parent))
-    import proton_zluda as policy
+    (tool / 'proton_zluda.py').unlink(missing_ok=True)
     cuda = tool / 'files/lib/wine-cuda'
-    sources = stub_sources(wine_source, policy.VALVE_STUB_SOURCES)
+    sources = stub_sources(wine_source, VALVE_STUB_SOURCES)
     hashes = {}
     with tempfile.TemporaryDirectory(prefix='stock-stubs-', dir=build) as temporary:
-        for arch in policy.ARCHES.values():
+        for arch in ARCHES.values():
             original = tool / 'files/lib/wine' / arch / 'nvcuda.dll'
             own = wine_build / ('dst-wine-' + arch.split('-')[0]) / 'lib/wine' / arch / 'nvcuda.dll'
             if own.is_symlink() or not own.is_file():
@@ -113,10 +150,11 @@ def bridge(build, tool, source, wine_source, wine_build):
             if original.is_symlink() or (original.exists() and (not original.is_file() or sha(original) != hashes[arch])):
                 raise ValueError('installed CUDA stub differs from this build\'s Wine output: ' + arch)
             copy(expected, cuda / 'stub' / arch / 'nvcuda.dll')
-    record = dict(proton_pin=policy.VALVE_PROTON_PIN, wine_pin=policy.VALVE_WINE_PIN,
+    record = dict(proton_pin=VALVE_PROTON_PIN, wine_pin=VALVE_WINE_PIN,
                   source_sha256=sources, sha256=hashes)
     print('Stock stub source/build receipt: ' + json.dumps(record), flush=True)
     (cuda / 'stubs.json').write_text(json.dumps(record, indent=2) + '\n')
+    stub_assets(tool)
     artifacts = build / 'artifacts'
     subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=artifacts, check=True)
     for arch, name in [('x86_64-windows', 'nvcuda.dll'), ('i386-windows', 'nvcuda.dll'), ('x86_64-unix', 'nvcuda.so')]:

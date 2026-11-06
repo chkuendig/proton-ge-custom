@@ -9,11 +9,12 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 tool, obj = [Path(arg).resolve() for arg in sys.argv[1:]]
-sys.path.insert(0, str(tool))
-import proton_zluda as policy
+assert not (tool / 'proton_zluda.py').exists()
+sys.path.insert(0, str(HERE.parents[1] / "make"))
+import zluda as checks
 
-cuda, record = policy.stub_assets(tool)
-policy.validate_default_prefix(tool, tool / 'files/share/default_pfx')
+cuda, record = checks.stub_assets(tool)
+checks.validate_default_prefix(tool, tool / 'files/share/default_pfx')
 for path in (tool / 'files/lib/wine').rglob('*'):
     assert path.name.lower() not in {'nvcuda.dll', 'nvcuda.so', 'nvcuda.dll.so', 'libcuda.so', 'libcuda.so.1'}, path
 # Valve intentionally leaves its Steam-provided FFmpeg unbundled. Use the

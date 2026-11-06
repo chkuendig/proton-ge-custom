@@ -16,8 +16,8 @@ with tempfile.TemporaryDirectory(prefix='zluda-launcher-', dir=obj) as temporary
     root = Path(temporary)
     private = root / 'tool'
     subprocess.run(['cp', '--reflink=auto', '-a', str(tool), str(private)], check=True)
-    sys.path.insert(0, str(private))
-    import proton_zluda as policy
+    sys.path.insert(0, str(HERE.parents[1] / "make"))
+    import zluda as checks
     component = HERE.parents[1] / 'zluda-wine/wine/zluda_wine'
     rows = [line.split('\t') for line in (component / 'api/wow64-backend-abi.tsv').read_text().splitlines() if line and not line.startswith('#')]
     (root / 'wow64-native-contract.h').write_text(''.join(f'int {name}({args});\n' for name, args in rows))
@@ -89,13 +89,13 @@ os.execv(str(path.with_name('wine-preloader-uncaptured')), argv)
     assert active['ZLUDA_WINE_BACKEND_PATH'] == str(backend), record
     assert active['LD_LIBRARY_PATH'].split(':')[:2] == [str(private / 'files/lib64/wine/x86_64-unix'), str(private / 'files/lib64')], record
     assert 'nvcuda=b' in active['WINEDLLOVERRIDES'].split(';'), record
-    policy.validate_default_prefix(private, root / 'compatdata/pfx')
-    for directory in policy.ARCHES:
+    checks.validate_default_prefix(private, root / 'compatdata/pfx')
+    for directory in checks.ARCHES:
         stub = root / 'compatdata/pfx/drive_c/windows' / directory / 'nvcuda.dll'
         assert stub.stat().st_ino != (private / 'files/share/default_pfx/drive_c/windows' / directory / 'nvcuda.dll').stat().st_ino
     assert 'PASS: PE64 on CUDA module' in log.read_text(), log
     record.update(status='passed', preloader_sha256=original_sha,
-                  installed_policy=str(private / 'proton_zluda.py'), verb='waitforexitandrun')
+                  installed_policy=str(private / 'proton'), verb='waitforexitandrun')
     receipt.write_text(json.dumps(record, indent=2) + '\n')
 assert not list(tool.rglob('__pycache__')), 'Python bytecode cache in the redistributable'
 print('PASS: installed Proton Session, prefix setup, ZLUDA selection and recorded preloader replay')

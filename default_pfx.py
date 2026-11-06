@@ -7,6 +7,7 @@
 import os
 import subprocess
 import re
+import shutil
 from pathlib import Path
 
 def file_is_wine_builtin_dll(path):
@@ -130,10 +131,11 @@ def make_default_pfx(default_pfx_dir, dist_dir, arm64):
     local_env["WINEPREFIX"] = default_pfx_dir
     local_env["WINEDEBUG"] = "-all"
     local_env["WINEDLLPATH"] = libdir + "vkd3d"
-    cuda_roots = not arm64 and (Path(dist_dir) / 'lib/wine-cuda/stubs.json').is_file()
+    cuda = Path(dist_dir).resolve() / 'lib/wine-cuda'
+    cuda_roots = not arm64 and (cuda / 'stubs.json').is_file()
     if cuda_roots:
-        from proton_zluda import select_root
-        select_root(local_env, Path(dist_dir).resolve().parent, bootstrap=True)
+        local_env['WINEDLLPATH'] = str(cuda / 'stub') + ':' + local_env['WINEDLLPATH']
+        local_env.pop('ZLUDA_WINE_BACKEND_PATH', None)
     runtime_args = []
 
 
@@ -146,8 +148,12 @@ def make_default_pfx(default_pfx_dir, dist_dir, arm64):
     setup_dll_symlinks(default_pfx_dir, dist_dir, arm64)
     if cuda_roots:
         # Wineboot can create module links; templates always ship regular stubs.
-        from proton_zluda import materialize_default_prefix
-        materialize_default_prefix(Path(dist_dir).resolve().parent, default_pfx_dir)
+        for directory, arch in [('system32', 'x86_64-windows'), ('syswow64', 'i386-windows')]:
+            path = Path(default_pfx_dir) / 'drive_c/windows' / directory / 'nvcuda.dll'
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.unlink(missing_ok=True)
+            shutil.copyfile(cuda / 'stub' / arch / 'nvcuda.dll', path)
+            path.chmod(0o644)
     fixup_drive_links(default_pfx_dir)
 
     filter_registry(os.path.join(default_pfx_dir, 'user.reg'))

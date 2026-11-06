@@ -49,7 +49,7 @@ $(OBJ)/.zluda-wine-build: $(SRC)/make/zluda-wine-sdk.py $(SRC)/make/zluda-wine-a
 
 # Install only after Wine has copied both architectures into the distribution.
 $(OBJ)/.zluda-wine-dist: $(OBJ)/.zluda-wine-build $(OBJ)/.wine-x86_64-dist $(OBJ)/.wine-i386-dist
-$(OBJ)/.zluda-wine-dist: $(SRC)/make/zluda.py $(SRC)/proton_zluda.py
+$(OBJ)/.zluda-wine-dist: $(SRC)/make/zluda.py $(SRC)/proton
 	python3 "$(SRC)/make/zluda.py" bridge "$(ZLUDA_WINE_BUILD)" "$(DST_BASE)" "$(ZLUDA_WINE_ORIGIN)" "$(WINE_SRC)" "$(OBJ)"
 	touch $@
 
