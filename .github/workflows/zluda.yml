@@ -110,4 +110,5 @@ jobs:
             /work/build.log
             /work/launcher-smoke.log
             /work/build/launcher-smoke.json
+            /work/build/obj-zluda-wine/artifacts/SHA256SUMS
           retention-days: 14
