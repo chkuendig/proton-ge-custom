@@ -1,0 +1,37 @@
+name: Inspect stock Wine stub reproducibility
+on:
+  push:
+    branches: ['valve/stub-reference-20261106']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Make room
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune --all --force
+          sudo mkdir -p /work
+          sudo chown "$USER:$USER" /work
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Compare unmodified source in two build layouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1
+          docker pull "$sdk"
+          df -h /work
+          test "$(df --output=avail -B1 /work | tail -1)" -ge 17179869184
+          docker run --rm --memory=6g --cpus=3 -v "$GITHUB_WORKSPACE:/src:ro" -v /work:/work "$sdk" bash /src/tools/stub-reference.sh 2>&1 | tee /work/inspect.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: stock-stub-inspection
+          path: |
+            /work/stubs
+            /work/inspect.log
+          retention-days: 14
